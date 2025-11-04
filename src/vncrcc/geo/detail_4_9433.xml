@@ -1,0 +1,1045 @@
+﻿<XNOTAM-Update xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="0.1" origin="" created="2025-10-25T06:53:23">
+  <Group>
+    <Add>
+      <Not>
+        <NotUid>
+          <txtNameAcctFac>FDC</txtNameAcctFac>
+          <dateIndexYear>2024</dateIndexYear>
+          <noSeqNo>9433</noSeqNo>
+          <dateIssued>2024-09-03T20:52:00</dateIssued>
+          <txtLocalName>4/9433</txtLocalName>
+          <codeGUID>309dcd7b-5b7f-44a8-b0bb-599abefa34c0</codeGUID>
+        </NotUid>
+        <codeDailyOper>false</codeDailyOper>
+        <codeTimeZone>UTC</codeTimeZone>
+        <codeExpirationTimeZone>UTC</codeExpirationTimeZone>
+        <AffLocGroup>
+          <txtNameCity>WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA)</txtNameCity>
+          <txtNameUSState>WASHINGTON, D.C.</txtNameUSState>
+        </AffLocGroup>
+        <codeFacility>ZDC</codeFacility>
+        <TfrNot>
+          <codeType>99.7</codeType>
+          <TFRAreaGroup>
+            <aseTFRArea>
+              <AseUid>
+                <codeType>RAS</codeType>
+                <codeId>5666</codeId>
+              </AseUid>
+              <codeDistVerUpper>HEI</codeDistVerUpper>
+              <valDistVerUpper>17999</valDistVerUpper>
+              <uomDistVerUpper>FT</uomDistVerUpper>
+              <codeDistVerLower>HEI</codeDistVerLower>
+              <valDistVerLower>0</valDistVerLower>
+              <uomDistVerLower>FT</uomDistVerLower>
+              <Att>
+                <codeWorkHr>NOTAM</codeWorkHr>
+              </Att>
+              <codeExclVerUpper>INCLUDE</codeExclVerUpper>
+              <codeExclVerLower>INCLUDE</codeExclVerLower>
+              <isScheduledTfrArea>FALSE</isScheduledTfrArea>
+            </aseTFRArea>
+            <Aac>
+              <AacUid>
+                <AseUidChi>
+                  <codeType>RAS</codeType>
+                  <codeId>5666</codeId>
+                </AseUidChi>
+                <AseUidPar>
+                  <codeType>PART</codeType>
+                  <codeId>5667</codeId>
+                </AseUidPar>
+              </AacUid>
+              <codeType>BOM</codeType>
+              <codeOpr>BASE</codeOpr>
+            </Aac>
+            <abdMergedArea>
+              <AbdUid>
+                <AseUid>
+                  <codeType>RAS</codeType>
+                  <codeId>5666</codeId>
+                </AseUid>
+              </AbdUid>
+              <txtRmk>5666</txtRmk>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.35990574N</geoLat>
+                <geoLong>077.03638889W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.35798795N</geoLat>
+                <geoLong>076.98020587W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.35224948N</geoLat>
+                <geoLong>076.92445955W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.34273493N</geoLat>
+                <geoLong>076.869583W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.32951821N</geoLat>
+                <geoLong>076.81600211W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.31270194N</geoLat>
+                <geoLong>076.76413212W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.29241659N</geoLat>
+                <geoLong>076.71437417W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.26881944N</geoLat>
+                <geoLong>076.66711208W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.24209327N</geoLat>
+                <geoLong>076.62270928W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.21244488N</geoLat>
+                <geoLong>076.58150591W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.18010338N</geoLat>
+                <geoLong>076.54381619W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.14531839N</geoLat>
+                <geoLong>076.509926W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.10835798N</geoLat>
+                <geoLong>076.48009073W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.06950659N</geoLat>
+                <geoLong>076.45453348W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.02906268N</geoLat>
+                <geoLong>076.43344339W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.98733648N</geoLat>
+                <geoLong>076.41697447W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.94464747N</geoLat>
+                <geoLong>076.40524458W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.90132193N</geoLat>
+                <geoLong>076.39833479W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.85769041N</geoLat>
+                <geoLong>076.39628899W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.81408522N</geoLat>
+                <geoLong>076.39911386W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.77083783N</geoLat>
+                <geoLong>076.40677906W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.72827643N</geoLat>
+                <geoLong>076.41921774W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.68672343N</geoLat>
+                <geoLong>076.43632731W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.64649306N</geoLat>
+                <geoLong>076.45797044W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.60788903N</geoLat>
+                <geoLong>076.48397633W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.57120231N</geoLat>
+                <geoLong>076.51414217W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.53670902N</geoLat>
+                <geoLong>076.54823485W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.50466837N</geoLat>
+                <geoLong>076.5859928W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.47532083N</geoLat>
+                <geoLong>076.62712807W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.44888638N</geoLat>
+                <geoLong>076.6713285W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.42556295N</geoLat>
+                <geoLong>076.7182601W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.405525N</geoLat>
+                <geoLong>076.76756947W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.38892228N</geoLat>
+                <geoLong>076.81888642W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.3758788N</geoLat>
+                <geoLong>076.87182661W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.3664919N</geoLat>
+                <geoLong>076.92599428W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.3608316N</geoLat>
+                <geoLong>076.98098508W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.35894014N</geoLat>
+                <geoLong>077.03638889W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.3608316N</geoLat>
+                <geoLong>077.0917927W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.3664919N</geoLat>
+                <geoLong>077.1467835W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.3758788N</geoLat>
+                <geoLong>077.20095117W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.38892228N</geoLat>
+                <geoLong>077.25389136W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.405525N</geoLat>
+                <geoLong>077.30520831W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.42556295N</geoLat>
+                <geoLong>077.35451768W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.44888638N</geoLat>
+                <geoLong>077.40144928W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.47532083N</geoLat>
+                <geoLong>077.44564971W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.50466837N</geoLat>
+                <geoLong>077.48678498W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.53670902N</geoLat>
+                <geoLong>077.52454293W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.57120231N</geoLat>
+                <geoLong>077.55863561W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.60788903N</geoLat>
+                <geoLong>077.58880145W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.64649306N</geoLat>
+                <geoLong>077.61480734W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.68672343N</geoLat>
+                <geoLong>077.63645047W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.72827643N</geoLat>
+                <geoLong>077.65356004W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.77083783N</geoLat>
+                <geoLong>077.66599872W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.81408522N</geoLat>
+                <geoLong>077.67366392W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.85769041N</geoLat>
+                <geoLong>077.67648879W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.90132193N</geoLat>
+                <geoLong>077.67444299W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.94464747N</geoLat>
+                <geoLong>077.6675332W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>38.98733648N</geoLat>
+                <geoLong>077.65580331W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.02906268N</geoLat>
+                <geoLong>077.63933439W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.06950659N</geoLat>
+                <geoLong>077.6182443W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.10835798N</geoLat>
+                <geoLong>077.59268705W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.14531839N</geoLat>
+                <geoLong>077.56285178W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.18010338N</geoLat>
+                <geoLong>077.52896159W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.21244488N</geoLat>
+                <geoLong>077.49127187W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.24209327N</geoLat>
+                <geoLong>077.4500685W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.26881944N</geoLat>
+                <geoLong>077.4056657W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.29241659N</geoLat>
+                <geoLong>077.35840361W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.31270194N</geoLat>
+                <geoLong>077.30864566W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.32951821N</geoLat>
+                <geoLong>077.25677567W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.34273493N</geoLat>
+                <geoLong>077.20319478W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.35224948N</geoLat>
+                <geoLong>077.14831823W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.35798795N</geoLat>
+                <geoLong>077.09257191W</geoLong>
+              </Avx>
+              <Avx>
+                <codeDatum>WGE</codeDatum>
+                <codeType>GRC</codeType>
+                <geoLat>39.35990574N</geoLat>
+                <geoLong>077.03638889W</geoLong>
+              </Avx>
+            </abdMergedArea>
+            <aseShapes>
+              <AseUid>
+                <codeType>PART</codeType>
+                <codeId>5667</codeId>
+              </AseUid>
+              <Att>
+                <codeWorkHr>NOTAM</codeWorkHr>
+              </Att>
+              <Abd>
+                <AbdUid>
+                  <AseUid>
+                    <codeType>PART</codeType>
+                    <codeId>5667</codeId>
+                  </AseUid>
+                </AbdUid>
+                <txtRmk>5667</txtRmk>
+                <Avx>
+                  <codeType>CIR</codeType>
+                  <geoLat>38.85944444N</geoLat>
+                  <geoLong>077.03638889W</geoLong>
+                  <codeDatum>WGE</codeDatum>
+                  <valRadiusArc>30.0</valRadiusArc>
+                  <uomRadiusArc>NM</uomRadiusArc>
+                  <Frd>
+                    <FrdUid>
+                      <DpnUid>
+                        <codeId>DCA00</codeId>
+                        <geoLat>38.85944444N</geoLat>
+                        <geoLong>077.03638889W</geoLong>
+                      </DpnUid>
+                    </FrdUid>
+                    <Ain>
+                      <VorUid>
+                        <codeId>DCA</codeId>
+                        <geoLat>38.85945278N</geoLat>
+                        <geoLong>077.03643611W</geoLong>
+                      </VorUid>
+                      <valAngleBrg>000.0</valAngleBrg>
+                    </Ain>
+                    <Din>
+                      <DmeUid>
+                        <codeId>DCA</codeId>
+                        <geoLat>38.85945278N</geoLat>
+                        <geoLong>077.03643611W</geoLong>
+                      </DmeUid>
+                      <valDist>0.0</valDist>
+                      <uomDist>NM</uomDist>
+                    </Din>
+                    <txtRmk>WASHINGTON</txtRmk>
+                  </Frd>
+                </Avx>
+              </Abd>
+            </aseShapes>
+            <InstructionsGroup>
+              <txtInstr>FDC 4/9433 ZDC PART 1 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM REFERENCES THE WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA) ONLY AND EXCLUDES THE WASHINGTON DC AREA SPEED RESTRICTIONS THAT ARE NOW LOCATED IN A SEPARATE NOTAM. THIS NOTAM CANCELS FDC 4/1734. A SEPARATE NOTAM REFERENCES THE WASHINGTON DC FLIGHT RESTRICTED ZONE (FRZ) PROCEDURES AND OPERATIONS BY UNMANNED AIRCRAFT SYSTEMS (UAS), INCLUDING MODEL AIRCRAFT (HOBBYIST OR RECREATIONAL UAS ONLY), CIVIL AND COMMERCIAL OPERATIONS, AND PUBLIC OPERATIONS WITHIN THE SFRA. SPECIAL SECURITY INSTRUCTIONS FOR AIRCRAFT OPERATIONS IN THE DC SFRA ARE IN EFFECT PURSUANT TO 14 CODE OF FEDERAL REGULATIONS (CFR) SECTIONS 93.335, 93.337, 93.339, 93.341, 93.343, 93.345, AND 99.7, AND 49 UNITED STATES CODE (USC) SECTION 40103(B)(3). THIS NOTAM AND THREE RELATED NOTAMS REGARDING THE: DC FLIGHT RESTRICTED ZONE (FRZ); LEESBURG MANEUVERING AREA (LMA); AND UNMANNED AIRCRAFT SYSTEM (UAS) OPERATIONS IN THE DC SFRA, CLARIFY AND SUPPLEMENT THE OPERATING REQUIREMENTS PRESCRIBED BY THE CITED 14 CFR SECTIONS. SECTION I. RESPONSE AND ENFORCEMENT: PURSUANT TO 49 USC 40103(B)(3), THE FAA HAS ESTABLISHED THE DC SFRA AS 'NATIONAL DEFENSE AIRSPACE'. PERSONS WHO DO NOT ADHERE TO THE PROCEDURES PRESCRIBED BY THE CITED 14 CFR SECTIONS AND THIS NOTAM MAY FACE THE FOLLOWING RESPONSE AND 2409032030-PERM END PART 1 OF 9 FDC 4/9433 ZDC PART 2 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM WASHINGTON, DC. ENFORCEMENT ACTIONS: A. PILOTS OF AIRCRAFT THAT DO NOT ADHERE TO THE PROCEDURES IN THE SPECIAL SECURITY REQUIREMENTS CONTAINED IN THIS NOTAM MAY BE INTERCEPTED, AND/OR DETAINED AND INTERVIEWED BY FEDERAL, STATE, OR LOCAL LAW ENFORCEMENT, OR OTHER GOVERNMENT PERSONNEL. B. PILOTS OF AIRCRAFT THAT DO NOT ADHERE TO THE PROCEDURES IN THE SPECIAL SECURITY REQUIREMENTS CONTAINED IN THIS NOTAM MAY FACE FAA ADMINISTRATIVE ENFORCEMENT ACTIONS, INCLUDING IMPOSING CIVIL PENALTIES AND THE SUSPENSION OR REVOCATION OF AIRMEN CERTIFICATES. C. ANY PERSON WHO KNOWINGLY OR WILLFULLY VIOLATES THE RULES CONCERNING OPERATIONS IN THIS AIRSPACE MAY BE SUBJECT TO CRIMINAL PENALTIES UNDER 49 USC SECTION 46307. D. THE U.S. GOVERNMENT MAY USE DEADLY FORCE AGAINST AN AIRCRAFT OPERATING IN THE DC SFRA, INCLUDING THE DC FRZ, IF IT IS DETERMINED THAT THE AIRCRAFT POSES AN IMMINENT SECURITY THREAT. E. A VISUAL WARNING SIGNAL (VWS) FOR COMMUNICATING WITH VFR AIRCRAFT, INCLUDING DOD, LAW ENFORCEMENT, AND AEROMEDICAL OPERATIONS, IS DEPLOYED AND IS OPERATING WITHIN THE WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA), INCLUDING THE FLIGHT RESTRICTED 2409032030-PERM END PART 2 OF 9 FDC 4/9433 ZDC PART 3 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM ZONE (FRZ). THE SIGNAL CONSISTS OF HIGHLY FOCUSED RED AND GREEN COLORED LIGHTS IN AN ALTERNATING RED/RED/GREEN SIGNAL PATTERN. THE BEAM IS NOT INJURIOUS TO THE EYES OF PILOTS/AIRCREWS OR PASSENGERS, REGARDLESS OF ALTITUDE OR DISTANCE FROM THE SOURCE. 1. THIS SIGNAL MAY BE DIRECTED AT SPECIFIC AIRCRAFT SUSPECTED OF MAKING UNAUTHORIZED ENTRY INTO THE SFRA/FRZ AND ARE ON A HEADING OR FLIGHT PATH THAT MAY BE INTERPRETED AS A THREAT OR AT THE REQUEST OF THE FAA. 2. IF YOU ARE IN COMMUNICATION WITH AIR TRAFFIC CONTROL AND THIS SIGNAL IS DIRECTED AT YOUR AIRCRAFT, IMMEDIATELY COMMUNICATE WITH ATC THAT YOU ARE BEING ILLUMINATED BY A VISUAL WARNING SIGNAL. 3. IF THIS SIGNAL IS DIRECTED AT YOU AND YOU ARE NOT COMMUNICATING WITH ATC, TURN TO A HEADING AWAY FROM THE CENTER OF THE FRZ/SFRA AS SOON AS POSSIBLE AND IMMEDIATELY CONTACT ATC ON AN APPROPRIATE FREQUENCY, OR IF UNSURE OF THE FREQUENCY, CONTACT ATC ON VHF GUARD 121.5 OR UHF GUARD 243.0. SECTION II. OPERATING REQUIREMENTS: ALL AIRCRAFT FLIGHT OPERATIONS ARE PROHIBITED WITHIN THE DC SFRA UNLESS IN COMPLIANCE WITH 14 CFR SECTIONS 93.335, 93.337, 93.339, 93.341, 93.343, AND 93.345, AND THE 2409032030-PERM END PART 3 OF 9 FDC 4/9433 ZDC PART 4 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM FOLLOWING SUPPLEMENTAL SPECIAL SECURITY INSTRUCTIONS REQUIRED WASHINGTON, DC. PURSUANT TO 14 CFR SECTION 99.7 AND 49 USC SECTION 40103(B)(3): A. APPLICATION OF DEFINITIONS IN 14 CFR SECTION 93.335: 1. A DC SFRA FLIGHT PLAN DOES NOT FULFILL THE REQUIREMENTS FOR VISUAL FLIGHT RULES (VFR). 2. A DC FRZ FLIGHT PLAN IS REQUIRED FOR VFR OPERATIONS IN THE DC FRZ. PILOTS MAY NOT FILE A DC FRZ FLIGHT PLAN WHILE AIRBORNE B. ADDITIONS TO REQUIREMENTS IN 14 CFR SECTION 93.339 - DC SFRA: 1. AIRCRAFT OPERATING IN THE DC SFRA MUST BE EQUIPPED WITH AN OPERABLE TWO WAY RADIO CAPABLE OF COMMUNICATING WITH AIR TRAFFIC CONTROL (ATC) ON APPROPRIATE RADIO FREQUENCIES OR UNICOM. IT IS HIGHLY RECOMMENDED THAT A PILOT CONTINUOUSLY MONITOR VHF FREQUENCY 121.5 OR UHF FREQUENCY 243.0 FOR EMERGENCY INSTRUCTIONS WHEN OPERATING AN AIRCRAFT IN THE DC SFRA, EITHER IN AN AIRCRAFT THAT IS SUITABLY EQUIPPED, OR BY USE OF PORTABLE EQUIPMENT. 2. ANY PERSON OPERATING AN AIRBORNE AIRCRAFT UNDER VFR TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA/FRZ WHO BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO MAINTAIN RADIO CONTACT 2409032030-PERM END PART 4 OF 9 FDC 4/9433 ZDC PART 5 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM WITH AIR TRAFFIC CONTROL (ATC) MUST IMMEDIATELY SQUAWK 7600 AND EXIT THE DC SFRA/FRZ BY THE MOST DIRECT LATERAL ROUTE EXCEPT WHEN THE WASHINGTON, DC. DEPARTURE POINT IS WITHIN THE DC SFRA AND THE DEPARTURE POINT IS CLOSER THAN THE DC SFRA BOUNDARY, THE PILOT MAY RETURN TO THE DEPARTURE POINT BY THE MOST DIRECT ROUTE. 3. ANY PERSON OPERATING AN AIRBORNE AIRCRAFT UNDER INSTRUMENT FLIGHT RULES (IFR) TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA/FRZ WHO BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO MAINTAIN RADIO CONTACT WITH ATC MUST CONTINUE THE FLIGHT IN COMPLIANCE WITH THE TWO-WAY RADIO COMMUNICATIONS FAILURE PROCEDURES FOUND IN THE FAA AERONAUTICAL INFORMATION MANUAL (AIM) AND/OR APPLICABLE CODE OF FEDERAL REGULATIONS (CFR). 4. ANY PERSON OPERATING AN AIRCRAFT TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA WHO BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO CONTINUOUSLY SQUAWK AN ATC ASSIGNED TRANSPONDER CODE MUST IMMEDIATELY ADVISE ATC AND COMPLY WITH ALL INSTRUCTIONS FROM ATC. IF UNABLE TO CONTACT ATC, PILOTS MUST EXIT THE DC SFRA/FRZ BY THE MOST DIRECT LATERAL ROUTE EXCEPT WHEN THE WASHINGTON, DC DEPARTURE POINT IS WITHIN THE SFRA AND THE DEPARTURE 2409032030-PERM END PART 5 OF 9 FDC 4/9433 ZDC PART 6 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM POINT IS CLOSER THAN THE DC SFRA BOUNDARY, THE PILOT MAY RETURN TO THE DEPARTURE POINT BY THE MOST DIRECT ROUTE. 5. THE PROCEDURES IN SECTION II, SUBSECTION A, B, AND C DO NOT AUTHORIZE PENETRATION OF RESTRICTED AREAS OR PROHIBITED AREAS. 6. AIRCRAFT DEPARTING AIRPORTS WITHIN THE DC SFRA WITH LIMITED TWO-WAY RADIO COMMUNICATIONS MUST ESTABLISH TWO-WAY COMMUNICATIONS AS SOON AS FEASIBLE, NORMALLY WITHIN 2NM OF THE DEPARTURE POINT. 7. PATTERN WORK OPERATIONS AT UN-CONTROLLED AIRPORTS WITHIN THE DC SFRA (BUT NOT WITHIN THE DC FRZ) MUST BE CONDUCTED IN ACCORDANCE WITH 14 CFR SECTION 93.339 (C) AND THE PROCEDURES SPECIFIED IN THE MOST CURRENT POTOMAC TRACON LETTER TO AIRMEN (LTA) ON THE SUBJECT. THE LETTER CAN BE FOUND AT: HTTPS://NOTAMS.AIM.FAA.GOV/NOTAMSEARCH/ (SEARCH LOCATION PCT). (A) ALL PILOTS WHO INTEND TO CONDUCT VFR TRAFFIC PATTERN WORK AT AN AIRPORT WITHIN THE DC SFRA (NOT WITHIN THE DC FRZ) WHICH DOES NOT HAVE AN OPERATING CONTROL TOWER OR WHEN THE CONTROL TOWER IS CLOSED MUST: (1) INCLUDE "PATTERN" IN SFRA FLIGHT PLAN REMARKS. (2) PRIOR TO DEPARTURE, CONTACT POTOMAC TRACON VIA TELEPHONE NUMBER SPECIFIED IN THE LTA TO OBTAIN TRANSPONDER CODE AND ADVISE TRACON OF INTENT TO 2409032030-PERM END PART 6 OF 9 FDC 4/9433 ZDC PART 7 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM CONDUCT PATTERN WORK. WASHINGTON, DC. (3) INFORM ATC OF INTENT TO CONDUCT PATTERN WORK PRIOR TO CHANGING TO COMMON TRAFFIC ADVISORY FREQUENCY (CTAF). (B) UPON COMPLETION OF PATTERN WORK, PILOTS MUST CONTACT POTOMAC TRACON VIA TELEPHONE NUMBER SPECIFIED IN THE LTA TO ADVISE PATTERN WORK IS COMPLETE. 8. OPERATIONS BY UNMANNED AIRCRAFT SYSTEMS (UAS), INCLUDING MODEL AIRCRAFT (HOBBYIST OR RECREATIONAL USE ONLY), CIVIL AND COMMERCIAL OPERATIONS, AND PUBLIC OPERATIONS, ARE ONLY AUTHORIZED WITHIN THE DC SFRA, EXCLUDING THE DC FRZ, IF IN COMPLIANCE WITH THE SEPARATE FAA NOTAM, WHICH PRESCRIBES UAS-SPECIFIC OPERATING REQUIREMENTS IN THE DC SFRA. 9. ALL TESTING OF ADS-B OUT ON AIRCRAFT OR GROUND VEHICLES IN THE DC SFRA IS PROHIBITED. SECTION III. RESOURCES: A. THE CODE OF FEDERAL REGULATIONS CAN BE FOUND AT WWW.ECFR.GOV. B. ANY PILOT QUESTIONS REGARDING DC SFRA OR FRZ PROCEDURES SHOULD BE DIRECTED TO THE FAA SYSTEM OPERATIONS SECURITY REPRESENTATIVE AT THE NATIONAL CAPITAL REGION COORDINATION CENTER (NCRCC) AT 2409032030-PERM END PART 7 OF 9 FDC 4/9433 ZDC PART 8 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM 9-ATO-NCRCC@FAA.GOV OR (866) 598-9522. C. FOR THOSE WAIVERS AND REQUIREMENTS IN THIS NOTAM THAT REQUIRE WASHINGTON, DC. NOTIFICATION TO THE TSA AT THE NCRCC, CALL (866) 598-9520. D. FOR THOSE WAIVERS AND REQUIREMENTS IN THIS NOTAM THAT REQUIRE NOTIFICATION TO THE FAA AT THE NCRCC, CALL (866) 598-9522. E. THE LATEST POTOMAC TRACON (PCT) LETTER TO AIRMEN CAN BE FOUND AT: HTTPS://NOTAMS.AIM.FAA.GOV/NOTAMSEARCH/ (SEARCH LOCATION PCT). F. INFORMATION ABOUT FAA/TSA AIRSPACE WAIVER APPLICATIONS AND TSA SECURITY AUTHORIZATIONS CAN BE FOUND AT WWW.TSA.GOV/FOR-INDUSTRY/GENERAL-AVIATION OR BY CONTACTING TSA AT (571) 227-2071. G. SPECIAL AWARENESS TRAINING FOR THE WASHINGTON DC METROPOLITAN AREA IS MANDATORY FOR ALL PILOTS THAT FLY UNDER VFR WITHIN 60NM OF THE DCA VOR/DME (14 CFR PARTS 61 AND 91, EFFECTIVE FEBRUARY 9, 2009). THIS TRAINING IS AVAILABLE IN THE AVIATION LEARNING CENTER AT WWW.FAASAFETY.GOV. IT IS STRONGLY RECOMMENDED THAT ALL PILOTS FLYING UNDER VISUAL FLIGHT RULES (VFR) WITHIN 100NM OF THE DCA VOR/DME ALSO COMPLETE THIS TRAINING. 2409032030-PERM END PART 8 OF 9 FDC 4/9433 ZDC PART 9 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM H. INDIVIDUALS MAY SUBMIT A REQUEST FOR AN FAA WAIVER AT WAIVERS.FAA.GOV. AFTER NORMAL BUSINESS HOURS, FOR EMERGENCY OR SHORT NOTICE REQUESTS, CONTACT TSA AT THE NCRCC AT (866) 598-9520. WASHINGTON, DC. I. THE TRANSPONDER REQUIREMENTS DESCRIBED IN THIS NOTAM ARE ESTABLISHED SOLELY FOR SECURITY TRACKING PURPOSES AND DO NOT IMPLY THE PROVISION OF ATC RADAR SERVICES, UNLESS ATC SERVICES ARE REQUESTED AND APPROVED. J. THE COMMUNICATIONS REQUIREMENTS DESCRIBED IN THIS NOTAM ARE ESTABLISHED TO MAINTAIN THE ABILITY TO IMMEDIATELY COMMUNICATE SECURITY-BASED INSTRUCTIONS, NOT NECESSARILY FOR ATC SERVICES, UNLESS ATC SERVICES ARE REQUESTED AND APPROVED. 2409032030-PERM END PART 9 OF 9</txtInstr>
+            </InstructionsGroup>
+            <codeIncFRD>TRUE</codeIncFRD>
+            <codeShpPrt>COMPOSITE</codeShpPrt>
+            <codeLclTime>TRUE</codeLclTime>
+            <codeAuthATC>FALSE</codeAuthATC>
+          </TFRAreaGroup>
+          <TemplateType>BigThreatLanguage</TemplateType>
+          <codeCtrlFacilityType>ARTCC</codeCtrlFacilityType>
+        </TfrNot>
+        <codeCoordFacilityType>ARTCC</codeCoordFacilityType>
+        <txtDescrUSNS>!FDC 4/9433 ZDC PART 1 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC.
+ THIS NOTAM
+REFERENCES THE WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA) ONLY
+AND EXCLUDES THE WASHINGTON DC AREA SPEED RESTRICTIONS THAT ARE NOW
+LOCATED IN A SEPARATE NOTAM. THIS NOTAM CANCELS FDC 4/1734. A
+SEPARATE NOTAM REFERENCES THE WASHINGTON DC FLIGHT RESTRICTED ZONE
+(FRZ) PROCEDURES AND OPERATIONS BY UNMANNED AIRCRAFT SYSTEMS (UAS),
+INCLUDING MODEL AIRCRAFT (HOBBYIST OR RECREATIONAL UAS ONLY), CIVIL
+AND COMMERCIAL OPERATIONS, AND PUBLIC OPERATIONS WITHIN THE SFRA.
+SPECIAL SECURITY INSTRUCTIONS FOR AIRCRAFT OPERATIONS IN THE DC SFRA
+ARE IN EFFECT PURSUANT TO 14 CODE OF FEDERAL REGULATIONS (CFR)
+SECTIONS 93.335, 93.337, 93.339, 93.341, 93.343, 93.345, AND 99.7,
+AND 49 UNITED STATES CODE (USC) SECTION 40103(B)(3). THIS NOTAM AND
+THREE RELATED NOTAMS REGARDING THE: DC FLIGHT RESTRICTED ZONE (FRZ);
+LEESBURG MANEUVERING AREA (LMA); AND UNMANNED AIRCRAFT SYSTEM (UAS)
+OPERATIONS IN THE DC SFRA, CLARIFY AND SUPPLEMENT THE OPERATING
+REQUIREMENTS PRESCRIBED BY THE CITED 14 CFR SECTIONS.
+SECTION I. RESPONSE AND ENFORCEMENT: PURSUANT TO 49 USC 40103(B)(3),
+THE FAA HAS ESTABLISHED THE DC SFRA AS 'NATIONAL DEFENSE AIRSPACE'.
+PERSONS WHO DO NOT ADHERE TO THE PROCEDURES PRESCRIBED BY THE CITED
+14 CFR SECTIONS AND THIS NOTAM MAY FACE THE FOLLOWING RESPONSE AND
+2409032030-PERM
+END PART 1 OF 9
+
+
+
+
+!FDC 4/9433 ZDC PART 2 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC.
+ THIS NOTAM
+WASHINGTON, DC. ENFORCEMENT ACTIONS: 
+A. PILOTS OF AIRCRAFT THAT DO NOT ADHERE TO THE PROCEDURES IN THE
+SPECIAL SECURITY REQUIREMENTS CONTAINED IN THIS NOTAM MAY BE
+INTERCEPTED, AND/OR DETAINED AND INTERVIEWED BY FEDERAL, STATE, OR
+LOCAL LAW ENFORCEMENT, OR OTHER GOVERNMENT PERSONNEL.
+B. PILOTS OF AIRCRAFT THAT DO NOT ADHERE TO THE PROCEDURES IN THE
+SPECIAL SECURITY REQUIREMENTS CONTAINED IN THIS NOTAM MAY FACE FAA
+ADMINISTRATIVE ENFORCEMENT ACTIONS, INCLUDING IMPOSING CIVIL
+PENALTIES AND THE SUSPENSION OR REVOCATION OF AIRMEN CERTIFICATES.
+C. ANY PERSON WHO KNOWINGLY OR WILLFULLY VIOLATES THE RULES
+CONCERNING OPERATIONS IN THIS AIRSPACE MAY BE SUBJECT TO CRIMINAL
+PENALTIES UNDER 49 USC SECTION 46307.
+D. THE U.S. GOVERNMENT MAY USE DEADLY FORCE AGAINST AN AIRCRAFT
+OPERATING IN THE DC SFRA, INCLUDING THE DC FRZ, IF IT IS DETERMINED
+THAT THE AIRCRAFT POSES AN IMMINENT SECURITY THREAT.
+E. A VISUAL WARNING SIGNAL (VWS) FOR COMMUNICATING WITH VFR
+AIRCRAFT, INCLUDING DOD, LAW ENFORCEMENT, AND AEROMEDICAL
+OPERATIONS, IS DEPLOYED AND IS OPERATING WITHIN THE WASHINGTON DC
+SPECIAL FLIGHT RULES AREA (SFRA), INCLUDING THE FLIGHT RESTRICTED
+2409032030-PERM
+END PART 2 OF 9
+
+
+
+
+!FDC 4/9433 ZDC PART 3 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC.
+ THIS NOTAM
+ZONE (FRZ). THE SIGNAL CONSISTS OF HIGHLY FOCUSED RED AND GREEN
+COLORED LIGHTS IN AN ALTERNATING RED/RED/GREEN SIGNAL PATTERN. THE
+BEAM IS NOT INJURIOUS TO THE EYES OF PILOTS/AIRCREWS OR PASSENGERS,
+REGARDLESS OF ALTITUDE OR DISTANCE FROM THE SOURCE.
+1. THIS SIGNAL MAY BE DIRECTED AT SPECIFIC AIRCRAFT SUSPECTED OF
+MAKING UNAUTHORIZED ENTRY INTO THE SFRA/FRZ AND ARE ON A HEADING OR
+FLIGHT PATH THAT MAY BE INTERPRETED AS A THREAT OR AT THE REQUEST OF
+THE FAA.
+2. IF YOU ARE IN COMMUNICATION WITH AIR TRAFFIC CONTROL AND THIS
+SIGNAL IS DIRECTED AT YOUR AIRCRAFT, IMMEDIATELY COMMUNICATE WITH
+ATC THAT YOU ARE BEING ILLUMINATED BY A VISUAL WARNING SIGNAL.
+3. IF THIS SIGNAL IS DIRECTED AT YOU AND YOU ARE NOT COMMUNICATING
+WITH ATC, TURN TO A HEADING AWAY FROM THE CENTER OF THE FRZ/SFRA AS
+SOON AS POSSIBLE AND IMMEDIATELY CONTACT ATC ON AN APPROPRIATE
+FREQUENCY, OR IF UNSURE OF THE FREQUENCY, CONTACT ATC ON VHF GUARD
+121.5 OR UHF GUARD 243.0.
+SECTION II. OPERATING REQUIREMENTS: ALL AIRCRAFT FLIGHT OPERATIONS
+ARE PROHIBITED WITHIN THE DC SFRA UNLESS IN COMPLIANCE WITH 14 CFR
+SECTIONS 93.335, 93.337, 93.339, 93.341, 93.343, AND 93.345, AND THE
+2409032030-PERM
+END PART 3 OF 9
+
+
+
+
+!FDC 4/9433 ZDC PART 4 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC.
+ THIS NOTAM
+FOLLOWING SUPPLEMENTAL SPECIAL SECURITY INSTRUCTIONS REQUIRED
+WASHINGTON, DC. PURSUANT TO 14 CFR SECTION 99.7 AND 49 USC SECTION
+40103(B)(3): 
+A. APPLICATION OF DEFINITIONS IN 14 CFR SECTION 93.335:
+1. A DC SFRA FLIGHT PLAN DOES NOT FULFILL THE REQUIREMENTS FOR
+VISUAL FLIGHT RULES (VFR).
+2. A DC FRZ FLIGHT PLAN IS REQUIRED FOR VFR OPERATIONS IN THE DC
+FRZ. PILOTS MAY NOT FILE A DC FRZ FLIGHT PLAN WHILE AIRBORNE
+B. ADDITIONS TO REQUIREMENTS IN 14 CFR SECTION 93.339 - DC SFRA:  
+1. AIRCRAFT OPERATING IN THE DC SFRA MUST BE EQUIPPED WITH AN
+OPERABLE TWO WAY RADIO CAPABLE OF COMMUNICATING WITH AIR TRAFFIC
+CONTROL (ATC) ON APPROPRIATE RADIO FREQUENCIES OR UNICOM. IT IS
+HIGHLY RECOMMENDED THAT A PILOT CONTINUOUSLY MONITOR VHF FREQUENCY
+121.5 OR UHF FREQUENCY 243.0 FOR EMERGENCY INSTRUCTIONS WHEN
+OPERATING AN AIRCRAFT IN THE DC SFRA, EITHER IN AN AIRCRAFT THAT IS
+SUITABLY EQUIPPED, OR BY USE OF PORTABLE EQUIPMENT.
+2. ANY PERSON OPERATING AN AIRBORNE AIRCRAFT UNDER VFR TO OR FROM,
+WITHIN, OR TRANSITING THE DC SFRA/FRZ WHO BECOMES AWARE OF AN
+INABILITY TO COMPLY WITH THE REQUIREMENT TO MAINTAIN RADIO CONTACT
+2409032030-PERM
+END PART 4 OF 9
+
+
+
+
+!FDC 4/9433 ZDC PART 5 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC.
+ THIS NOTAM
+WITH AIR TRAFFIC CONTROL (ATC) MUST IMMEDIATELY SQUAWK 7600 AND EXIT
+THE DC SFRA/FRZ BY THE MOST DIRECT LATERAL ROUTE EXCEPT WHEN THE
+WASHINGTON, DC. DEPARTURE POINT IS WITHIN THE DC SFRA AND THE
+DEPARTURE POINT IS CLOSER THAN THE DC SFRA BOUNDARY, THE PILOT MAY
+RETURN TO THE DEPARTURE POINT BY THE MOST DIRECT ROUTE. 
+3. ANY PERSON OPERATING AN AIRBORNE AIRCRAFT UNDER INSTRUMENT FLIGHT
+RULES (IFR) TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA/FRZ WHO
+BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO
+MAINTAIN RADIO CONTACT WITH ATC MUST CONTINUE THE FLIGHT IN
+COMPLIANCE WITH THE TWO-WAY RADIO COMMUNICATIONS FAILURE PROCEDURES
+FOUND IN THE FAA AERONAUTICAL INFORMATION MANUAL (AIM) AND/OR
+APPLICABLE CODE OF FEDERAL REGULATIONS (CFR).
+4. ANY PERSON OPERATING AN AIRCRAFT TO OR FROM, WITHIN, OR
+TRANSITING THE DC SFRA WHO BECOMES AWARE OF AN INABILITY TO COMPLY
+WITH THE REQUIREMENT TO CONTINUOUSLY SQUAWK AN ATC ASSIGNED
+TRANSPONDER CODE MUST IMMEDIATELY ADVISE ATC AND COMPLY WITH ALL
+INSTRUCTIONS FROM ATC. IF UNABLE TO CONTACT ATC, PILOTS MUST EXIT
+THE DC SFRA/FRZ BY THE MOST DIRECT LATERAL ROUTE EXCEPT WHEN THE
+WASHINGTON, DC DEPARTURE POINT IS WITHIN THE SFRA AND THE DEPARTURE
+2409032030-PERM
+END PART 5 OF 9
+
+
+
+
+!FDC 4/9433 ZDC PART 6 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC.
+ THIS NOTAM
+POINT IS CLOSER THAN THE DC SFRA BOUNDARY, THE PILOT MAY RETURN TO
+THE DEPARTURE POINT BY THE MOST DIRECT ROUTE.
+5. THE PROCEDURES IN SECTION II, SUBSECTION A, B, AND C DO NOT
+AUTHORIZE PENETRATION OF RESTRICTED AREAS OR PROHIBITED AREAS.
+6. AIRCRAFT DEPARTING AIRPORTS WITHIN THE DC SFRA WITH LIMITED
+TWO-WAY RADIO COMMUNICATIONS MUST ESTABLISH TWO-WAY COMMUNICATIONS
+AS SOON AS FEASIBLE, NORMALLY WITHIN 2NM OF THE DEPARTURE POINT.
+7. PATTERN WORK OPERATIONS AT UN-CONTROLLED AIRPORTS WITHIN THE DC
+SFRA (BUT NOT WITHIN THE DC FRZ) MUST BE CONDUCTED IN ACCORDANCE
+WITH 14 CFR SECTION 93.339 (C) AND THE PROCEDURES SPECIFIED IN THE
+MOST CURRENT POTOMAC TRACON LETTER TO AIRMEN (LTA) ON THE SUBJECT.
+THE LETTER CAN BE FOUND AT: HTTPS://NOTAMS.AIM.FAA.GOV/NOTAMSEARCH/
+(SEARCH LOCATION PCT).
+(A) ALL PILOTS WHO INTEND TO CONDUCT VFR TRAFFIC PATTERN WORK AT AN
+AIRPORT WITHIN THE DC SFRA (NOT WITHIN THE DC FRZ) WHICH DOES NOT
+HAVE AN OPERATING CONTROL TOWER OR WHEN THE CONTROL TOWER IS CLOSED
+MUST: (1) INCLUDE "PATTERN" IN SFRA FLIGHT PLAN REMARKS. (2) PRIOR
+TO DEPARTURE, CONTACT POTOMAC TRACON VIA TELEPHONE NUMBER SPECIFIED
+IN THE LTA TO OBTAIN TRANSPONDER CODE AND ADVISE TRACON OF INTENT TO
+2409032030-PERM
+END PART 6 OF 9
+
+
+
+
+!FDC 4/9433 ZDC PART 7 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC.
+ THIS NOTAM
+CONDUCT PATTERN WORK. WASHINGTON, DC. (3) INFORM ATC OF INTENT TO
+CONDUCT PATTERN WORK PRIOR TO CHANGING TO COMMON TRAFFIC ADVISORY
+FREQUENCY (CTAF).
+(B) UPON COMPLETION OF PATTERN WORK, PILOTS MUST CONTACT POTOMAC
+TRACON VIA TELEPHONE NUMBER SPECIFIED IN THE LTA TO ADVISE PATTERN
+WORK IS COMPLETE.
+8. OPERATIONS BY UNMANNED AIRCRAFT SYSTEMS (UAS), INCLUDING MODEL
+AIRCRAFT (HOBBYIST OR RECREATIONAL USE ONLY), CIVIL AND COMMERCIAL
+OPERATIONS, AND PUBLIC OPERATIONS, ARE ONLY AUTHORIZED WITHIN THE DC
+SFRA, EXCLUDING THE DC FRZ, IF IN COMPLIANCE WITH THE SEPARATE FAA
+NOTAM, WHICH PRESCRIBES UAS-SPECIFIC OPERATING REQUIREMENTS IN THE
+DC SFRA. 
+9. ALL TESTING OF ADS-B OUT ON AIRCRAFT OR GROUND VEHICLES
+IN THE DC SFRA IS PROHIBITED.
+SECTION III. RESOURCES: 
+A. THE CODE OF FEDERAL REGULATIONS CAN BE FOUND AT WWW.ECFR.GOV. 
+B. ANY PILOT QUESTIONS REGARDING DC SFRA OR FRZ PROCEDURES SHOULD BE
+DIRECTED TO THE FAA SYSTEM OPERATIONS SECURITY REPRESENTATIVE AT THE
+NATIONAL CAPITAL REGION COORDINATION CENTER (NCRCC) AT
+2409032030-PERM
+END PART 7 OF 9
+
+
+
+
+!FDC 4/9433 ZDC PART 8 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC.
+ THIS NOTAM
+9-ATO-NCRCC@FAA.GOV OR (866) 598-9522. 
+C. FOR THOSE WAIVERS AND REQUIREMENTS IN THIS NOTAM THAT REQUIRE
+WASHINGTON, DC. NOTIFICATION TO THE TSA AT THE NCRCC, CALL (866)
+598-9520. 
+D. FOR THOSE WAIVERS AND REQUIREMENTS IN THIS NOTAM THAT REQUIRE
+NOTIFICATION TO THE FAA AT THE NCRCC, CALL (866) 598-9522.
+E. THE LATEST POTOMAC TRACON (PCT) LETTER TO AIRMEN CAN BE FOUND AT:
+HTTPS://NOTAMS.AIM.FAA.GOV/NOTAMSEARCH/ (SEARCH LOCATION PCT). 
+F. INFORMATION ABOUT FAA/TSA AIRSPACE WAIVER APPLICATIONS AND TSA
+SECURITY AUTHORIZATIONS CAN BE FOUND AT
+WWW.TSA.GOV/FOR-INDUSTRY/GENERAL-AVIATION OR BY CONTACTING TSA AT
+(571) 227-2071. 
+G. SPECIAL AWARENESS TRAINING FOR THE WASHINGTON DC METROPOLITAN
+AREA IS MANDATORY FOR ALL PILOTS THAT FLY UNDER VFR WITHIN 60NM OF
+THE DCA VOR/DME (14 CFR PARTS 61 AND 91, EFFECTIVE FEBRUARY 9,
+2009). THIS TRAINING IS AVAILABLE IN THE AVIATION LEARNING CENTER AT
+WWW.FAASAFETY.GOV. IT IS STRONGLY RECOMMENDED THAT ALL PILOTS FLYING
+UNDER VISUAL FLIGHT RULES (VFR) WITHIN 100NM OF THE DCA VOR/DME ALSO
+COMPLETE THIS TRAINING.
+2409032030-PERM
+END PART 8 OF 9
+
+
+
+
+!FDC 4/9433 ZDC PART 9 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC.
+ THIS NOTAM
+H. INDIVIDUALS MAY SUBMIT A REQUEST FOR AN FAA WAIVER AT
+WAIVERS.FAA.GOV. AFTER NORMAL BUSINESS HOURS, FOR EMERGENCY OR SHORT
+NOTICE REQUESTS, CONTACT TSA AT THE NCRCC AT (866) 598-9520.
+WASHINGTON, DC.
+I. THE TRANSPONDER REQUIREMENTS DESCRIBED IN THIS NOTAM ARE
+ESTABLISHED SOLELY FOR SECURITY TRACKING PURPOSES AND DO NOT IMPLY
+THE PROVISION OF ATC RADAR SERVICES, UNLESS ATC SERVICES ARE
+REQUESTED AND APPROVED.
+J. THE COMMUNICATIONS REQUIREMENTS DESCRIBED IN THIS NOTAM ARE
+ESTABLISHED TO MAINTAIN THE ABILITY TO IMMEDIATELY COMMUNICATE
+SECURITY-BASED INSTRUCTIONS, NOT NECESSARILY FOR ATC SERVICES,
+UNLESS ATC SERVICES ARE REQUESTED AND APPROVED.
+2409032030-PERM
+END PART 9 OF 9</txtDescrUSNS>
+        <txtDescrTraditional>!FDC 4/9433 ZDC DC..AIRSPACE WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA), DC..TEMPORARY FLIGHT RESTRICTION. PURSUANT TO 49 USC 40103(B)(3), THE FEDERAL AVIATION ADMINISTRATION (FAA) CLASSIFIES THE AIRSPACE DEFINED IN THIS NOTAM AS 'NTL DEFENSE AIRSPACE'. PILOTS WHO DO NOT ADHERE TO THE FOLLOWING PROC MAY BE INTERCEPTED, DETAINED AND INTERVIEWED BY LAW ENFORCEMENT/SECURITY PERSONNEL. ANY OF THE FOLLOWING ADDITIONAL ACTIONS MAY ALSO BE TAKEN AGAINST A PILOT WHO DOES NOT COMPLY WITH THE RQMNTS OR ANY SPECIAL INSTRUCTIONS OR PROC ANNOUNCED IN THIS NOTAM:
+A) THE FAA MAY TAKE ADMINISTRATIVE ACTION, INCLUDING IMPOSING CIVIL PENALTIES AND THE SUSPENSION OR REVOCATION OF AIRMEN CERTIFICATES; OR 
+B) THE UNITED STATES GOVERNMENT MAY PURSUE CRIMINAL CHARGES, INCLUDING CHARGES UNDER 49 USC SECTION 46307; OR 
+C) THE UNITED STATES GOVERNMENT MAY USE DEADLY FORCE AGAINST THE AIRBORNE ACFT, IF IT IS DETERMINED THAT THE ACFT POSES AN IMMINENT SECURITY THREAT. 
+PURSUANT TO 14 CFR 99.7, SPECIAL SECURITY INSTRUCTIONS, ALL ACFT FLT OPS ARE PROHIBITED: WI AN AREA DEFINED AS 30NM RADIUS OF 385134N0770211W OR THE DCA VOR/DME SFC-17999FT AGL EFFECTIVE IMMEDIATELY UNTIL FURTHER NOTICE. FDC 4/9433 ZDC PART 1 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM REFERENCES THE WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA) ONLY AND EXCLUDES THE WASHINGTON DC AREA SPEED RESTRICTIONS THAT ARE NOW LOCATED IN A SEPARATE NOTAM. THIS NOTAM CANCELS FDC 4/1734. A SEPARATE NOTAM REFERENCES THE WASHINGTON DC FLIGHT RESTRICTED ZONE (FRZ) PROCEDURES AND OPERATIONS BY UNMANNED AIRCRAFT SYSTEMS (UAS), INCLUDING MODEL AIRCRAFT (HOBBYIST OR RECREATIONAL UAS ONLY), CIVIL AND COMMERCIAL OPERATIONS, AND PUBLIC OPERATIONS WITHIN THE SFRA. SPECIAL SECURITY INSTRUCTIONS FOR AIRCRAFT OPERATIONS IN THE DC SFRA ARE IN EFFECT PURSUANT TO 14 CODE OF FEDERAL REGULATIONS (CFR) SECTIONS 93.335, 93.337, 93.339, 93.341, 93.343, 93.345, AND 99.7, AND 49 UNITED STATES CODE (USC) SECTION 40103(B)(3). THIS NOTAM AND THREE RELATED NOTAMS REGARDING THE: DC FLIGHT RESTRICTED ZONE (FRZ); LEESBURG MANEUVERING AREA (LMA); AND UNMANNED AIRCRAFT SYSTEM (UAS) OPERATIONS IN THE DC SFRA, CLARIFY AND SUPPLEMENT THE OPERATING REQUIREMENTS PRESCRIBED BY THE CITED 14 CFR SECTIONS. SECTION I. RESPONSE AND ENFORCEMENT: PURSUANT TO 49 USC 40103(B)(3), THE FAA HAS ESTABLISHED THE DC SFRA AS 'NATIONAL DEFENSE AIRSPACE'. PERSONS WHO DO NOT ADHERE TO THE PROCEDURES PRESCRIBED BY THE CITED 14 CFR SECTIONS AND THIS NOTAM MAY FACE THE FOLLOWING RESPONSE AND 2409032030-PERM END PART 1 OF 9 FDC 4/9433 ZDC PART 2 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM WASHINGTON, DC. ENFORCEMENT ACTIONS: A. PILOTS OF AIRCRAFT THAT DO NOT ADHERE TO THE PROCEDURES IN THE SPECIAL SECURITY REQUIREMENTS CONTAINED IN THIS NOTAM MAY BE INTERCEPTED, AND/OR DETAINED AND INTERVIEWED BY FEDERAL, STATE, OR LOCAL LAW ENFORCEMENT, OR OTHER GOVERNMENT PERSONNEL. B. PILOTS OF AIRCRAFT THAT DO NOT ADHERE TO THE PROCEDURES IN THE SPECIAL SECURITY REQUIREMENTS CONTAINED IN THIS NOTAM MAY FACE FAA ADMINISTRATIVE ENFORCEMENT ACTIONS, INCLUDING IMPOSING CIVIL PENALTIES AND THE SUSPENSION OR REVOCATION OF AIRMEN CERTIFICATES. C. ANY PERSON WHO KNOWINGLY OR WILLFULLY VIOLATES THE RULES CONCERNING OPERATIONS IN THIS AIRSPACE MAY BE SUBJECT TO CRIMINAL PENALTIES UNDER 49 USC SECTION 46307. D. THE U.S. GOVERNMENT MAY USE DEADLY FORCE AGAINST AN AIRCRAFT OPERATING IN THE DC SFRA, INCLUDING THE DC FRZ, IF IT IS DETERMINED THAT THE AIRCRAFT POSES AN IMMINENT SECURITY THREAT. E. A VISUAL WARNING SIGNAL (VWS) FOR COMMUNICATING WITH VFR AIRCRAFT, INCLUDING DOD, LAW ENFORCEMENT, AND AEROMEDICAL OPERATIONS, IS DEPLOYED AND IS OPERATING WITHIN THE WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA), INCLUDING THE FLIGHT RESTRICTED 2409032030-PERM END PART 2 OF 9 FDC 4/9433 ZDC PART 3 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM ZONE (FRZ). THE SIGNAL CONSISTS OF HIGHLY FOCUSED RED AND GREEN COLORED LIGHTS IN AN ALTERNATING RED/RED/GREEN SIGNAL PATTERN. THE BEAM IS NOT INJURIOUS TO THE EYES OF PILOTS/AIRCREWS OR PASSENGERS, REGARDLESS OF ALTITUDE OR DISTANCE FROM THE SOURCE. 1. THIS SIGNAL MAY BE DIRECTED AT SPECIFIC AIRCRAFT SUSPECTED OF MAKING UNAUTHORIZED ENTRY INTO THE SFRA/FRZ AND ARE ON A HEADING OR FLIGHT PATH THAT MAY BE INTERPRETED AS A THREAT OR AT THE REQUEST OF THE FAA. 2. IF YOU ARE IN COMMUNICATION WITH AIR TRAFFIC CONTROL AND THIS SIGNAL IS DIRECTED AT YOUR AIRCRAFT, IMMEDIATELY COMMUNICATE WITH ATC THAT YOU ARE BEING ILLUMINATED BY A VISUAL WARNING SIGNAL. 3. IF THIS SIGNAL IS DIRECTED AT YOU AND YOU ARE NOT COMMUNICATING WITH ATC, TURN TO A HEADING AWAY FROM THE CENTER OF THE FRZ/SFRA AS SOON AS POSSIBLE AND IMMEDIATELY CONTACT ATC ON AN APPROPRIATE FREQUENCY, OR IF UNSURE OF THE FREQUENCY, CONTACT ATC ON VHF GUARD 121.5 OR UHF GUARD 243.0. SECTION II. OPERATING REQUIREMENTS: ALL AIRCRAFT FLIGHT OPERATIONS ARE PROHIBITED WITHIN THE DC SFRA UNLESS IN COMPLIANCE WITH 14 CFR SECTIONS 93.335, 93.337, 93.339, 93.341, 93.343, AND 93.345, AND THE 2409032030-PERM END PART 3 OF 9 FDC 4/9433 ZDC PART 4 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM FOLLOWING SUPPLEMENTAL SPECIAL SECURITY INSTRUCTIONS REQUIRED WASHINGTON, DC. PURSUANT TO 14 CFR SECTION 99.7 AND 49 USC SECTION 40103(B)(3): A. APPLICATION OF DEFINITIONS IN 14 CFR SECTION 93.335: 1. A DC SFRA FLIGHT PLAN DOES NOT FULFILL THE REQUIREMENTS FOR VISUAL FLIGHT RULES (VFR). 2. A DC FRZ FLIGHT PLAN IS REQUIRED FOR VFR OPERATIONS IN THE DC FRZ. PILOTS MAY NOT FILE A DC FRZ FLIGHT PLAN WHILE AIRBORNE B. ADDITIONS TO REQUIREMENTS IN 14 CFR SECTION 93.339 - DC SFRA: 1. AIRCRAFT OPERATING IN THE DC SFRA MUST BE EQUIPPED WITH AN OPERABLE TWO WAY RADIO CAPABLE OF COMMUNICATING WITH AIR TRAFFIC CONTROL (ATC) ON APPROPRIATE RADIO FREQUENCIES OR UNICOM. IT IS HIGHLY RECOMMENDED THAT A PILOT CONTINUOUSLY MONITOR VHF FREQUENCY 121.5 OR UHF FREQUENCY 243.0 FOR EMERGENCY INSTRUCTIONS WHEN OPERATING AN AIRCRAFT IN THE DC SFRA, EITHER IN AN AIRCRAFT THAT IS SUITABLY EQUIPPED, OR BY USE OF PORTABLE EQUIPMENT. 2. ANY PERSON OPERATING AN AIRBORNE AIRCRAFT UNDER VFR TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA/FRZ WHO BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO MAINTAIN RADIO CONTACT 2409032030-PERM END PART 4 OF 9 FDC 4/9433 ZDC PART 5 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM WITH AIR TRAFFIC CONTROL (ATC) MUST IMMEDIATELY SQUAWK 7600 AND EXIT THE DC SFRA/FRZ BY THE MOST DIRECT LATERAL ROUTE EXCEPT WHEN THE WASHINGTON, DC. DEPARTURE POINT IS WITHIN THE DC SFRA AND THE DEPARTURE POINT IS CLOSER THAN THE DC SFRA BOUNDARY, THE PILOT MAY RETURN TO THE DEPARTURE POINT BY THE MOST DIRECT ROUTE. 3. ANY PERSON OPERATING AN AIRBORNE AIRCRAFT UNDER INSTRUMENT FLIGHT RULES (IFR) TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA/FRZ WHO BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO MAINTAIN RADIO CONTACT WITH ATC MUST CONTINUE THE FLIGHT IN COMPLIANCE WITH THE TWO-WAY RADIO COMMUNICATIONS FAILURE PROCEDURES FOUND IN THE FAA AERONAUTICAL INFORMATION MANUAL (AIM) AND/OR APPLICABLE CODE OF FEDERAL REGULATIONS (CFR). 4. ANY PERSON OPERATING AN AIRCRAFT TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA WHO BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO CONTINUOUSLY SQUAWK AN ATC ASSIGNED TRANSPONDER CODE MUST IMMEDIATELY ADVISE ATC AND COMPLY WITH ALL INSTRUCTIONS FROM ATC. IF UNABLE TO CONTACT ATC, PILOTS MUST EXIT THE DC SFRA/FRZ BY THE MOST DIRECT LATERAL ROUTE EXCEPT WHEN THE WASHINGTON, DC DEPARTURE POINT IS WITHIN THE SFRA AND THE DEPARTURE 2409032030-PERM END PART 5 OF 9 FDC 4/9433 ZDC PART 6 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM POINT IS CLOSER THAN THE DC SFRA BOUNDARY, THE PILOT MAY RETURN TO THE DEPARTURE POINT BY THE MOST DIRECT ROUTE. 5. THE PROCEDURES IN SECTION II, SUBSECTION A, B, AND C DO NOT AUTHORIZE PENETRATION OF RESTRICTED AREAS OR PROHIBITED AREAS. 6. AIRCRAFT DEPARTING AIRPORTS WITHIN THE DC SFRA WITH LIMITED TWO-WAY RADIO COMMUNICATIONS MUST ESTABLISH TWO-WAY COMMUNICATIONS AS SOON AS FEASIBLE, NORMALLY WITHIN 2NM OF THE DEPARTURE POINT. 7. PATTERN WORK OPERATIONS AT UN-CONTROLLED AIRPORTS WITHIN THE DC SFRA (BUT NOT WITHIN THE DC FRZ) MUST BE CONDUCTED IN ACCORDANCE WITH 14 CFR SECTION 93.339 (C) AND THE PROCEDURES SPECIFIED IN THE MOST CURRENT POTOMAC TRACON LETTER TO AIRMEN (LTA) ON THE SUBJECT. THE LETTER CAN BE FOUND AT: HTTPS://NOTAMS.AIM.FAA.GOV/NOTAMSEARCH/ (SEARCH LOCATION PCT). (A) ALL PILOTS WHO INTEND TO CONDUCT VFR TRAFFIC PATTERN WORK AT AN AIRPORT WITHIN THE DC SFRA (NOT WITHIN THE DC FRZ) WHICH DOES NOT HAVE AN OPERATING CONTROL TOWER OR WHEN THE CONTROL TOWER IS CLOSED MUST: (1) INCLUDE "PATTERN" IN SFRA FLIGHT PLAN REMARKS. (2) PRIOR TO DEPARTURE, CONTACT POTOMAC TRACON VIA TELEPHONE NUMBER SPECIFIED IN THE LTA TO OBTAIN TRANSPONDER CODE AND ADVISE TRACON OF INTENT TO 2409032030-PERM END PART 6 OF 9 FDC 4/9433 ZDC PART 7 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM CONDUCT PATTERN WORK. WASHINGTON, DC. (3) INFORM ATC OF INTENT TO CONDUCT PATTERN WORK PRIOR TO CHANGING TO COMMON TRAFFIC ADVISORY FREQUENCY (CTAF). (B) UPON COMPLETION OF PATTERN WORK, PILOTS MUST CONTACT POTOMAC TRACON VIA TELEPHONE NUMBER SPECIFIED IN THE LTA TO ADVISE PATTERN WORK IS COMPLETE. 8. OPERATIONS BY UNMANNED AIRCRAFT SYSTEMS (UAS), INCLUDING MODEL AIRCRAFT (HOBBYIST OR RECREATIONAL USE ONLY), CIVIL AND COMMERCIAL OPERATIONS, AND PUBLIC OPERATIONS, ARE ONLY AUTHORIZED WITHIN THE DC SFRA, EXCLUDING THE DC FRZ, IF IN COMPLIANCE WITH THE SEPARATE FAA NOTAM, WHICH PRESCRIBES UAS-SPECIFIC OPERATING REQUIREMENTS IN THE DC SFRA. 9. ALL TESTING OF ADS-B OUT ON AIRCRAFT OR GROUND VEHICLES IN THE DC SFRA IS PROHIBITED. SECTION III. RESOURCES: A. THE CODE OF FEDERAL REGULATIONS CAN BE FOUND AT WWW.ECFR.GOV. B. ANY PILOT QUESTIONS REGARDING DC SFRA OR FRZ PROCEDURES SHOULD BE DIRECTED TO THE FAA SYSTEM OPERATIONS SECURITY REPRESENTATIVE AT THE NATIONAL CAPITAL REGION COORDINATION CENTER (NCRCC) AT 2409032030-PERM END PART 7 OF 9 FDC 4/9433 ZDC PART 8 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM 9-ATO-NCRCC@FAA.GOV OR (866) 598-9522. C. FOR THOSE WAIVERS AND REQUIREMENTS IN THIS NOTAM THAT REQUIRE WASHINGTON, DC. NOTIFICATION TO THE TSA AT THE NCRCC, CALL (866) 598-9520. D. FOR THOSE WAIVERS AND REQUIREMENTS IN THIS NOTAM THAT REQUIRE NOTIFICATION TO THE FAA AT THE NCRCC, CALL (866) 598-9522. E. THE LATEST POTOMAC TRACON (PCT) LETTER TO AIRMEN CAN BE FOUND AT: HTTPS://NOTAMS.AIM.FAA.GOV/NOTAMSEARCH/ (SEARCH LOCATION PCT). F. INFORMATION ABOUT FAA/TSA AIRSPACE WAIVER APPLICATIONS AND TSA SECURITY AUTHORIZATIONS CAN BE FOUND AT WWW.TSA.GOV/FOR-INDUSTRY/GENERAL-AVIATION OR BY CONTACTING TSA AT (571) 227-2071. G. SPECIAL AWARENESS TRAINING FOR THE WASHINGTON DC METROPOLITAN AREA IS MANDATORY FOR ALL PILOTS THAT FLY UNDER VFR WITHIN 60NM OF THE DCA VOR/DME (14 CFR PARTS 61 AND 91, EFFECTIVE FEBRUARY 9, 2009). THIS TRAINING IS AVAILABLE IN THE AVIATION LEARNING CENTER AT WWW.FAASAFETY.GOV. IT IS STRONGLY RECOMMENDED THAT ALL PILOTS FLYING UNDER VISUAL FLIGHT RULES (VFR) WITHIN 100NM OF THE DCA VOR/DME ALSO COMPLETE THIS TRAINING. 2409032030-PERM END PART 8 OF 9 FDC 4/9433 ZDC PART 9 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM H. INDIVIDUALS MAY SUBMIT A REQUEST FOR AN FAA WAIVER AT WAIVERS.FAA.GOV. AFTER NORMAL BUSINESS HOURS, FOR EMERGENCY OR SHORT NOTICE REQUESTS, CONTACT TSA AT THE NCRCC AT (866) 598-9520. WASHINGTON, DC. I. THE TRANSPONDER REQUIREMENTS DESCRIBED IN THIS NOTAM ARE ESTABLISHED SOLELY FOR SECURITY TRACKING PURPOSES AND DO NOT IMPLY THE PROVISION OF ATC RADAR SERVICES, UNLESS ATC SERVICES ARE REQUESTED AND APPROVED. J. THE COMMUNICATIONS REQUIREMENTS DESCRIBED IN THIS NOTAM ARE ESTABLISHED TO MAINTAIN THE ABILITY TO IMMEDIATELY COMMUNICATE SECURITY-BASED INSTRUCTIONS, NOT NECESSARILY FOR ATC SERVICES, UNLESS ATC SERVICES ARE REQUESTED AND APPROVED. 2409032030-PERM END PART 9 OF 9 2510251153-PERM</txtDescrTraditional>
+        <txtDescrModern>&lt;html&gt;
+  &lt;span style="Arial" valign="Top"&gt;
+    &lt;Body&gt;
+      &lt;Table cellpadding="1" cellspacing="0"&gt;
+        &lt;TR bgcolor="#1E90FF"&gt;
+          &lt;TD colspan="3" align="left" valign="bottom" width="250"&gt;
+            &lt;b&gt;
+              &lt;font color="#FFFFFF" size="3" face="Arial"&gt;NOTAM Number     :&lt;/font&gt;
+            &lt;/b&gt;
+          &lt;/TD&gt;
+          &lt;TD valign="bottom" align="left" width="320"&gt;
+            &lt;b&gt;
+              &lt;font color="#FFFFFF" size="3" face="Arial"&gt;FDC 4/9433&lt;/font&gt;
+            &lt;/b&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3" align="left" valign="top"&gt;
+            &lt;font face="Arial" size="2"&gt;Issue Date     :&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD valign="top"&gt;
+            &lt;font face="Arial" size="2"&gt;September 03, 2024 at 2052 UTC&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3" align="left" valign="top"&gt;
+            &lt;font face="Arial" size="2"&gt;Location     :&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA), Washington, D.C. near WASHINGTON VOR/DME (DCA)&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3" align="left" valign="top"&gt;
+            &lt;font face="Arial" size="2"&gt;Beginning Date and Time     :&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;Effective Immediately &lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3" align="left" valign="top"&gt;
+            &lt;font face="Arial" size="2"&gt;Ending Date and Time     :&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;Permanent&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3" align="left" valign="top"&gt;
+            &lt;font face="Arial" size="2"&gt;Reason for NOTAM     :&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;Temporary flight restrictions for Special Security Reasons&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3" align="left" valign="top"&gt;
+            &lt;font face="Arial" size="2"&gt;Type     :&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;Security&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3" align="left" valign="top"&gt;
+            &lt;font face="Arial" size="2"&gt;Replaced NOTAM(s)     :&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;N/A&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="2" height="20"&gt;  &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3" align="right" valign="top"&gt;
+            &lt;font face="Arial" size="2"&gt;
+              &lt;b&gt;Jump To: &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;/b&gt;
+            &lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;
+              &lt;b&gt;
+                &lt;a href="#areas" class="internal"&gt; Affected Areas &lt;/a&gt;&lt;br/&gt;&lt;a href="#restrictions" class="internal"&gt; Operating Restrictions and Requirements &lt;/a&gt;&lt;br/&gt;&lt;a href="#other" class="internal"&gt; Other Information &lt;/a&gt;&lt;br/&gt;&lt;/b&gt;
+            &lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="2" height="20"&gt;  &lt;/TD&gt;
+        &lt;/TR&gt;
+      &lt;/Table&gt;
+      &lt;Table cellpadding="1" cellspacing="0"&gt;
+        &lt;TR bgcolor="#1E90FF"&gt;
+          &lt;TD colspan="5"&gt;
+            &lt;a name="areas"&gt;
+              &lt;b&gt;
+                &lt;font color="#FFFFFF" size="3" face="Arial"&gt;Affected Area(s)&lt;/font&gt;
+              &lt;/b&gt;
+            &lt;/a&gt;
+          &lt;/TD&gt;
+          &lt;TD colspan="1" align="right"&gt;
+            &lt;a href="#"&gt;
+              &lt;font color="#FFFFFF" face="Arial"&gt;
+                &lt;b&gt;Top&lt;/b&gt;
+              &lt;/font&gt;
+            &lt;/a&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="2" height="10"&gt;  &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3" width="200"&gt;
+            &lt;font face="Arial" size="2"&gt;
+              &lt;b&gt;Airspace Definition:&lt;/b&gt;
+            &lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD&gt; &lt;/TD&gt;
+          &lt;TD&gt; &lt;/TD&gt;
+          &lt;TD colspan="3"&gt;
+            &lt;font face="Arial" size="2"&gt;Center:&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt; WASHINGTON VOR/DME(DCA) (Latitude: 38&amp;#xBA;51'34"N, Longitude: 77&amp;#xBA;02'11"W)&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD&gt; &lt;/TD&gt;
+          &lt;TD&gt; &lt;/TD&gt;
+          &lt;TD colspan="3"&gt;
+            &lt;font face="Arial" size="2"&gt;Radius:&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt; 30 nautical miles&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD&gt; &lt;/TD&gt;
+          &lt;TD&gt; &lt;/TD&gt;
+          &lt;TD colspan="3"&gt;
+            &lt;font face="Arial" size="2"&gt;Altitude:&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt; From the surface  up to and including 17999 feet AGL &lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="2" height="20"&gt;  &lt;/TD&gt;
+        &lt;/TR&gt;
+      &lt;/Table&gt;
+      &lt;b&gt;ENDSECTION1&lt;/b&gt;
+      &lt;Table cellpadding="1" cellspacing="0"&gt;
+        &lt;TR bgcolor="#1E90FF"&gt;
+          &lt;TD colspan="3"&gt;
+            &lt;a name="restrictions"&gt;
+              &lt;b&gt;
+                &lt;font color="#FFFFFF" face="Arial" size="3"&gt;Operating Restrictions and Requirements&lt;/font&gt;
+              &lt;/b&gt;
+            &lt;/a&gt;
+          &lt;/TD&gt;
+          &lt;TD colspan="1" align="right"&gt;
+            &lt;a href="#"&gt;
+              &lt;font color="#FFFFFF" face="Arial"&gt;
+                &lt;b&gt;Top&lt;/b&gt;
+              &lt;/font&gt;
+            &lt;/a&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="2" height="20"&gt;  &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="3"&gt;
+            &lt;font face="Arial" size="2"&gt;No pilots may operate an aircraft in the areas covered by this NOTAM (except as described).&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="2" height="20"&gt;  &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;
+              &lt;DL&gt;
+                &lt;DT&gt;FDC 4/9433 ZDC PART 1 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM REFERENCES THE WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA) ONLY AND EXCLUDES THE WASHINGTON DC AREA SPEED RESTRICTIONS THAT ARE NOW LOCATED IN A SEPARATE NOTAM. THIS NOTAM CANCELS FDC 4/1734. A SEPARATE NOTAM REFERENCES THE WASHINGTON DC FLIGHT RESTRICTED ZONE (FRZ) PROCEDURES AND OPERATIONS BY UNMANNED AIRCRAFT SYSTEMS (UAS), INCLUDING MODEL AIRCRAFT (HOBBYIST OR RECREATIONAL UAS ONLY), CIVIL AND COMMERCIAL OPERATIONS, AND PUBLIC OPERATIONS WITHIN THE SFRA. SPECIAL SECURITY INSTRUCTIONS FOR AIRCRAFT OPERATIONS IN THE DC SFRA ARE IN EFFECT PURSUANT TO 14 CODE OF FEDERAL REGULATIONS (CFR) SECTIONS 93.335, 93.337, 93.339, 93.341, 93.343, 93.345, AND 99.7, AND 49 UNITED STATES CODE (USC) SECTION 40103(B)(3). THIS NOTAM AND THREE RELATED NOTAMS REGARDING THE: DC FLIGHT RESTRICTED ZONE (FRZ); LEESBURG MANEUVERING AREA (LMA); AND UNMANNED AIRCRAFT SYSTEM (UAS) OPERATIONS IN THE DC SFRA, CLARIFY AND SUPPLEMENT THE OPERATING REQUIREMENTS PRESCRIBED BY THE CITED 14 CFR SECTIONS. SECTION I. RESPONSE AND ENFORCEMENT: PURSUANT TO 49 USC 40103(B)(3), THE FAA HAS ESTABLISHED THE DC SFRA AS 'NATIONAL DEFENSE AIRSPACE'. PERSONS WHO DO NOT ADHERE TO THE PROCEDURES PRESCRIBED BY THE CITED 14 CFR SECTIONS AND THIS NOTAM MAY FACE THE FOLLOWING RESPONSE AND 2409032030-PERM END PART 1 OF 9 FDC 4/9433 ZDC PART 2 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM WASHINGTON, DC. ENFORCEMENT ACTIONS: A. PILOTS OF AIRCRAFT THAT DO NOT ADHERE TO THE PROCEDURES IN THE SPECIAL SECURITY REQUIREMENTS CONTAINED IN THIS NOTAM MAY BE INTERCEPTED, AND/OR DETAINED AND INTERVIEWED BY FEDERAL, STATE, OR LOCAL LAW ENFORCEMENT, OR OTHER GOVERNMENT PERSONNEL. B. PILOTS OF AIRCRAFT THAT DO NOT ADHERE TO THE PROCEDURES IN THE SPECIAL SECURITY REQUIREMENTS CONTAINED IN THIS NOTAM MAY FACE FAA ADMINISTRATIVE ENFORCEMENT ACTIONS, INCLUDING IMPOSING CIVIL PENALTIES AND THE SUSPENSION OR REVOCATION OF AIRMEN CERTIFICATES. C. ANY PERSON WHO KNOWINGLY OR WILLFULLY VIOLATES THE RULES CONCERNING OPERATIONS IN THIS AIRSPACE MAY BE SUBJECT TO CRIMINAL PENALTIES UNDER 49 USC SECTION 46307. D. THE U.S. GOVERNMENT MAY USE DEADLY FORCE AGAINST AN AIRCRAFT OPERATING IN THE DC SFRA, INCLUDING THE DC FRZ, IF IT IS DETERMINED THAT THE AIRCRAFT POSES AN IMMINENT SECURITY THREAT. E. A VISUAL WARNING SIGNAL (VWS) FOR COMMUNICATING WITH VFR AIRCRAFT, INCLUDING DOD, LAW ENFORCEMENT, AND AEROMEDICAL OPERATIONS, IS DEPLOYED AND IS OPERATING WITHIN THE WASHINGTON DC SPECIAL FLIGHT RULES AREA (SFRA), INCLUDING THE FLIGHT RESTRICTED 2409032030-PERM END PART 2 OF 9 FDC 4/9433 ZDC PART 3 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM ZONE (FRZ). THE SIGNAL CONSISTS OF HIGHLY FOCUSED RED AND GREEN COLORED LIGHTS IN AN ALTERNATING RED/RED/GREEN SIGNAL PATTERN. THE BEAM IS NOT INJURIOUS TO THE EYES OF PILOTS/AIRCREWS OR PASSENGERS, REGARDLESS OF ALTITUDE OR DISTANCE FROM THE SOURCE. 1. THIS SIGNAL MAY BE DIRECTED AT SPECIFIC AIRCRAFT SUSPECTED OF MAKING UNAUTHORIZED ENTRY INTO THE SFRA/FRZ AND ARE ON A HEADING OR FLIGHT PATH THAT MAY BE INTERPRETED AS A THREAT OR AT THE REQUEST OF THE FAA. 2. IF YOU ARE IN COMMUNICATION WITH AIR TRAFFIC CONTROL AND THIS SIGNAL IS DIRECTED AT YOUR AIRCRAFT, IMMEDIATELY COMMUNICATE WITH ATC THAT YOU ARE BEING ILLUMINATED BY A VISUAL WARNING SIGNAL. 3. IF THIS SIGNAL IS DIRECTED AT YOU AND YOU ARE NOT COMMUNICATING WITH ATC, TURN TO A HEADING AWAY FROM THE CENTER OF THE FRZ/SFRA AS SOON AS POSSIBLE AND IMMEDIATELY CONTACT ATC ON AN APPROPRIATE FREQUENCY, OR IF UNSURE OF THE FREQUENCY, CONTACT ATC ON VHF GUARD 121.5 OR UHF GUARD 243.0. SECTION II. OPERATING REQUIREMENTS: ALL AIRCRAFT FLIGHT OPERATIONS ARE PROHIBITED WITHIN THE DC SFRA UNLESS IN COMPLIANCE WITH 14 CFR SECTIONS 93.335, 93.337, 93.339, 93.341, 93.343, AND 93.345, AND THE 2409032030-PERM END PART 3 OF 9 FDC 4/9433 ZDC PART 4 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM FOLLOWING SUPPLEMENTAL SPECIAL SECURITY INSTRUCTIONS REQUIRED WASHINGTON, DC. PURSUANT TO 14 CFR SECTION 99.7 AND 49 USC SECTION 40103(B)(3): A. APPLICATION OF DEFINITIONS IN 14 CFR SECTION 93.335: 1. A DC SFRA FLIGHT PLAN DOES NOT FULFILL THE REQUIREMENTS FOR VISUAL FLIGHT RULES (VFR). 2. A DC FRZ FLIGHT PLAN IS REQUIRED FOR VFR OPERATIONS IN THE DC FRZ. PILOTS MAY NOT FILE A DC FRZ FLIGHT PLAN WHILE AIRBORNE B. ADDITIONS TO REQUIREMENTS IN 14 CFR SECTION 93.339 - DC SFRA: 1. AIRCRAFT OPERATING IN THE DC SFRA MUST BE EQUIPPED WITH AN OPERABLE TWO WAY RADIO CAPABLE OF COMMUNICATING WITH AIR TRAFFIC CONTROL (ATC) ON APPROPRIATE RADIO FREQUENCIES OR UNICOM. IT IS HIGHLY RECOMMENDED THAT A PILOT CONTINUOUSLY MONITOR VHF FREQUENCY 121.5 OR UHF FREQUENCY 243.0 FOR EMERGENCY INSTRUCTIONS WHEN OPERATING AN AIRCRAFT IN THE DC SFRA, EITHER IN AN AIRCRAFT THAT IS SUITABLY EQUIPPED, OR BY USE OF PORTABLE EQUIPMENT. 2. ANY PERSON OPERATING AN AIRBORNE AIRCRAFT UNDER VFR TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA/FRZ WHO BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO MAINTAIN RADIO CONTACT 2409032030-PERM END PART 4 OF 9 FDC 4/9433 ZDC PART 5 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM WITH AIR TRAFFIC CONTROL (ATC) MUST IMMEDIATELY SQUAWK 7600 AND EXIT THE DC SFRA/FRZ BY THE MOST DIRECT LATERAL ROUTE EXCEPT WHEN THE WASHINGTON, DC. DEPARTURE POINT IS WITHIN THE DC SFRA AND THE DEPARTURE POINT IS CLOSER THAN THE DC SFRA BOUNDARY, THE PILOT MAY RETURN TO THE DEPARTURE POINT BY THE MOST DIRECT ROUTE. 3. ANY PERSON OPERATING AN AIRBORNE AIRCRAFT UNDER INSTRUMENT FLIGHT RULES (IFR) TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA/FRZ WHO BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO MAINTAIN RADIO CONTACT WITH ATC MUST CONTINUE THE FLIGHT IN COMPLIANCE WITH THE TWO-WAY RADIO COMMUNICATIONS FAILURE PROCEDURES FOUND IN THE FAA AERONAUTICAL INFORMATION MANUAL (AIM) AND/OR APPLICABLE CODE OF FEDERAL REGULATIONS (CFR). 4. ANY PERSON OPERATING AN AIRCRAFT TO OR FROM, WITHIN, OR TRANSITING THE DC SFRA WHO BECOMES AWARE OF AN INABILITY TO COMPLY WITH THE REQUIREMENT TO CONTINUOUSLY SQUAWK AN ATC ASSIGNED TRANSPONDER CODE MUST IMMEDIATELY ADVISE ATC AND COMPLY WITH ALL INSTRUCTIONS FROM ATC. IF UNABLE TO CONTACT ATC, PILOTS MUST EXIT THE DC SFRA/FRZ BY THE MOST DIRECT LATERAL ROUTE EXCEPT WHEN THE WASHINGTON, DC DEPARTURE POINT IS WITHIN THE SFRA AND THE DEPARTURE 2409032030-PERM END PART 5 OF 9 FDC 4/9433 ZDC PART 6 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM POINT IS CLOSER THAN THE DC SFRA BOUNDARY, THE PILOT MAY RETURN TO THE DEPARTURE POINT BY THE MOST DIRECT ROUTE. 5. THE PROCEDURES IN SECTION II, SUBSECTION A, B, AND C DO NOT AUTHORIZE PENETRATION OF RESTRICTED AREAS OR PROHIBITED AREAS. 6. AIRCRAFT DEPARTING AIRPORTS WITHIN THE DC SFRA WITH LIMITED TWO-WAY RADIO COMMUNICATIONS MUST ESTABLISH TWO-WAY COMMUNICATIONS AS SOON AS FEASIBLE, NORMALLY WITHIN 2NM OF THE DEPARTURE POINT. 7. PATTERN WORK OPERATIONS AT UN-CONTROLLED AIRPORTS WITHIN THE DC SFRA (BUT NOT WITHIN THE DC FRZ) MUST BE CONDUCTED IN ACCORDANCE WITH 14 CFR SECTION 93.339 (C) AND THE PROCEDURES SPECIFIED IN THE MOST CURRENT POTOMAC TRACON LETTER TO AIRMEN (LTA) ON THE SUBJECT. THE LETTER CAN BE FOUND AT: HTTPS://NOTAMS.AIM.FAA.GOV/NOTAMSEARCH/ (SEARCH LOCATION PCT). (A) ALL PILOTS WHO INTEND TO CONDUCT VFR TRAFFIC PATTERN WORK AT AN AIRPORT WITHIN THE DC SFRA (NOT WITHIN THE DC FRZ) WHICH DOES NOT HAVE AN OPERATING CONTROL TOWER OR WHEN THE CONTROL TOWER IS CLOSED MUST: (1) INCLUDE "PATTERN" IN SFRA FLIGHT PLAN REMARKS. (2) PRIOR TO DEPARTURE, CONTACT POTOMAC TRACON VIA TELEPHONE NUMBER SPECIFIED IN THE LTA TO OBTAIN TRANSPONDER CODE AND ADVISE TRACON OF INTENT TO 2409032030-PERM END PART 6 OF 9 FDC 4/9433 ZDC PART 7 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM CONDUCT PATTERN WORK. WASHINGTON, DC. (3) INFORM ATC OF INTENT TO CONDUCT PATTERN WORK PRIOR TO CHANGING TO COMMON TRAFFIC ADVISORY FREQUENCY (CTAF). (B) UPON COMPLETION OF PATTERN WORK, PILOTS MUST CONTACT POTOMAC TRACON VIA TELEPHONE NUMBER SPECIFIED IN THE LTA TO ADVISE PATTERN WORK IS COMPLETE. 8. OPERATIONS BY UNMANNED AIRCRAFT SYSTEMS (UAS), INCLUDING MODEL AIRCRAFT (HOBBYIST OR RECREATIONAL USE ONLY), CIVIL AND COMMERCIAL OPERATIONS, AND PUBLIC OPERATIONS, ARE ONLY AUTHORIZED WITHIN THE DC SFRA, EXCLUDING THE DC FRZ, IF IN COMPLIANCE WITH THE SEPARATE FAA NOTAM, WHICH PRESCRIBES UAS-SPECIFIC OPERATING REQUIREMENTS IN THE DC SFRA. 9. ALL TESTING OF ADS-B OUT ON AIRCRAFT OR GROUND VEHICLES IN THE DC SFRA IS PROHIBITED. SECTION III. RESOURCES: A. THE CODE OF FEDERAL REGULATIONS CAN BE FOUND AT WWW.ECFR.GOV. B. ANY PILOT QUESTIONS REGARDING DC SFRA OR FRZ PROCEDURES SHOULD BE DIRECTED TO THE FAA SYSTEM OPERATIONS SECURITY REPRESENTATIVE AT THE NATIONAL CAPITAL REGION COORDINATION CENTER (NCRCC) AT 2409032030-PERM END PART 7 OF 9 FDC 4/9433 ZDC PART 8 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM 9-ATO-NCRCC@FAA.GOV OR (866) 598-9522. C. FOR THOSE WAIVERS AND REQUIREMENTS IN THIS NOTAM THAT REQUIRE WASHINGTON, DC. NOTIFICATION TO THE TSA AT THE NCRCC, CALL (866) 598-9520. D. FOR THOSE WAIVERS AND REQUIREMENTS IN THIS NOTAM THAT REQUIRE NOTIFICATION TO THE FAA AT THE NCRCC, CALL (866) 598-9522. E. THE LATEST POTOMAC TRACON (PCT) LETTER TO AIRMEN CAN BE FOUND AT: HTTPS://NOTAMS.AIM.FAA.GOV/NOTAMSEARCH/ (SEARCH LOCATION PCT). F. INFORMATION ABOUT FAA/TSA AIRSPACE WAIVER APPLICATIONS AND TSA SECURITY AUTHORIZATIONS CAN BE FOUND AT WWW.TSA.GOV/FOR-INDUSTRY/GENERAL-AVIATION OR BY CONTACTING TSA AT (571) 227-2071. G. SPECIAL AWARENESS TRAINING FOR THE WASHINGTON DC METROPOLITAN AREA IS MANDATORY FOR ALL PILOTS THAT FLY UNDER VFR WITHIN 60NM OF THE DCA VOR/DME (14 CFR PARTS 61 AND 91, EFFECTIVE FEBRUARY 9, 2009). THIS TRAINING IS AVAILABLE IN THE AVIATION LEARNING CENTER AT WWW.FAASAFETY.GOV. IT IS STRONGLY RECOMMENDED THAT ALL PILOTS FLYING UNDER VISUAL FLIGHT RULES (VFR) WITHIN 100NM OF THE DCA VOR/DME ALSO COMPLETE THIS TRAINING. 2409032030-PERM END PART 8 OF 9 FDC 4/9433 ZDC PART 9 OF 9 SECURITY INSTRUCTIONS, WASHINGTON, DC. THIS NOTAM H. INDIVIDUALS MAY SUBMIT A REQUEST FOR AN FAA WAIVER AT WAIVERS.FAA.GOV. AFTER NORMAL BUSINESS HOURS, FOR EMERGENCY OR SHORT NOTICE REQUESTS, CONTACT TSA AT THE NCRCC AT (866) 598-9520. WASHINGTON, DC. I. THE TRANSPONDER REQUIREMENTS DESCRIBED IN THIS NOTAM ARE ESTABLISHED SOLELY FOR SECURITY TRACKING PURPOSES AND DO NOT IMPLY THE PROVISION OF ATC RADAR SERVICES, UNLESS ATC SERVICES ARE REQUESTED AND APPROVED. J. THE COMMUNICATIONS REQUIREMENTS DESCRIBED IN THIS NOTAM ARE ESTABLISHED TO MAINTAIN THE ABILITY TO IMMEDIATELY COMMUNICATE SECURITY-BASED INSTRUCTIONS, NOT NECESSARILY FOR ATC SERVICES, UNLESS ATC SERVICES ARE REQUESTED AND APPROVED. 2409032030-PERM END PART 9 OF 9&lt;/DT&gt;&lt;br/&gt;&lt;/DL&gt;
+            &lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="2" height="10"&gt;  &lt;/TD&gt;
+        &lt;/TR&gt;
+      &lt;/Table&gt;
+      &lt;Table cellpadding="1" cellspacing="0"&gt;
+        &lt;TR bgcolor="#1E90FF"&gt;
+          &lt;TD colspan="3"&gt;
+            &lt;a name="other"&gt;
+              &lt;b&gt;
+                &lt;font color="#FFFFFF" face="Arial" size="3"&gt;Other Information:&lt;/font&gt;
+              &lt;/b&gt;
+            &lt;/a&gt;
+          &lt;/TD&gt;
+          &lt;TD colspan="1" align="right"&gt;
+            &lt;a href="#"&gt;
+              &lt;font color="#FFFFFF" face="Arial"&gt;
+                &lt;b&gt;Top&lt;/b&gt;
+              &lt;/font&gt;
+            &lt;/a&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="2"&gt;
+            &lt;font face="Arial" size="2"&gt;ARTCC:&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;ZDC - Washington Center&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD colspan="2"&gt;
+            &lt;font face="Arial" size="2"&gt;Authority:&lt;/font&gt;
+          &lt;/TD&gt;
+          &lt;TD&gt;
+            &lt;font face="Arial" size="2"&gt;Title 14 CFR section 99.7&lt;/font&gt;
+          &lt;/TD&gt;
+        &lt;/TR&gt;
+        &lt;TR&gt;
+          &lt;TD Width="40" /&gt;
+          &lt;TD Width="152" /&gt;
+          &lt;TD Width="318" /&gt;
+        &lt;/TR&gt;
+      &lt;/Table&gt;
+    &lt;/Body&gt;
+  &lt;/span&gt;
+&lt;/html&gt;</txtDescrModern>
+        <codeFreeformText>false</codeFreeformText>
+      </Not>
+    </Add>
+  </Group>
+</XNOTAM-Update>

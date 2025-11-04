@@ -62,6 +62,55 @@ class Storage:
         raw, ts = row
         return {"data": json.loads(raw), "fetched_at": ts}
 
+    def list_snapshots(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Return up to `limit` most recent snapshots as list of {data, fetched_at}."""
+        cur = self.conn.cursor()
+        cur.execute("SELECT raw_json, fetched_at FROM snapshots ORDER BY fetched_at DESC LIMIT ?", (limit,))
+        rows = cur.fetchall()
+        out: List[Dict[str, Any]] = []
+        for raw, ts in rows:
+            out.append({"data": json.loads(raw), "fetched_at": ts})
+        return out
+
+    def get_latest_snapshots(self, n: int = 2) -> List[Dict[str, Any]]:
+        """Convenience: return the latest `n` snapshots (most recent first)."""
+        return self.list_snapshots(limit=n)
+
+    def save_incident(self, detected_at: float, callsign: str, cid: Optional[int], lat: float, lon: float, altitude: Optional[float], zone: str, evidence: str) -> int:
+        cur = self.conn.cursor()
+        cur.execute(
+            "INSERT INTO incidents (detected_at, callsign, cid, lat, lon, altitude, zone, evidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (detected_at, callsign, cid, lat, lon, altitude, zone, evidence),
+        )
+        self.conn.commit()
+        return cur.lastrowid
+
+    def list_incidents(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Return up to `limit` most recent incidents as list of dicts."""
+        cur = self.conn.cursor()
+        cur.execute(
+            "SELECT id, detected_at, callsign, cid, lat, lon, altitude, zone, evidence FROM incidents ORDER BY detected_at DESC LIMIT ?",
+            (limit,),
+        )
+        rows = cur.fetchall()
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            id_, detected_at, callsign, cid, lat, lon, altitude, zone, evidence = r
+            out.append(
+                {
+                    "id": id_,
+                    "detected_at": detected_at,
+                    "callsign": callsign,
+                    "cid": cid,
+                    "lat": lat,
+                    "lon": lon,
+                    "altitude": altitude,
+                    "zone": zone,
+                    "evidence": evidence,
+                }
+            )
+        return out
+
     def list_aircraft(self) -> List[Dict[str, Any]]:
         snap = self.get_latest_snapshot()
         if not snap:
@@ -73,3 +122,16 @@ class Storage:
 
 
 __all__ = ["Storage"]
+
+# Module-level default STORAGE singleton for convenience. Other modules import
+# this when they need access to the DB. Using a small global is acceptable for
+# this prototype; it will be replaced with a proper dependency-injection
+# strategy if the project grows.
+try:
+    STORAGE = Storage()
+except Exception:
+    # If the DB cannot be opened at import time, set STORAGE to None so callers
+    # can handle initialization errors at runtime.
+    STORAGE = None
+    
+__all__.append("STORAGE")

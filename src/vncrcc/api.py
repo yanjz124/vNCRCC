@@ -4,8 +4,9 @@ from typing import Any
 import yaml
 from fastapi import FastAPI
 
-from .storage import Storage
+from .storage import STORAGE
 from .vatsim_client import VatsimClient
+from .api import router as api_router
 
 
 def _load_config(path: str) -> Any:
@@ -21,10 +22,11 @@ CFG = _load_config(CONFIG_PATH)
 
 app = FastAPI(title="vNCRCC API")
 
-# Create storage and fetcher singletons used by the app. The fetcher will
-# save snapshots to storage via a registered callback so other modules can
-# rely on the DB/Storage rather than pulling the JSON themselves.
-STORAGE = Storage(CFG.get("db_path", "vncrcc.db"))
+# Create fetcher singleton used by the app. The fetcher will save snapshots to
+# storage via a registered callback so other modules can rely on the DB/Storage
+# rather than pulling the JSON themselves. The Storage singleton is provided by
+# the storage module (STORAGE) and will use its default DB path unless the
+# application reinitializes it elsewhere.
 FETCHER = VatsimClient(CFG.get("vatsim_url", "https://data.vatsim.net/v3/vatsim-data.json"), CFG.get("poll_interval", 15))
 
 
@@ -51,18 +53,8 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/aircraft")
-async def aircraft() -> dict:
-    return {"aircraft": STORAGE.list_aircraft()}
-
-
-@app.get("/incidents")
-async def incidents(limit: int = 100) -> list:
-    cur = STORAGE.conn.cursor()
-    cur.execute("SELECT id, detected_at, callsign, cid, lat, lon, altitude, zone, evidence FROM incidents ORDER BY detected_at DESC LIMIT ?", (limit,))
-    rows = cur.fetchall()
-    cols = ["id", "detected_at", "callsign", "cid", "lat", "lon", "altitude", "zone", "evidence"]
-    return [dict(zip(cols, r)) for r in rows]
+# Mount API package (routes under /api/v1/...)
+app.include_router(api_router)
 
 
 __all__ = ["app", "STORAGE", "FETCHER"]
