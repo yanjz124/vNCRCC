@@ -57,12 +57,11 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
         prev_map[ident] = {"pos": (pt.x, pt.y), "raw": a}
 
     breaches: List[Dict[str, Any]] = []
-    pshape = shapes[0][0]  # use first shape
+    # shapes is a list of (shape, properties) tuples; check all features
+    features = shapes
     for a in latest_ac:
         ident = _identifier(a)
         if not ident:
-            continue
-        if ident not in prev_map:
             continue
         latest_pt = point_from_aircraft(a)
         if not latest_pt:
@@ -75,43 +74,72 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
             alt_latest_val = None
         if alt_latest_val is None or alt_latest_val > 17999:
             continue
-        prev_pos = prev_map[ident]["pos"]
-        line = LineString([(prev_pos[0], prev_pos[1]), (latest_pt.x, latest_pt.y)])
-        # If the line intersects the P56 polygon, we consider that a penetration
-        if pshape.intersects(line) or pshape.contains(latest_pt):
-            evidence = {
-                "line": list(line.coords),
-                "prev_ts": prev_ts,
-                "latest_ts": latest_ts,
-            }
-            # persist incident to storage
-            detected_at = latest_ts or time.time()
-            try:
-                if storage and getattr(storage, "STORAGE", None):
-                    storage.STORAGE.save_incident(
-                        detected_at=detected_at,
-                        callsign=a.get("callsign") or "",
-                        cid=a.get("cid"),
-                        lat=float(latest_pt.y),
-                        lon=float(latest_pt.x),
-                        altitude=a.get("altitude") or a.get("alt"),
-                        zone=name,
-                        evidence=json.dumps(evidence),
-                    )
-            except Exception:
-                # don't let storage failures stop detection; continue
-                pass
 
-            breaches.append(
-                {
-                    "identifier": ident,
-                    "callsign": a.get("callsign"),
-                    "cid": a.get("cid"),
-                    "prev_position": {"lon": prev_pos[0], "lat": prev_pos[1]},
-                    "latest_position": {"lon": latest_pt.x, "lat": latest_pt.y},
-                    "prev_ts": prev_ts,
-                    "latest_ts": latest_ts,
-                    "evidence_line": list(line.coords),
-                }
-            )
+        # Check point-in-polygon for any P56 feature
+        matched_zones_point = []
+        for idx, (shp, props) in enumerate(features):
+            zone_name = props.get("name") or props.get("id") or f"{name}:{idx}"
+            try:
+                if shp.contains(latest_pt) or shp.intersects(latest_pt):
+                    matched_zones_point.append(zone_name)
+            except Exception:
+                continue
+
+        # Check line intersection if we have a previous position for this ident
+        matched_zones_line = []
+        line = None
+        if ident in prev_map:
+            prev_pos = prev_map[ident]["pos"]
+            line = LineString([(prev_pos[0], prev_pos[1]), (latest_pt.x, latest_pt.y)])
+            for idx, (shp, props) in enumerate(features):
+                zone_name = props.get("name") or props.get("id") or f"{name}:{idx}"
+                try:
+                    if shp.intersects(line):
+                        matched_zones_line.append(zone_name)
+                except Exception:
+                    continue
+
+        matched_zones = list(dict.fromkeys(matched_zones_point + matched_zones_line))
+        if not matched_zones:
+            # no penetration detected for this aircraft
+            continue
+        prev_pos = prev_map[ident]["pos"] if ident in prev_map else None
+        evidence = {
+            "zones_point": matched_zones_point,
+            "zones_line": matched_zones_line,
+            "line": list(line.coords) if line is not None else None,
+            "prev_ts": prev_ts,
+            "latest_ts": latest_ts,
+        }
+        # persist incident to storage
+        detected_at = latest_ts or time.time()
+        try:
+            if storage and getattr(storage, "STORAGE", None):
+                storage.STORAGE.save_incident(
+                    detected_at=detected_at,
+                    callsign=a.get("callsign") or "",
+                    cid=a.get("cid"),
+                    lat=float(latest_pt.y),
+                    lon=float(latest_pt.x),
+                    altitude=a.get("altitude") or a.get("alt"),
+                    zone=",".join(matched_zones) or name,
+                    evidence=json.dumps(evidence),
+                )
+        except Exception:
+            # don't let storage failures stop detection; continue
+            pass
+
+        breaches.append(
+            {
+                "identifier": ident,
+                "callsign": a.get("callsign"),
+                "cid": a.get("cid"),
+                "prev_position": {"lon": prev_pos[0], "lat": prev_pos[1]} if prev_pos is not None else None,
+                "latest_position": {"lon": latest_pt.x, "lat": latest_pt.y},
+                "prev_ts": prev_ts if prev_pos is not None else None,
+                "latest_ts": latest_ts,
+                "zones": matched_zones,
+                "evidence": evidence,
+            }
+        )
     return {"breaches": breaches}
