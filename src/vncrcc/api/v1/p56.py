@@ -46,6 +46,14 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
         pt = point_from_aircraft(a)
         if not pt:
             continue
+        # only consider previous positions within the vertical limit (<= 17,999 ft)
+        alt_prev = a.get("altitude") or a.get("alt")
+        try:
+            alt_prev_val = float(alt_prev) if alt_prev is not None else None
+        except Exception:
+            alt_prev_val = None
+        if alt_prev_val is None or alt_prev_val > 17999:
+            continue
         prev_map[ident] = {"pos": (pt.x, pt.y), "raw": a}
 
     breaches: List[Dict[str, Any]] = []
@@ -59,6 +67,14 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
         latest_pt = point_from_aircraft(a)
         if not latest_pt:
             continue
+        # only consider latest positions within the vertical limit (<= 17,999 ft)
+        alt_latest = a.get("altitude") or a.get("alt")
+        try:
+            alt_latest_val = float(alt_latest) if alt_latest is not None else None
+        except Exception:
+            alt_latest_val = None
+        if alt_latest_val is None or alt_latest_val > 17999:
+            continue
         prev_pos = prev_map[ident]["pos"]
         line = LineString([(prev_pos[0], prev_pos[1]), (latest_pt.x, latest_pt.y)])
         # If the line intersects the P56 polygon, we consider that a penetration
@@ -71,16 +87,17 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
             # persist incident to storage
             detected_at = latest_ts or time.time()
             try:
-                STORAGE.save_incident(
-                    detected_at=detected_at,
-                    callsign=a.get("callsign") or "",
-                    cid=a.get("cid"),
-                    lat=float(latest_pt.y),
-                    lon=float(latest_pt.x),
-                    altitude=a.get("altitude") or a.get("alt"),
-                    zone=name,
-                    evidence=json.dumps(evidence),
-                )
+                if storage and getattr(storage, "STORAGE", None):
+                    storage.STORAGE.save_incident(
+                        detected_at=detected_at,
+                        callsign=a.get("callsign") or "",
+                        cid=a.get("cid"),
+                        lat=float(latest_pt.y),
+                        lon=float(latest_pt.x),
+                        altitude=a.get("altitude") or a.get("alt"),
+                        zone=name,
+                        evidence=json.dumps(evidence),
+                    )
             except Exception:
                 # don't let storage failures stop detection; continue
                 pass

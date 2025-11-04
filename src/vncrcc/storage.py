@@ -51,7 +51,12 @@ class Storage:
         cur = self.conn.cursor()
         cur.execute("INSERT INTO snapshots (fetched_at, raw_json) VALUES (?, ?)", (fetched_at, json.dumps(data)))
         self.conn.commit()
-        return cur.lastrowid
+        sid = cur.lastrowid or 0
+        
+        # Keep only the most recent 100 snapshots to prevent unlimited growth
+        self._cleanup_old_snapshots()
+        
+        return sid
 
     def get_latest_snapshot(self) -> Optional[Dict[str, Any]]:
         cur = self.conn.cursor()
@@ -76,6 +81,20 @@ class Storage:
         """Convenience: return the latest `n` snapshots (most recent first)."""
         return self.list_snapshots(limit=n)
 
+    def _cleanup_old_snapshots(self, keep_recent: int = 100) -> None:
+        """Keep only the most recent N snapshots to prevent unlimited database growth."""
+        cur = self.conn.cursor()
+        # Delete snapshots older than the 100th most recent
+        cur.execute("""
+            DELETE FROM snapshots 
+            WHERE id NOT IN (
+                SELECT id FROM snapshots 
+                ORDER BY fetched_at DESC 
+                LIMIT ?
+            )
+        """, (keep_recent,))
+        self.conn.commit()
+
     def save_incident(self, detected_at: float, callsign: str, cid: Optional[int], lat: float, lon: float, altitude: Optional[float], zone: str, evidence: str) -> int:
         cur = self.conn.cursor()
         cur.execute(
@@ -83,7 +102,7 @@ class Storage:
             (detected_at, callsign, cid, lat, lon, altitude, zone, evidence),
         )
         self.conn.commit()
-        return cur.lastrowid
+        return cur.lastrowid or 0
 
     def list_incidents(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Return up to `limit` most recent incidents as list of dicts."""
@@ -116,6 +135,8 @@ class Storage:
         if not snap:
             return []
         data = snap.get("data")
+        if not data:
+            return []
         # VATSIM v3 places flights/aircraft under 'pilots' or 'aircraft' depending on feed
         aircraft = data.get("pilots") or data.get("aircraft") or []
         return aircraft

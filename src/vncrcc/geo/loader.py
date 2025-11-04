@@ -3,6 +3,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from shapely.geometry import shape, Point, mapping, base
+import logging
+
+logger = logging.getLogger("vncrcc.geo.loader")
 
 GEO_DIR = Path(__file__).parent
 
@@ -22,6 +25,15 @@ def _load_geojson(path: Path) -> List[Tuple[base.BaseGeometry, Dict]]:
             if geom:
                 try:
                     shp = shape(geom)
+                    # Try to repair invalid geometries (self-intersections) using buffer(0)
+                    if not getattr(shp, "is_valid", True):
+                        try:
+                            repaired = shp.buffer(0)
+                            if getattr(repaired, "is_valid", False):
+                                logger.warning("Repaired invalid geometry in %s using buffer(0)", path.name)
+                                shp = repaired
+                        except Exception:
+                            logger.exception("Failed to repair geometry in %s", path.name)
                     shapes.append((shp, props))
                 except Exception:
                     continue

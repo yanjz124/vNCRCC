@@ -29,11 +29,12 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
             alt_val = float(alt) if alt is not None else None
         except Exception:
             alt_val = None
-        if alt_val is None or alt_val > 18000:
-            # skip aircraft with unknown altitude or above 18,000 ft
+        # SFRA applies up to 17,999 ft; skip unknown altitude or above 17,999
+        if alt_val is None or alt_val > 17999:
             continue
         for shp, props in shapes:
-            if shp.contains(pt):
+            # treat points on the polygon boundary as inside as well
+            if shp.contains(pt) or shp.touches(pt):
                 # return the original aircraft dict plus matched geo properties
                 inside.append({"aircraft": a, "matched_props": props})
                 break

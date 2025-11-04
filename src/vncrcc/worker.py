@@ -6,9 +6,12 @@ starting the web server. It registers a callback that prints counts to stdout.
 
 import asyncio
 import os
+import logging
 import yaml
 from .vatsim_client import VatsimClient
 from .storage import Storage
+
+logger = logging.getLogger("vncrcc.worker")
 
 
 async def main() -> None:
@@ -21,7 +24,7 @@ async def main() -> None:
     def cb(data, ts):
         sid = storage.save_snapshot(data, ts)
         count = len((data.get("pilots") or data.get("aircraft") or []))
-        print(f"Saved snapshot {sid} with {count} aircraft at {ts}")
+        logger.info("Saved snapshot %s with %d aircraft at %s", sid, count, ts)
 
     fetcher.register_callback(cb)
     await fetcher.start()
