@@ -6,6 +6,7 @@ import time
 
 from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
+from ... import p56_history
 
 router = APIRouter(prefix="/p56")
 
@@ -29,7 +30,12 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
     # For penetration calculation we require at least two snapshots
     snaps = storage.STORAGE.get_latest_snapshots(2) if storage.STORAGE else []
     if len(snaps) < 2:
-        return {"breaches": [], "note": "need 2 snapshots to calculate P56 penetration"}
+        # still provide the persisted history even when snapshots aren't available
+        try:
+            hist = p56_history.get_history()
+        except Exception:
+            hist = {"events": [], "current_inside": {}}
+        return {"breaches": [], "history": hist, "note": "need 2 snapshots to calculate P56 penetration"}
     latest = snaps[0]
     prev = snaps[1]
     latest_ts = latest.get("fetched_at")
@@ -37,6 +43,12 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
 
     latest_ac = (latest.get("data") or {}).get("pilots") or (latest.get("data") or {}).get("aircraft") or []
     prev_ac = (prev.get("data") or {}).get("pilots") or (prev.get("data") or {}).get("aircraft") or []
+
+    # Sync current inside/exited state from latest snapshot so history reflects exits
+    try:
+        p56_history.sync_snapshot(latest_ac, shapes, latest_ts)
+    except Exception:
+        pass
 
     prev_map = {}
     for a in prev_ac:
@@ -114,19 +126,36 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
         # persist incident to storage
         detected_at = latest_ts or time.time()
         try:
-            if storage and getattr(storage, "STORAGE", None):
-                storage.STORAGE.save_incident(
-                    detected_at=detected_at,
-                    callsign=a.get("callsign") or "",
-                    cid=a.get("cid"),
-                    lat=float(latest_pt.y),
-                    lon=float(latest_pt.x),
-                    altitude=a.get("altitude") or a.get("alt"),
-                    zone=",".join(matched_zones) or name,
-                    evidence=json.dumps(evidence),
-                )
+                if storage and getattr(storage, "STORAGE", None):
+                    storage.STORAGE.save_incident(
+                        detected_at=detected_at,
+                        callsign=a.get("callsign") or "",
+                        cid=a.get("cid"),
+                        lat=float(latest_pt.y),
+                        lon=float(latest_pt.x),
+                        altitude=a.get("altitude") or a.get("alt"),
+                        zone=",".join(matched_zones) or name,
+                        evidence=json.dumps(evidence),
+                    )
         except Exception:
             # don't let storage failures stop detection; continue
+            pass
+
+        # Record in persistent JSON history (will avoid double-count while pilot remains inside)
+        try:
+            p56_event = {
+                "identifier": ident,
+                "callsign": a.get("callsign"),
+                "cid": a.get("cid"),
+                "prev_position": {"lon": prev_pos[0], "lat": prev_pos[1]} if prev_pos is not None else None,
+                "latest_position": {"lon": latest_pt.x, "lat": latest_pt.y},
+                "prev_ts": prev_ts if prev_pos is not None else None,
+                "latest_ts": latest_ts,
+                "zones": matched_zones,
+                "evidence": evidence,
+            }
+            p56_history.record_penetration(p56_event)
+        except Exception:
             pass
 
         breaches.append(
@@ -142,4 +171,8 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
                 "evidence": evidence,
             }
         )
-    return {"breaches": breaches}
+    try:
+        hist = p56_history.get_history()
+    except Exception:
+        hist = {"events": [], "current_inside": {}}
+    return {"breaches": breaches, "history": hist}
