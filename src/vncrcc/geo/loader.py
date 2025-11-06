@@ -68,10 +68,12 @@ def find_geo_by_keyword(keyword: str) -> Optional[List[Tuple[base.BaseGeometry, 
     """
     allg = load_all_geojson()
     k = keyword.lower()
+    matched: List[Tuple[base.BaseGeometry, Dict]] = []
     for name, shapes in allg.items():
         if k in name:
-            return shapes
-    return None
+            # extend with shapes from each matching file so separate files are treated independently
+            matched.extend(shapes)
+    return matched if matched else None
 
 
 def point_from_aircraft(item: dict) -> Optional[Point]:
