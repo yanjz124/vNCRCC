@@ -7,6 +7,9 @@
 
   const el = id => document.getElementById(id);
   const params = new URLSearchParams(window.location.search);
+  // If the inline SVG's base orientation doesn't match the API heading, tweak this offset.
+  // Positive values rotate the icon clockwise. Adjust if the nose points the wrong way.
+  const PLANE_ROTATION_OFFSET = -90; // degrees; change to 90 or 0 if you see a 90deg mismatch
 
   // affiliation defaults
   const DEFAULT_AFF = ["vusaf","vuscg","usnv"];
@@ -116,8 +119,8 @@
     // Plain SVG plane icon (no halo). The path fill is set directly to the requested color so
     // we can control icon color without a background circle.
     const planeSvg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="${color}" d="M21 16v-2l-8-5V3.5c0-.3-.2-.5-.5-.5s-.5.2-.5.5V9L3 14v2l8-1v4l-2 1v1l5-1 5-1v-1l-2-1v-4l8 1z"/></svg>`;
-    const html = `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;
-        transform: rotate(${heading||0}deg);">${planeSvg}</div>`;
+  const rot = ((Number(heading) || 0) + PLANE_ROTATION_OFFSET) % 360;
+  const html = `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;transform-origin:center;transform: rotate(${rot}deg);">${planeSvg}</div>`;
     return L.divIcon({className:'plane-divicon', html:html, iconSize:[24,24], iconAnchor:[12,12]});
   }
 
