@@ -178,7 +178,55 @@
     el('sfra-count').textContent = sfraList.length;
     el('frz-count').textContent = frzList.length;
     el('p56-count').textContent = (p56json.breaches||[]).length;
-    el('p56-details').textContent = JSON.stringify(p56json.history||{}, null, 2);
+    // Render a cleaner P56 panel instead of dumping raw JSON
+    const renderP56 = (hist)=>{
+      if(!hist) return '<div>No history</div>';
+      let out = '';
+      // current_inside
+      const ci = hist.current_inside || {};
+      out += '<div class="p56-current"><h3>Current inside</h3>';
+      const keys = Object.keys(ci);
+      if(keys.length===0) out += '<div>None</div>';
+      else{
+        out += '<ul>';
+        for(const id of keys){
+          const v = ci[id];
+          const lp = v.last_position ? `${v.last_position.lat.toFixed(5)}, ${v.last_position.lon.toFixed(5)}` : '-';
+          const seen = v.last_seen ? new Date(v.last_seen*1000).toLocaleString() : '-';
+          out += `<li><strong>${id}</strong>: inside=${v.inside} — last: ${lp} @ ${seen}</li>`;
+        }
+        out += '</ul>';
+      }
+      out += '</div>';
+
+      // events
+      const ev = hist.events || [];
+      out += `<div class="p56-events"><h3>Events (${ev.length})</h3>`;
+      if(ev.length===0) out += '<div>No events</div>';
+      else{
+        out += '<ol>';
+        for(const e of ev){
+          const callsign = e.callsign || '';
+          const cid = e.cid || e.identifier || '';
+          const latest = e.latest_position ? `${e.latest_position.lat.toFixed(5)}, ${e.latest_position.lon.toFixed(5)}` : '-';
+          const prev = e.prev_position ? `${e.prev_position.lat.toFixed(5)}, ${e.prev_position.lon.toFixed(5)}` : '-';
+          const latest_t = e.latest_ts ? new Date(e.latest_ts*1000).toLocaleString() : '-';
+          const recorded = e.recorded_at ? new Date(e.recorded_at*1000).toLocaleString() : '-';
+          const zones = (e.zones||[]).join(', ');
+          const zline = (e.evidence && e.evidence.zones_line) ? (e.evidence.zones_line.join(', ')) : '';
+          const zpoint = (e.evidence && e.evidence.zones_point) ? (e.evidence.zones_point.join(', ')) : '';
+          out += `<li class="p56-event"><div class="p56-evt-hdr"><strong>${callsign}</strong> — CID:${cid}</div>`;
+          out += `<div>Latest: ${latest} @ ${latest_t} — Prev: ${prev}</div>`;
+          out += `<div>Recorded: ${recorded} — Zones: ${zones}</div>`;
+          if(zline||zpoint) out += `<div class="p56-evidence">Line zones: ${zline||'-'}; Point zones: ${zpoint||'-'}</div>`;
+          out += '</li>';
+        }
+        out += '</ol>';
+      }
+      out += '</div>';
+      return out;
+    };
+    el('p56-details').innerHTML = renderP56(p56json.history||{});
 
     // update lists
     const renderList = (id, items, fmt) => { const ul=el(id); ul.innerHTML=''; items.forEach(it=>{const li=document.createElement('li');li.innerHTML=fmt(it);ul.appendChild(li);}); };
