@@ -334,7 +334,9 @@
   // Prefer a human-friendly type/model from multiple possible fields used by
   // different data sources. Try several fallbacks so we show something when
   // available: `type`, `aircraft_type`, `aircraft`, `model`, `aircraft_model`, `registration`.
-  const acType = ac.type || ac.aircraft_type || ac.aircraft || ac.model || ac.aircraft_model || ac.registration || '';
+  // Include `aircraft_faa` as a preferred field — some sources expose the FAA
+  // model/type there. Keep other fallbacks for broader compatibility.
+  const acType = ac.type || ac.aircraft_type || ac.aircraft_faa || ac.aircraft || ac.model || ac.aircraft_model || ac.registration || '';
   const line1 = acType ? `<strong>${callsign}</strong> <span class="ac-type">${acType}</span>` : `<strong>${callsign}</strong>`;
   let line2 = '-';
   if(pilotName && cidField) line2 = `${pilotName}, ${cidField}`;
