@@ -77,29 +77,46 @@ def find_p56_shape():
 
 
 def choose_outside_and_inside_points(shp):
-    # choose a simple inside point (representative_point) and find two outside
-    # points on opposite sides of the shape bounding box so the line between
-    # them crosses the shape.
-    from shapely.geometry import Point
+    # Prefer to find two outside points such that the straight line between
+    # them intersects the shape. We'll sample points on a circle around the
+    # shape centroid and look for a pair whose LineString intersects `shp`.
+    from shapely.geometry import Point, LineString
+    import math
 
     inside_pt = shp.representative_point()
     cx, cy = inside_pt.x, inside_pt.y
     minx, miny, maxx, maxy = shp.bounds
+    # radius: a bit larger than the max dimension
+    radius = max(maxx - minx, maxy - miny) * 1.5
+    if radius <= 0:
+        radius = 0.01
 
-    # create candidate outside points to west and east of the shape
+    # sample points around the centroid
+    samples = []
+    for deg in range(0, 360, 10):
+        rad = math.radians(deg)
+        px = cx + math.cos(rad) * radius
+        py = cy + math.sin(rad) * radius
+        samples.append(Point(px, py))
+
+    # find any pair of sample points that are both outside and whose line intersects
+    for i, p1 in enumerate(samples):
+        if shp.contains(p1):
+            continue
+        for j in range(i + 1, len(samples)):
+            p2 = samples[j]
+            if shp.contains(p2):
+                continue
+            line = LineString([(p1.x, p1.y), (p2.x, p2.y)])
+            try:
+                if shp.intersects(line):
+                    return (p1, p2, inside_pt)
+            except Exception:
+                continue
+
+    # fallback: use bbox-west/east if no crossing pair found
     west = Point(minx - 0.01, cy)
     east = Point(maxx + 0.01, cy)
-
-    # ensure they are outside; if not, push further
-    step = 0.01
-    for _ in range(10):
-        if shp.contains(west):
-            west = Point(west.x - step, west.y)
-        if shp.contains(east):
-            east = Point(east.x + step, east.y)
-
-    # also create a prev point outside and latest point exactly inside
-    # for point-in-polygon test use prev outside near west and latest inside
     return (west, east, inside_pt)
 
 
