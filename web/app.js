@@ -332,7 +332,10 @@
         const depField = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
         const arrField = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
         const line1 = `<strong>${callsign}</strong>`;
-        const line2 = `${pilotName || '-'}${cidField ? (', CID: ' + cidField) : ''}`;
+  let line2 = '-';
+  if(pilotName && cidField) line2 = `${pilotName}, ${cidField}`;
+  else if(pilotName) line2 = pilotName;
+  else if(cidField) line2 = cidField;
         const line3 = `GS: ${gsVal} kt — ALT: ${altVal} ft`;
         const line4 = (depField || arrField) ? `${depField || '-'} → ${arrField || '-'}` : '';
         const tooltipHtml = `<div class="ac-tooltip">` +

@@ -34,7 +34,7 @@ li{margin-bottom:6px}
 .legend .ground{background:#6c757d}
 .legend .air{background:#28a745}
 /* aircraft tooltip */
-.ac-tooltip{color:#dfefff;font-size:13px;line-height:1.2}
+.ac-tooltip{color:#ffffff;font-size:13px;line-height:1.2}
 .ac-tooltip div{margin:2px 0}
 /* flight plan tooltip styling */
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
