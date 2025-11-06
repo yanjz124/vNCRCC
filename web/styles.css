@@ -22,4 +22,6 @@ li{margin-bottom:6px}
 .legend .sfra{background:#0275d8}
 .legend .ground{background:#6c757d}
 .legend .air{background:#2b7ae4}
-footer{padding:10px 20px;font-size:0.9rem;color:#9fb7d6}
+/* flight plan tooltip styling */
+.fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
+.fp-tooltip{background:rgba(10,14,18,0.95);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}

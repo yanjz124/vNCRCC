@@ -111,7 +111,11 @@
   }
 
   function createPlaneIcon(color, heading){
-    const svg = `<svg width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${heading||0}deg);"><path fill="${color}" d="M12 2l2 7h6l-5 4 2 7-5-3-5 3 2-7-5-4h6z"/></svg>`;
+    // simple airplane silhouette SVG (rotated via CSS transform)
+    const svg = `
+      <svg width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${heading||0}deg);">
+        <path fill="${color}" d="M21 16v-2l-8-5V3.5a1 1 0 0 0-1-1 1 1 0 0 0-1 1V9L3 14v2l7-1v4l2-1v1l2-1v-1l2 1v-4l7 1z" />
+      </svg>`;
     return L.divIcon({className:'plane-divicon', html:svg, iconSize:[28,28], iconAnchor:[14,14]});
   }
 
@@ -213,6 +217,13 @@
   const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
   const popup = `<div><b>${ac.callsign||''}</b> (CID: ${cid})<br/>${ac.name||''}<br/>${dca.radial_range} — Alt: ${altitude} ft GS: ${groundspeed}<br/>${dep || '-'} → ${arr || '-'}<br/><em>${status.toUpperCase()}</em></div>`;
       marker.bindPopup(popup);
+      // show full flight plan in a tooltip on hover if available
+      try{
+        const fp = ac.flight_plan ? (typeof ac.flight_plan === 'object' ? JSON.stringify(ac.flight_plan, null, 2) : String(ac.flight_plan)) : '';
+        if(fp){
+          marker.bindTooltip(`<pre class="fp">${fp.replace(/</g, '&lt;')}</pre>`, {direction:'top', className:'fp-tooltip', sticky:true});
+        }
+      }catch(e){/* ignore tooltip errors */}
       markerGroup.addLayer(marker);
     }
 
