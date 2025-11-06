@@ -116,11 +116,14 @@
   }
 
   function createPlaneIcon(color, heading){
-    // Plain SVG plane icon (no halo). The path fill is set directly to the requested color so
-    // we can control icon color without a background circle.
-    const planeSvg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="${color}" d="M21 16v-2l-8-5V3.5c0-.3-.2-.5-.5-.5s-.5.2-.5.5V9L3 14v2l8-1v4l-2 1v1l5-1 5-1v-1l-2-1v-4l8 1z"/></svg>`;
-  const rot = ((Number(heading) || 0) + PLANE_ROTATION_OFFSET) % 360;
-  const html = `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;transform-origin:center;transform: rotate(${rot}deg);">${planeSvg}</div>`;
+    // Use the local static SVG file so the SPA shows the exact plane glyph you placed under
+    // /web/static/plane_icon.svg. We apply rotation only so the nose aligns with heading.
+    // Append a version query to avoid stale cache when you replace the file.
+    const url = '/web/static/plane_icon.svg?v=1';
+    const rot = ((Number(heading) || 0) + PLANE_ROTATION_OFFSET) % 360;
+    const html = `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;transform-origin:center;transform: rotate(${rot}deg);">
+        <img src="${url}" width="20" height="20" style="display:block;" alt="plane" />
+      </div>`;
     return L.divIcon({className:'plane-divicon', html:html, iconSize:[24,24], iconAnchor:[12,12]});
   }
 
