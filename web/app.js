@@ -23,8 +23,8 @@
 
   // layers
   const overlays = {sfra: null, frz: null, p56: null};
-  // Disable zoom-to-bounds when clicking clusters to avoid "zoom out" prompts.
-  const markerGroup = L.markerClusterGroup({ zoomToBoundsOnClick: false });
+  // Use a plain layer group so individual aircraft icons are always shown (no cluster numbers or halos).
+  const markerGroup = L.layerGroup();
   map.addLayer(markerGroup);
 
   // caches
@@ -113,16 +113,12 @@
   }
 
   function createPlaneIcon(color, heading){
-    // Inline SVG plane icon using currentColor so the fill isn't hard-coded. The inner wrapper
-    // sets color to white so the plane contrasts with the colored circular background.
-    const planeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21 16v-2l-8-5V3.5c0-.3-.2-.5-.5-.5s-.5.2-.5.5V9L3 14v2l8-1v4l-2 1v1l5-1 5-1v-1l-2-1v-4l8 1z"/></svg>`;
-    const html = `
-      <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center">
-        <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;">
-          <div style="width:18px;height:18px;transform: rotate(${heading||0}deg);color:#fff;">${planeSvg}</div>
-        </div>
-      </div>`;
-    return L.divIcon({className:'plane-divicon', html:html, iconSize:[34,34], iconAnchor:[17,17]});
+    // Plain SVG plane icon (no halo). The path fill is set directly to the requested color so
+    // we can control icon color without a background circle.
+    const planeSvg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="${color}" d="M21 16v-2l-8-5V3.5c0-.3-.2-.5-.5-.5s-.5.2-.5.5V9L3 14v2l8-1v4l-2 1v1l5-1 5-1v-1l-2-1v-4l8 1z"/></svg>`;
+    const html = `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+        transform: rotate(${heading||0}deg);">${planeSvg}</div>`;
+    return L.divIcon({className:'plane-divicon', html:html, iconSize:[24,24], iconAnchor:[12,12]});
   }
 
   async function fetchAllAircraft(){

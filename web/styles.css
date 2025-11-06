@@ -8,12 +8,14 @@ header h1{margin:0;font-size:1.1rem}
 .affiliations{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .controls-actions{display:flex;gap:8px}
 main{padding:12px}
-.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.panels{display:block;gap:12px}
 .panel{background:var(--panel-bg);border:1px solid var(--panel-border);padding:8px;border-radius:6px}
 .panel-row{display:flex;gap:12px}
 /* make the P56 panel span full width and make the SFRA/FRZ panels 50% each */
-#p56-panel{grid-column:1 / -1}
-.panel-row > .panel{flex:1}
+#p56-panel{width:100%;margin-bottom:12px}
+.panel-row > .panel{flex:1;min-width:0}
+.panel{min-width:0}
+.panel ul{max-width:100%;overflow-wrap:break-word}
 .vso-controls{display:flex;align-items:center;gap:12px;margin-bottom:8px}
 .vso-controls label{color:#dfefff}
 .vso-controls input[type="text"], .vso-controls input[type="number"]{background:#081218;border:1px solid #23303a;color:#dfefff;padding:4px;border-radius:4px}
