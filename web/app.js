@@ -111,12 +111,12 @@
   }
 
   function createPlaneIcon(color, heading){
-    // Use external plane icon image with a colored circular background.
-    const url = 'https://upload.wikimedia.org/wikipedia/commons/7/7d/Plane_icon.svg';
+    // Inline SVG plane icon. A local copy is also saved to web/static/plane_icon.svg as a fallback.
+    const planeSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#ffffff" d="M21 16v-2l-8-5V3.5c0-.3-.2-.5-.5-.5s-.5.2-.5.5V9L3 14v2l8-1v4l-2 1v1l5-1 5-1v-1l-2-1v-4l8 1z"/></svg>`;
     const html = `
       <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center">
         <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;">
-          <img src="${url}" style="width:18px;height:18px;transform: rotate(${heading||0}deg);filter:brightness(0) invert(1);"/>
+          <div style="width:18px;height:18px;transform: rotate(${heading||0}deg);">${planeSvg}</div>
         </div>
       </div>`;
     return L.divIcon({className:'plane-divicon', html:html, iconSize:[34,34], iconAnchor:[17,17]});
