@@ -34,8 +34,14 @@ li{margin-bottom:6px}
 .legend .ground{background:#6c757d}
 .legend .air{background:#28a745}
 /* aircraft tooltip */
+/* Ensure tooltip text is readable even when Leaflet applies default styles.
+	Use selector specificity so our styles take precedence. */
 .ac-tooltip{color:#ffffff;font-size:13px;line-height:1.2}
 .ac-tooltip div{margin:2px 0}
+/* Leaflet wraps tooltips with .leaflet-tooltip; ensure our fp-tooltip variant
+	and its inner .ac-tooltip inherit the white color regardless of defaults. */
+.leaflet-tooltip.fp-tooltip, .leaflet-tooltip.fp-tooltip .ac-tooltip { color: #ffffff !important; }
+.leaflet-tooltip.fp-tooltip .ac-type { color: #cfe6ff !important; font-weight:600; margin-left:6px; }
 /* flight plan tooltip styling */
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
 .fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
