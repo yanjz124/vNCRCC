@@ -30,6 +30,9 @@
   const markerGroup = L.layerGroup();
   map.addLayer(markerGroup);
 
+  // icon sizing
+  const ICON_SIZE = 32; // px, slightly larger than before
+
   // caches
   const elevCache = {};
 
@@ -116,10 +119,48 @@
     return false;
   }
 
-  async function createPlaneIcon(/*color, heading*/){
-    // Use the PNG asset for the plane icon. Keeping this async for compatibility with
-    // previous callers that awaited icon creation.
-    return L.icon({ iconUrl: '/web/static/plane_icon.png?v=1', iconSize:[24,24], iconAnchor:[12,12], popupAnchor:[0,-12] });
+  // plane PNG caching + recolor-on-canvas
+  let planePngImage = null;
+  const planePngCache = {}; // color -> L.icon
+
+  function loadPlanePng(){
+    if(planePngImage) return Promise.resolve(planePngImage);
+    return new Promise((resolve, reject)=>{
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = ()=>{ planePngImage = img; resolve(img); };
+      img.onerror = (e)=>{ reject(e); };
+      img.src = '/web/static/plane_icon.png?v=1';
+    });
+  }
+
+  function tintImageToDataUrl(img, color, size){
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    // draw source image scaled to requested size
+    ctx.drawImage(img, 0, 0, size, size);
+    // tint: keep alpha, replace color by using source-in composite
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = color;
+    ctx.fillRect(0,0,size,size);
+    return canvas.toDataURL('image/png');
+  }
+
+  async function createPlaneIcon(color/*, heading*/){
+    const size = ICON_SIZE;
+    if(planePngCache[color]) return planePngCache[color];
+    try{
+      const img = await loadPlanePng();
+      const dataUrl = tintImageToDataUrl(img, color, size);
+      const icon = L.icon({ iconUrl: dataUrl, iconSize:[size,size], iconAnchor:[Math.round(size/2),Math.round(size/2)], popupAnchor:[0,-Math.round(size/2)] });
+      planePngCache[color] = icon;
+      return icon;
+    }catch(e){
+      // fallback to static PNG
+      return L.icon({ iconUrl: '/web/static/plane_icon.png?v=1', iconSize:[size,size], iconAnchor:[Math.round(size/2),Math.round(size/2)], popupAnchor:[0,-Math.round(size/2)] });
+    }
   }
 
   async function fetchAllAircraft(){
