@@ -11,10 +11,19 @@
   <header>
     <h1>vNCRCC Live Dashboard</h1>
     <div class="controls">
-      <label>VSO range (nm): <input id="vso-range" type="number" value="60" min="1"/></label>
-      <label>Affiliations (comma-separated): <input id="vso-aff" type="text" placeholder="vusaf.us,vuscg,usnv"/></label>
-      <button id="apply">Apply</button>
-      <button id="refresh">Refresh</button>
+      <label>VSO range (nm): <input id="vso-range" type="number" value="100" min="1"/></label>
+      <div class="affiliations">
+        <span>Affiliations:</span>
+        <label><input type="checkbox" class="aff-check" value="vusaf" checked/> VUSAF</label>
+        <label><input type="checkbox" class="aff-check" value="vuscg" checked/> VUSCG</label>
+        <label><input type="checkbox" class="aff-check" value="usnv" checked/> USNV</label>
+        <input id="custom-aff" type="text" placeholder="add,comma,separated" />
+        <button id="add-aff">Add</button>
+      </div>
+      <div class="controls-actions">
+        <button id="apply">Apply</button>
+        <button id="refresh">Refresh</button>
+      </div>
     </div>
   </header>
 
@@ -40,6 +49,17 @@
 
     <section id="map-section">
       <div id="map"></div>
+      <div id="legend" class="legend">
+        <h3>Legend</h3>
+        <div><span class="swatch frz"></span> FRZ</div>
+        <div><span class="swatch p56"></span> P-56</div>
+        <div><span class="swatch sfra"></span> SFRA</div>
+        <div><span class="swatch ground"></span> On Ground</div>
+        <div><span class="swatch air"></span> Airborne</div>
+        <div><label><input type="checkbox" id="toggle-sfra" checked/> Show SFRA</label></div>
+        <div><label><input type="checkbox" id="toggle-frz" checked/> Show FRZ</label></div>
+        <div><label><input type="checkbox" id="toggle-p56" checked/> Show P-56</label></div>
+      </div>
     </section>
   </main>
 
@@ -48,6 +68,10 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
