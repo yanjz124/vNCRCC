@@ -111,12 +111,15 @@
   }
 
   function createPlaneIcon(color, heading){
-    // simple airplane silhouette SVG (rotated via CSS transform)
-    const svg = `
-      <svg width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${heading||0}deg);">
-        <path fill="${color}" d="M21 16v-2l-8-5V3.5a1 1 0 0 0-1-1 1 1 0 0 0-1 1V9L3 14v2l7-1v4l2-1v1l2-1v-1l2 1v-4l7 1z" />
-      </svg>`;
-    return L.divIcon({className:'plane-divicon', html:svg, iconSize:[28,28], iconAnchor:[14,14]});
+    // Use external plane icon image with a colored circular background.
+    const url = 'https://upload.wikimedia.org/wikipedia/commons/7/7d/Plane_icon.svg';
+    const html = `
+      <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center">
+        <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;">
+          <img src="${url}" style="width:18px;height:18px;transform: rotate(${heading||0}deg);filter:brightness(0) invert(1);"/>
+        </div>
+      </div>`;
+    return L.divIcon({className:'plane-divicon', html:html, iconSize:[34,34], iconAnchor:[17,17]});
   }
 
   async function fetchAllAircraft(){

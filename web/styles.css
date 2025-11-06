@@ -10,6 +10,11 @@ header h1{margin:0;font-size:1.1rem}
 main{padding:12px}
 .panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 .panel{background:var(--panel-bg);border:1px solid var(--panel-border);padding:8px;border-radius:6px}
+.panel-row{display:flex;gap:12px}
+.vso-controls{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.vso-controls label{color:#dfefff}
+.vso-controls input[type="text"], .vso-controls input[type="number"]{background:#081218;border:1px solid #23303a;color:#dfefff;padding:4px;border-radius:4px}
+.vso-controls .affiliations{display:flex;gap:8px;align-items:center}
 .panel h2{color:#cfe6ff}
 #map-section{margin-top:12px;position:relative}
 #map{height:560px;border-radius:6px}

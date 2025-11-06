@@ -29,22 +29,22 @@
 
   <main>
     <section class="panels">
-      <div class="panel" id="sfra-panel">
-        <h2>SFRA Traffic (<span id="sfra-count">0</span>)</h2>
-        <ul id="sfra-list"></ul>
-      </div>
-      <div class="panel" id="frz-panel">
-        <h2>FRZ Traffic (<span id="frz-count">0</span>)</h2>
-        <ul id="frz-list"></ul>
-      </div>
       <div class="panel" id="p56-panel">
         <h2>P56 Busts (<span id="p56-count">0</span>)</h2>
         <div id="p56-details"></div>
       </div>
-      <div class="panel" id="vso-panel">
-        <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
-        <ul id="vso-list"></ul>
+
+      <div class="panel-row">
+        <div class="panel" id="sfra-panel">
+          <h2>SFRA Traffic (<span id="sfra-count">0</span>)</h2>
+          <ul id="sfra-list"></ul>
+        </div>
+        <div class="panel" id="frz-panel">
+          <h2>FRZ Traffic (<span id="frz-count">0</span>)</h2>
+          <ul id="frz-list"></ul>
+        </div>
       </div>
+
     </section>
 
     <section id="map-section">
@@ -59,6 +59,27 @@
         <div><label><input type="checkbox" id="toggle-sfra" checked/> Show SFRA</label></div>
         <div><label><input type="checkbox" id="toggle-frz" checked/> Show FRZ</label></div>
         <div><label><input type="checkbox" id="toggle-p56" checked/> Show P-56</label></div>
+      </div>
+    </section>
+
+    <section id="vso-section">
+      <div class="panel" id="vso-panel">
+        <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
+        <div class="vso-controls">
+          <label>VSO range (nm): <input id="vso-range" type="number" value="100" min="1"/></label>
+          <div class="affiliations">
+            <label><input type="checkbox" class="aff-check" value="vusaf" checked/> VUSAF</label>
+            <label><input type="checkbox" class="aff-check" value="vuscg" checked/> VUSCG</label>
+            <label><input type="checkbox" class="aff-check" value="usnv" checked/> USNV</label>
+            <input id="custom-aff" type="text" placeholder="add,comma,separated" />
+            <button id="add-aff">Add</button>
+          </div>
+          <div class="controls-actions">
+            <button id="apply">Apply</button>
+            <button id="refresh">Refresh</button>
+          </div>
+        </div>
+        <ul id="vso-list"></ul>
       </div>
     </section>
   </main>
