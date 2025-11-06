@@ -32,6 +32,18 @@
 
   // caches
   const elevCache = {};
+  // cached raw SVG text for the plane icon (so we can recolor the glyph)
+  let planeSvgRaw = null;
+  async function preloadPlaneSvg(){
+    try{
+      const res = await fetch('/web/static/plane_icon.svg?v=1');
+      if(res.ok){
+        planeSvgRaw = await res.text();
+      }
+    }catch(e){ /* ignore preload errors */ }
+  }
+  // start preload (non-blocking)
+  preloadPlaneSvg();
 
   function setPermalink(){
     const r = el('vso-range').value;
@@ -116,14 +128,25 @@
   }
 
   function createPlaneIcon(color, heading){
-    // Use the local static SVG file so the SPA shows the exact plane glyph you placed under
-    // /web/static/plane_icon.svg. We apply rotation only so the nose aligns with heading.
-    // Append a version query to avoid stale cache when you replace the file.
-    const url = '/web/static/plane_icon.svg?v=1';
+    // Create the plane icon by inlining the preloaded SVG and replacing any 'fill' attributes
+    // with the requested color. If the SVG hasn't been preloaded yet, fall back to the
+    // <img> tag which will still show the glyph but won't be recolored.
     const rot = ((Number(heading) || 0) + PLANE_ROTATION_OFFSET) % 360;
-    const html = `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;transform-origin:center;transform: rotate(${rot}deg);">
-        <img src="${url}" width="20" height="20" style="display:block;" alt="plane" />
-      </div>`;
+    let inner = null;
+    if(planeSvgRaw){
+      // replace any fill="..." or fill='...' occurrences
+      try{
+        const replaced = planeSvgRaw.replace(/fill=(\"[^\"]*\"|\'[^\']*\')/gi, `fill="${color}"`);
+        // strip XML prolog if present
+        const clean = replaced.replace(/<\?xml[^>]*>\s*/i, '');
+        inner = clean;
+      }catch(e){ inner = null; }
+    }
+    if(!inner){
+      const url = '/web/static/plane_icon.svg?v=1';
+      inner = `<img src="${url}" width="20" height="20" style="display:block;filter:brightness(0) saturate(100%) invert(0);" alt="plane"/>`;
+    }
+    const html = `<div style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;transform-origin:center;transform: rotate(${rot}deg);">${inner}</div>`;
     return L.divIcon({className:'plane-divicon', html:html, iconSize:[24,24], iconAnchor:[12,12]});
   }
 
