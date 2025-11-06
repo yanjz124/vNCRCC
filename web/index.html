@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>vNCRCC Live Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>vNCRCC Live Dashboard</h1>
+    <div class="controls">
+      <label>VSO range (nm): <input id="vso-range" type="number" value="60" min="1"/></label>
+      <label>Affiliations (comma-separated): <input id="vso-aff" type="text" placeholder="vusaf.us,vuscg,usnv"/></label>
+      <button id="apply">Apply</button>
+      <button id="refresh">Refresh</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="panels">
+      <div class="panel" id="sfra-panel">
+        <h2>SFRA Traffic (<span id="sfra-count">0</span>)</h2>
+        <ul id="sfra-list"></ul>
+      </div>
+      <div class="panel" id="frz-panel">
+        <h2>FRZ Traffic (<span id="frz-count">0</span>)</h2>
+        <ul id="frz-list"></ul>
+      </div>
+      <div class="panel" id="p56-panel">
+        <h2>P56 Busts (<span id="p56-count">0</span>)</h2>
+        <div id="p56-details"></div>
+      </div>
+      <div class="panel" id="vso-panel">
+        <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
+        <ul id="vso-list"></ul>
+      </div>
+    </section>
+
+    <section id="map-section">
+      <div id="map"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Auto-refresh every <span id="interval">15</span>s. Open <a id="permalink" href="#">permalink</a> to save settings.</p>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

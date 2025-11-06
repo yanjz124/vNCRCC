@@ -5,6 +5,7 @@ from datetime import datetime
 
 import yaml
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from .storage import STORAGE
 from .vatsim_client import VatsimClient
@@ -83,6 +84,13 @@ async def last_snapshot() -> dict:
 
 # Mount API package (routes under /api/v1/...)
 app.include_router(api_router)
+
+# Serve the simple web dashboard from /web
+try:
+    app.mount("/web", StaticFiles(directory="web", html=True), name="web")
+except Exception:
+    # don't fail startup if static files can't be mounted in some environments
+    logger.exception("Failed to mount /web static directory")
 
 
 __all__ = ["app", "STORAGE", "FETCHER"]

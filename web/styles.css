@@ -1,0 +1,14 @@
+:root{--panel-bg:#fff;--panel-border:#ddd;--accent:#2b7ae4}
+body{font-family:Segoe UI,Arial,sans-serif;margin:0;background:#f4f6f8;color:#222}
+header{padding:12px 20px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:1.1rem}
+.controls label{margin-right:12px;color:#fff}
+.controls input{margin-left:6px}
+main{padding:12px}
+.panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.panel{background:var(--panel-bg);border:1px solid var(--panel-border);padding:8px;border-radius:6px}
+#map-section{margin-top:12px}
+#map{height:520px;border:1px solid #ccc;border-radius:6px}
+ul{margin:6px 0;padding-left:18px}
+li{margin-bottom:6px}
+footer{padding:10px 20px;font-size:0.9rem;color:#444}
