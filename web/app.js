@@ -331,7 +331,8 @@
         const altVal = Math.round(Number(ac.altitude || ac.alt || 0));
         const depField = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
         const arrField = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-        const line1 = `<strong>${callsign}</strong>`;
+  const acType = ac.type || ac.aircraft_type || ac.aircraft || '';
+  const line1 = acType ? `<strong>${callsign}</strong> <span class="ac-type">${acType}</span>` : `<strong>${callsign}</strong>`;
   let line2 = '-';
   if(pilotName && cidField) line2 = `${pilotName}, ${cidField}`;
   else if(pilotName) line2 = pilotName;

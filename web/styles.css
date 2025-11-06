@@ -38,4 +38,5 @@ li{margin-bottom:6px}
 .ac-tooltip div{margin:2px 0}
 /* flight plan tooltip styling */
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
-.fp-tooltip{background:rgba(10,14,18,0.95);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
+.fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
+.ac-tooltip .ac-type{color:#cfe6ff;font-weight:600;margin-left:6px}
