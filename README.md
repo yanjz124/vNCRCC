@@ -60,3 +60,58 @@ Notes:
 - You can override the config path via the `VNCRCC_CONFIG` environment
   variable or by passing a different `-ConfigPath` to `dev-run.ps1`.
 
+Run locally — quick reference
+-----------------------------
+
+These steps give a concise recipe to run the API and worker locally on either
+Windows (PowerShell) or Unix-like systems (macOS / Linux). Use whichever set of
+commands matches the machine you'll run on.
+
+PowerShell (Windows)
+
+1. Open PowerShell in the repository root.
+2. Create and activate the virtual environment (the helper script does this for you, but here are the manual steps if you want them):
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+3. Run the API (recommended helper):
+
+```powershell
+.\dev-run.ps1 -Mode api -Port 8000
+```
+
+4. Or run the worker (polls VATSIM and stores snapshots):
+
+```powershell
+.\dev-run.ps1 -Mode worker
+```
+
+5. Open the dashboard in a browser:
+
+Point your browser to http://localhost:8000/ (or the port you chose) to open the SPA and API docs.
+
+Unix / macOS (bash)
+
+1. From the project root:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+# Run the API
+uvicorn vncrcc.app:app --host 0.0.0.0 --port 8000 --reload
+# Or run the worker
+python -m src.vncrcc.worker
+```
+
+Notes & tips
+- The project uses `config/example_config.yaml` by default. To use a different config file, set the `VNCRCC_CONFIG` environment variable to the YAML path before starting the API or worker.
+- If you use the PowerShell helper (`dev-run.ps1`) it creates/uses a local `.venv` and sets `PYTHONPATH` to include `src` so module imports resolve.
+- To run tests locally: `pytest -q` from the repository root (activate the virtualenv first).
+- If the SPA shows stale assets after an update, do a hard refresh (Ctrl+F5) or open DevTools → Network → Disable cache before reloading.
+
+
