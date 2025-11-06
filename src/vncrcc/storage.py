@@ -104,31 +104,10 @@ class Storage:
         self.conn.commit()
         return cur.lastrowid or 0
 
-    def list_incidents(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """Return up to `limit` most recent incidents as list of dicts."""
+    def update_incident(self, id: int, evidence: str) -> None:
         cur = self.conn.cursor()
-        cur.execute(
-            "SELECT id, detected_at, callsign, cid, lat, lon, altitude, zone, evidence FROM incidents ORDER BY detected_at DESC LIMIT ?",
-            (limit,),
-        )
-        rows = cur.fetchall()
-        out: List[Dict[str, Any]] = []
-        for r in rows:
-            id_, detected_at, callsign, cid, lat, lon, altitude, zone, evidence = r
-            out.append(
-                {
-                    "id": id_,
-                    "detected_at": detected_at,
-                    "callsign": callsign,
-                    "cid": cid,
-                    "lat": lat,
-                    "lon": lon,
-                    "altitude": altitude,
-                    "zone": zone,
-                    "evidence": evidence,
-                }
-            )
-        return out
+        cur.execute("UPDATE incidents SET evidence = ? WHERE id = ?", (evidence, id))
+        self.conn.commit()
 
     def list_aircraft(self) -> List[Dict[str, Any]]:
         snap = self.get_latest_snapshot()

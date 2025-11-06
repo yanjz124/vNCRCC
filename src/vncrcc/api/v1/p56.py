@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from shapely.geometry import LineString
 import json
 import time
+from collections import defaultdict
 
 from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
@@ -28,7 +29,7 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
     if not shapes:
         raise HTTPException(status_code=404, detail=f"No geo named like '{name}' found in geo directory")
     # For penetration calculation we require at least two snapshots
-    snaps = storage.STORAGE.get_latest_snapshots(2) if storage.STORAGE else []
+    snaps = storage.STORAGE.get_latest_snapshots(12) if storage.STORAGE else []
     if len(snaps) < 2:
         # still provide the persisted history even when snapshots aren't available
         try:
@@ -44,9 +45,25 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
     latest_ac = (latest.get("data") or {}).get("pilots") or (latest.get("data") or {}).get("aircraft") or []
     prev_ac = (prev.get("data") or {}).get("pilots") or (prev.get("data") or {}).get("aircraft") or []
 
+    # Collect positions by cid from recent snapshots
+    positions_by_cid = defaultdict(list)
+    for snap in snaps:
+        ts = snap["fetched_at"]
+        for ac in snap["data"].get("pilots", []):
+            cid = ac.get("cid")
+            if cid:
+                positions_by_cid[str(cid)].append({
+                    "ts": ts,
+                    "lat": ac.get("latitude"),
+                    "lon": ac.get("longitude"),
+                    "altitude": ac.get("altitude"),
+                    "groundspeed": ac.get("groundspeed"),
+                    "heading": ac.get("heading"),
+                })
+
     # Sync current inside/exited state from latest snapshot so history reflects exits
     try:
-        p56_history.sync_snapshot(latest_ac, shapes, latest_ts)
+        p56_history.sync_snapshot(latest_ac, shapes, latest_ts, positions_by_cid)
     except Exception:
         pass
 
@@ -116,12 +133,19 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
             # no penetration detected for this aircraft
             continue
         prev_pos = prev_map[ident]["pos"] if ident in prev_map else None
+        # Get pre_positions: 5 positions before prev_ts
+        positions = positions_by_cid.get(str(a.get("cid")), [])
+        pre_positions = [p for p in positions if p["ts"] < prev_ts]
+        pre_positions.sort(key=lambda x: x["ts"], reverse=True)  # most recent first
+        pre_positions = pre_positions[:5]
         evidence = {
             "zones_point": matched_zones_point,
             "zones_line": matched_zones_line,
             "line": list(line.coords) if line is not None else None,
             "prev_ts": prev_ts,
             "latest_ts": latest_ts,
+            "pre_positions": pre_positions,
+            "flight_plan": a.get("flight_plan", {}),
         }
         # persist incident to storage
         detected_at = latest_ts or time.time()
@@ -153,6 +177,8 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
                 "latest_ts": latest_ts,
                 "zones": matched_zones,
                 "evidence": evidence,
+                "flight_plan": a.get("flight_plan", {}),
+                "pre_positions": pre_positions,
             }
             p56_history.record_penetration(p56_event)
         except Exception:
@@ -169,6 +195,8 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
                 "latest_ts": latest_ts,
                 "zones": matched_zones,
                 "evidence": evidence,
+                "flight_plan": a.get("flight_plan", {}),
+                "pre_positions": pre_positions,
             }
         )
     try:

@@ -28,7 +28,9 @@
   const overlays = {sfra: null, frz: null, p56: null};
   // Use a plain layer group so individual aircraft icons are always shown (no cluster numbers or halos).
   const markerGroup = L.layerGroup();
+  const pathLayer = L.layerGroup();
   map.addLayer(markerGroup);
+  map.addLayer(pathLayer);
 
   // icon sizing
   const ICON_SIZE = 32; // px, slightly larger than before
@@ -218,68 +220,90 @@
 
     el('sfra-count').textContent = sfraList.length;
     el('frz-count').textContent = frzList.length;
-    el('p56-count').textContent = (p56json.breaches||[]).length;
-    // Render a cleaner P56 panel instead of dumping raw JSON
-    const renderP56 = (hist)=>{
-      if(!hist) return '<div>No history</div>';
-      let out = '';
-      // current_inside
-      const ci = hist.current_inside || {};
-      out += '<div class="p56-current"><h3>Current inside</h3>';
-      const keys = Object.keys(ci);
-      if(keys.length===0) out += '<div>None</div>';
-      else{
-        out += '<ul>';
-        for(const id of keys){
-          const v = ci[id];
-          const lp = v.last_position ? `${v.last_position.lat.toFixed(5)}, ${v.last_position.lon.toFixed(5)}` : '-';
-          const seen = v.last_seen ? new Date(v.last_seen*1000).toLocaleString() : '-';
-          out += `<li><strong>${id}</strong>: inside=${v.inside} — last: ${lp} @ ${seen}</li>`;
-        }
-        out += '</ul>';
-      }
-      out += '</div>';
+    el('p56-count').textContent = Object.keys(p56json.history?.current_inside || {}).filter(cid => p56json.history.current_inside[cid].inside).length;
 
-      // events
-      const ev = hist.events || [];
-      out += `<div class="p56-events"><h3>Events (${ev.length})</h3>`;
-      if(ev.length===0) out += '<div>No events</div>';
-      else{
-        out += '<ol>';
-        for(const e of ev){
-          const callsign = e.callsign || '';
-          const cid = e.cid || e.identifier || '';
-          const latest = e.latest_position ? `${e.latest_position.lat.toFixed(5)}, ${e.latest_position.lon.toFixed(5)}` : '-';
-          const prev = e.prev_position ? `${e.prev_position.lat.toFixed(5)}, ${e.prev_position.lon.toFixed(5)}` : '-';
-          const latest_t = e.latest_ts ? new Date(e.latest_ts*1000).toLocaleString() : '-';
-          const recorded = e.recorded_at ? new Date(e.recorded_at*1000).toLocaleString() : '-';
-          const zones = (e.zones||[]).join(', ');
-          const zline = (e.evidence && e.evidence.zones_line) ? (e.evidence.zones_line.join(', ')) : '';
-          const zpoint = (e.evidence && e.evidence.zones_point) ? (e.evidence.zones_point.join(', ')) : '';
-          out += `<li class="p56-event"><div class="p56-evt-hdr"><strong>${callsign}</strong> — CID:${cid}</div>`;
-          out += `<div>Latest: ${latest} @ ${latest_t} — Prev: ${prev}</div>`;
-          out += `<div>Recorded: ${recorded} — Zones: ${zones}</div>`;
-          if(zline||zpoint) out += `<div class="p56-evidence">Line zones: ${zline||'-'}; Point zones: ${zpoint||'-'}</div>`;
-          out += '</li>';
-        }
-        out += '</ol>';
-      }
-      out += '</div>';
-      return out;
+    // Render tables
+    const renderTable = (tbodyId, items, rowFn) => {
+      const tbody = el(tbodyId);
+      tbody.innerHTML = '';
+      items.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'expandable';
+        tr.innerHTML = rowFn(item);
+        const fpDiv = document.createElement('tr');
+        fpDiv.className = 'flight-plan';
+        fpDiv.innerHTML = `<td colspan="9"><pre>${JSON.stringify(item.flight_plan || {}, null, 2)}</pre></td>`;
+        tr.addEventListener('click', () => {
+          fpDiv.classList.toggle('show');
+        });
+        tbody.appendChild(tr);
+        tbody.appendChild(fpDiv);
+      });
     };
-    el('p56-details').innerHTML = renderP56(p56json.history||{});
 
-    // update lists
-    const renderList = (id, items, fmt) => { const ul=el(id); ul.innerHTML=''; items.forEach(it=>{const li=document.createElement('li');li.innerHTML=fmt(it);ul.appendChild(li);}); };
-    renderList('sfra-list', sfraList, it=>{
-      const ac = it.aircraft||it;
+    // P56 current inside
+    const currentInside = Object.keys(p56json.history?.current_inside || {}).filter(cid => p56json.history.current_inside[cid].inside).map(cid => {
+      const ci = p56json.history.current_inside[cid];
+      const ac = latest_ac.find(a => String(a.cid) === cid) || {};
+      return { ...ci, ...ac };
+    });
+    renderTable('p56-tbody', currentInside, ci => {
+      const dca = computeDca(ci.latitude || ci.last_position?.lat, ci.longitude || ci.last_position?.lon);
+      const dep = (ci.flight_plan && (ci.flight_plan.departure || ci.flight_plan.depart)) || '';
+      const arr = (ci.flight_plan && (ci.flight_plan.arrival || ci.flight_plan.arr)) || '';
+      const acType = (ci.flight_plan && ci.flight_plan.aircraft_faa) || (ci.flight_plan && ci.flight_plan.aircraft_short) || '';
+      return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.radial_range}</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${Math.round(ci.heading || 0)}</td><td>${dep} → ${arr}</td>`;
+    });
+
+    // P56 events
+    const events = p56json.history?.events || [];
+    const tbodyEvents = el('p56-events-tbody');
+    tbodyEvents.innerHTML = '';
+    events.forEach(evt => {
+      const tr = document.createElement('tr');
+      tr.className = 'expandable';
+      const recorded = evt.recorded_at ? new Date(evt.recorded_at * 1000).toLocaleTimeString() : '-';
+      const zones = (evt.zones || []).join(', ');
+      tr.innerHTML = `<td>${evt.callsign || ''}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${evt.name || ''}</td><td>${evt.cid || ''}</td><td>${recorded}</td><td>${zones}</td>`;
+      const fpDiv = document.createElement('tr');
+      fpDiv.className = 'flight-plan';
+      fpDiv.innerHTML = `<td colspan="6"><pre>${JSON.stringify(evt.flight_plan || {}, null, 2)}</pre></td>`;
+      tr.addEventListener('click', () => {
+        fpDiv.classList.toggle('show');
+        // Draw path
+        pathLayer.clearLayers();
+        const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
+        if (positions.length > 1) {
+          const latlngs = positions.map(p => [p.lat, p.lon]);
+          const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+          pathLayer.addLayer(polyline);
+        }
+      });
+      tbodyEvents.appendChild(tr);
+      tbodyEvents.appendChild(fpDiv);
+    });
+
+    // SFRA table
+    renderTable('sfra-tbody', sfraList, it => {
+      const ac = it.aircraft || it;
       const dca = it.dca || computeDca(ac.latitude, ac.longitude);
       const cid = ac.cid || '';
       const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
       const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-      return `<strong>${ac.callsign||''}</strong> — ${dca.radial_range} — CID:${cid} — ${dep || '-'} → ${arr || '-'}`;
+      const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+      return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.radial_range}</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${Math.round(ac.heading || 0)}</td><td>${dep} → ${arr}</td>`;
     });
-  renderList('frz-list', frzList, it=>{ const ac=it.aircraft||it; const dca = it.dca || computeDca(ac.latitude, ac.longitude); const cid = ac.cid||''; const dep=(ac.flight_plan && (ac.flight_plan.departure||ac.flight_plan.depart))||''; const arr=(ac.flight_plan && (ac.flight_plan.arrival||ac.flight_plan.arr))||''; return `<strong>${ac.callsign||''}</strong> — ${dca.radial_range} — CID:${cid} — ${dep||'-'} → ${arr||'-'}`; });
+
+    // FRZ table
+    renderTable('frz-tbody', frzList, it => {
+      const ac = it.aircraft || it;
+      const dca = it.dca || computeDca(ac.latitude, ac.longitude);
+      const cid = ac.cid || '';
+      const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+      const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+      const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+      return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.radial_range}</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${Math.round(ac.heading || 0)}</td><td>${dep} → ${arr}</td>`;
+    });
 
     // markers
     markerGroup.clearLayers();
@@ -318,7 +342,7 @@
       // dep → dest, aircraft type. Clicking the aircraft replaces the popup with the full
       // JSON returned by the API for that aircraft.
       const summary = `<div class="ac-summary"><strong>${ac.callsign||''}</strong> — ${ac.name||''} (CID: ${cid})</div>
-        <div>${dca.radial_range} — ${dep || '-'} → ${arr || '-'} — ${ac.type||ac.aircraft_type||'-'}</div>
+        <div>${dca.radial_range} — ${dep || '-'} → ${arr || '-'} — ${(ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '-'}</div>
         <div><em>${status.toUpperCase()}</em></div>`;
       marker.bindPopup(summary);
 
@@ -332,11 +356,9 @@
         const depField = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
         const arrField = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
   // Prefer a human-friendly type/model from multiple possible fields used by
-  // different data sources. Try several fallbacks so we show something when
-  // available: `type`, `aircraft_type`, `aircraft`, `model`, `aircraft_model`, `registration`.
-  // Include `aircraft_faa` as a preferred field — some sources expose the FAA
-  // model/type there. Keep other fallbacks for broader compatibility.
-  const acType = ac.type || ac.aircraft_type || ac.aircraft_faa || ac.aircraft || ac.model || ac.aircraft_model || ac.registration || '';
+  // different data sources. Prefer `aircraft_faa` then `aircraft_short` when
+  // available, then fall back to older fields for broader compatibility.
+  const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || ac.aircraft || ac.model || ac.aircraft_model || ac.registration || '';
   const line1 = acType ? `<strong>${callsign}</strong> <span class="ac-type">${acType}</span>` : `<strong>${callsign}</strong>`;
   let line2 = '-';
   if(pilotName && cidField) line2 = `${pilotName}, ${cidField}`;

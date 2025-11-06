@@ -61,6 +61,7 @@ def record_penetration(event: Dict[str, Any]) -> None:
         "inside": True,
         "last_seen": event_copy.get("latest_ts") or event_copy.get("recorded_at"),
         "last_position": event_copy.get("latest_position"),
+        "flight_plan": event_copy.get("flight_plan", {}),
     }
 
     _atomic_write(data)
@@ -75,14 +76,16 @@ def mark_exit(cid: str, ts: Optional[float] = None) -> None:
         _atomic_write(data)
 
 
-def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optional[float] = None) -> None:
+def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optional[float] = None, positions_by_cid: Optional[Dict[str, List]] = None) -> None:
     """Update current_inside flags based on latest snapshot.
 
     aircraft_list: list of VATSIM aircraft dicts
     features: list of (shapely_shape, props)
+    positions_by_cid: dict of cid to list of position dicts
     """
     data = _load()
     current: Dict[str, Any] = data.setdefault("current_inside", {})
+    events: List[Dict[str, Any]] = data.setdefault("events", [])
     # Build map by cid
     ac_map: Dict[str, Dict[str, Any]] = {}
     for a in aircraft_list:
@@ -110,5 +113,19 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
             # mark exit
             current[cid]["inside"] = False
             current[cid]["last_seen"] = ts or time.time()
+            # add post_positions to the last event for this cid
+            last_event = None
+            for e in reversed(events):
+                if str(e.get("cid")) == cid:
+                    last_event = e
+                    break
+            if last_event and positions_by_cid:
+                latest_ts = last_event.get("latest_ts")
+                if latest_ts:
+                    positions = positions_by_cid.get(cid, [])
+                    post_positions = [p for p in positions if p["ts"] > latest_ts]
+                    post_positions.sort(key=lambda x: x["ts"])  # oldest first
+                    post_positions = post_positions[:5]
+                    last_event.setdefault("post_positions", post_positions)
 
     _atomic_write(data)
