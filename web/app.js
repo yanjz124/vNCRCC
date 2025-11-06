@@ -301,7 +301,8 @@
       }
       if(onGround) status = 'ground';
 
-  const color = status==='frz'? '#d9534f' : status==='p56'? '#f0ad4e' : status==='sfra'? '#0275d8' : status==='ground'? '#6c757d' : '#2b7ae4';
+  // Colors: FRZ (red), P56 (orange), SFRA (blue), ground (gray), airborne outside SFRA (green)
+  const color = status==='frz'? '#d9534f' : status==='p56'? '#f0ad4e' : status==='sfra'? '#0275d8' : status==='ground'? '#6c757d' : '#28a745';
   const icon = await createPlaneIcon(color, heading);
   const marker = L.marker([lat, lon], {icon: icon});
   const dca = ac.dca || computeDca(lat, lon);
