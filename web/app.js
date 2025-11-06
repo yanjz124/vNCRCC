@@ -322,12 +322,26 @@
         <div><em>${status.toUpperCase()}</em></div>`;
       marker.bindPopup(summary);
 
-      // show full flight plan in a tooltip on hover if available
+      // show a compact tooltip on hover with first-line summary (callsign, pilot, cid, gs, alt, route)
       try{
-        const fp = ac.flight_plan ? (typeof ac.flight_plan === 'object' ? JSON.stringify(ac.flight_plan, null, 2) : String(ac.flight_plan)) : '';
-        if(fp){
-          marker.bindTooltip(`<pre class="fp">${fp.replace(/</g, '&lt;')}</pre>`, {direction:'top', className:'fp-tooltip', sticky:true});
-        }
+        const callsign = ac.callsign || '';
+        const pilotName = ac.name || '';
+        const cidField = ac.cid || '';
+        const gsVal = Math.round(Number(ac.groundspeed || ac.gs || 0));
+        const altVal = Math.round(Number(ac.altitude || ac.alt || 0));
+        const depField = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+        const arrField = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+        const line1 = `<strong>${callsign}</strong>`;
+        const line2 = `${pilotName || '-'}${cidField ? (', CID: ' + cidField) : ''}`;
+        const line3 = `GS: ${gsVal} kt — ALT: ${altVal} ft`;
+        const line4 = (depField || arrField) ? `${depField || '-'} → ${arrField || '-'}` : '';
+        const tooltipHtml = `<div class="ac-tooltip">` +
+                            `<div>${line1}</div>` +
+                            `<div>${line2}</div>` +
+                            `<div>${line3}</div>` +
+                            `<div>${line4}</div>` +
+                            `</div>`;
+        marker.bindTooltip(tooltipHtml, {direction:'top', className:'fp-tooltip', sticky:true});
       }catch(e){/* ignore tooltip errors */}
 
       // When the marker is clicked, replace the popup content with the full aircraft JSON
