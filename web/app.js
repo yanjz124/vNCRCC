@@ -51,6 +51,26 @@
     return km / 1.852;
   }
 
+  function computeDca(lat, lon){
+    // compute bearing and distance similar to server-side _dca_radial_range
+    const toRad = d => d * Math.PI/180;
+    const toDeg = r => r * 180/Math.PI;
+    const lat1 = toRad(DCA[0]);
+    const lon1 = toRad(DCA[1]);
+    const lat2 = toRad(lat);
+    const lon2 = toRad(lon);
+    const dlon = lon2 - lon1;
+    const x = Math.sin(dlon) * Math.cos(lat2);
+    const y = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dlon);
+    let brng = toDeg(Math.atan2(x,y));
+    brng = (brng + 360) % 360;
+    const brng_i = Math.round(brng) % 360;
+    const dist_nm = haversineNm(DCA[0], DCA[1], lat, lon);
+    const dist_i = Math.round(dist_nm);
+    const compact = `DCA${String(brng_i).padStart(3,'0')}${String(dist_i).padStart(3,'0')}`;
+    return {radial_range: compact, bearing: brng_i, range_nm: dist_i};
+  }
+
   async function loadGeo(name){
     try{
       const res = await fetch(`${API_ROOT}/geo/?name=${encodeURIComponent(name)}`);
@@ -151,9 +171,14 @@
     // update lists
     const renderList = (id, items, fmt) => { const ul=el(id); ul.innerHTML=''; items.forEach(it=>{const li=document.createElement('li');li.innerHTML=fmt(it);ul.appendChild(li);}); };
     renderList('sfra-list', sfraList, it=>{
-      const ac = it.aircraft||it; return `<strong>${ac.callsign||''}</strong> — ${ac.latitude?.toFixed?.(5)||''}, ${ac.longitude?.toFixed?.(5)||''} — ${ac.name||''}`;
+      const ac = it.aircraft||it;
+      const dca = it.dca || computeDca(ac.latitude, ac.longitude);
+      const cid = ac.cid || '';
+      const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+      const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+      return `<strong>${ac.callsign||''}</strong> — ${dca.radial_range} — CID:${cid} — ${dep || '-'} → ${arr || '-'}`;
     });
-    renderList('frz-list', frzList, it=>{ const ac=it.aircraft||it; return `<strong>${ac.callsign||''}</strong> — ${ac.latitude?.toFixed?.(5)||''}`; });
+  renderList('frz-list', frzList, it=>{ const ac=it.aircraft||it; const dca = it.dca || computeDca(ac.latitude, ac.longitude); const cid = ac.cid||''; const dep=(ac.flight_plan && (ac.flight_plan.departure||ac.flight_plan.depart))||''; const arr=(ac.flight_plan && (ac.flight_plan.arrival||ac.flight_plan.arr))||''; return `<strong>${ac.callsign||''}</strong> — ${dca.radial_range} — CID:${cid} — ${dep||'-'} → ${arr||'-'}`; });
 
     // markers
     markerGroup.clearLayers();
@@ -182,7 +207,11 @@
 
       const color = status==='frz'? '#d9534f' : status==='p56'? '#f0ad4e' : status==='sfra'? '#0275d8' : status==='ground'? '#6c757d' : '#2b7ae4';
       const marker = L.marker([lat, lon], {icon: createPlaneIcon(color, heading)});
-      const popup = `<div><b>${ac.callsign||''}</b><br/>${ac.name||''}<br/>Alt: ${altitude} ft GS: ${groundspeed}<br/>${status.toUpperCase()}</div>`;
+  const dca = ac.dca || computeDca(lat, lon);
+  const cid = ac.cid || '';
+  const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+  const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+  const popup = `<div><b>${ac.callsign||''}</b> (CID: ${cid})<br/>${ac.name||''}<br/>${dca.radial_range} — Alt: ${altitude} ft GS: ${groundspeed}<br/>${dep || '-'} → ${arr || '-'}<br/><em>${status.toUpperCase()}</em></div>`;
       marker.bindPopup(popup);
       markerGroup.addLayer(marker);
     }
