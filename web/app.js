@@ -7,9 +7,9 @@
 
   const el = id => document.getElementById(id);
   const params = new URLSearchParams(window.location.search);
-  // If the inline SVG's base orientation doesn't match the API heading, tweak this offset.
-  // Positive values rotate the icon clockwise. Adjust if the nose points the wrong way.
-  const PLANE_ROTATION_OFFSET = -90; // degrees; change to 90 or 0 if you see a 90deg mismatch
+  // The plane PNG default orientation points straight up (north). If you need to tweak
+  // how the nose aligns with `heading`, adjust this offset. Positive rotates clockwise.
+  const PLANE_ROTATION_OFFSET = 0; // degrees
 
   // affiliation defaults
   const DEFAULT_AFF = ["vusaf","vuscg","usnv"];
@@ -148,17 +148,22 @@
     return canvas.toDataURL('image/png');
   }
 
-  async function createPlaneIcon(color/*, heading*/){
+  async function createPlaneIcon(color, heading){
     const size = ICON_SIZE;
-    if(planePngCache[color]) return planePngCache[color];
     try{
-      const img = await loadPlanePng();
-      const dataUrl = tintImageToDataUrl(img, color, size);
-      const icon = L.icon({ iconUrl: dataUrl, iconSize:[size,size], iconAnchor:[Math.round(size/2),Math.round(size/2)], popupAnchor:[0,-Math.round(size/2)] });
-      planePngCache[color] = icon;
-      return icon;
+      // ensure source image loaded and a recolored dataUrl exists for this color
+      if(!planePngCache[color]){
+        const img = await loadPlanePng();
+        const dataUrl = tintImageToDataUrl(img, color, size);
+        planePngCache[color] = dataUrl;
+      }
+      const dataUrl = planePngCache[color];
+      // compute rotation (0 = north/up); add offset if needed
+      const rot = ((Number(heading) || 0) + PLANE_ROTATION_OFFSET) % 360;
+      const html = `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;transform-origin:center;"><img src="${dataUrl}" style="width:${size}px;height:${size}px;transform:rotate(${rot}deg);display:block;"/></div>`;
+      return L.divIcon({ className: 'plane-divicon', html: html, iconSize: [size,size], iconAnchor: [Math.round(size/2),Math.round(size/2)], popupAnchor: [0,-Math.round(size/2)] });
     }catch(e){
-      // fallback to static PNG
+      // fallback to static PNG icon (no rotation)
       return L.icon({ iconUrl: '/web/static/plane_icon.png?v=1', iconSize:[size,size], iconAnchor:[Math.round(size/2),Math.round(size/2)], popupAnchor:[0,-Math.round(size/2)] });
     }
   }
