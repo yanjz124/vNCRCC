@@ -4,6 +4,7 @@ import time
 import urllib.request
 import urllib.parse
 import json
+from vncrcc.geo import raster_elevation
 
 router = APIRouter(prefix="/elevation")
 
@@ -26,6 +27,22 @@ async def elevation(lat: float = Query(...), lon: float = Query(...)) -> Dict[st
         return {"elevation_m": ent[0], "cached": True}
 
     # call open-meteo elevation API
+    # First try local raster lookup if available
+    try:
+        if getattr(raster_elevation, "RASTER_AVAILABLE", False):
+            try:
+                elev_local = raster_elevation.sample_elevation(lat, lon)
+                if elev_local is not None:
+                    _CACHE[key] = (float(elev_local), now)
+                    return {"elevation_m": float(elev_local), "cached": False, "source": "local-raster"}
+            except Exception:
+                # continue to remote lookup on any raster error
+                pass
+
+    except Exception:
+        # If any error in raster module import/usage, fall back to remote API
+        pass
+
     try:
         base = "https://api.open-meteo.com/v1/elevation"
         qs = urllib.parse.urlencode({"latitude": lat, "longitude": lon})
