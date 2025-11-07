@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any, Optional
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point
 import json
 import time
 from collections import defaultdict
@@ -141,12 +141,93 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
         evidence = {
             "zones_point": matched_zones_point,
             "zones_line": matched_zones_line,
+            # `line` will be replaced below with a chronological path of positions
             "line": list(line.coords) if line is not None else None,
             "prev_ts": prev_ts,
             "latest_ts": latest_ts,
             "pre_positions": pre_positions,
             "flight_plan": a.get("flight_plan", {}),
+            "name": a.get("name"),
+            "callsign": a.get("callsign"),
         }
+
+        # Collect all recorded positions for this CID that fell inside the P56
+        # between prev_ts and latest_ts (inclusive). Use the pre-collected
+        # positions_by_cid built from recent snapshots.
+        inside_positions = []
+        try:
+            cid_key = str(a.get("cid"))
+            positions = positions_by_cid.get(cid_key, [])
+            for p in positions:
+                ts = p.get("ts")
+                if ts is None:
+                    continue
+                # Include positions in the window between prev_ts and latest_ts.
+                in_window = True
+                if prev_ts is not None:
+                    in_window = (prev_ts <= ts <= latest_ts)
+                else:
+                    in_window = (ts <= latest_ts)
+                if not in_window:
+                    continue
+                lon = p.get("lon")
+                lat = p.get("lat")
+                if lon is None or lat is None:
+                    continue
+                try:
+                    pt = Point(lon, lat)
+                except Exception:
+                    continue
+                # If this point lies inside any of the P56 shapes, record it.
+                point_inside = False
+                for shp, props in features:
+                    try:
+                        if shp.contains(pt) or shp.intersects(pt):
+                            point_inside = True
+                            break
+                    except Exception:
+                        continue
+                if point_inside:
+                    inside_positions.append(p)
+        except Exception:
+            inside_positions = []
+
+        # Sort chronologically (oldest -> newest) so lines drawn are not zig-zagged
+        inside_positions.sort(key=lambda x: x.get("ts", 0))
+
+        # If we found inside positions, use them to form a chronological line
+        if inside_positions:
+            line_coords = [(float(p["lon"]), float(p["lat"])) for p in inside_positions]
+            evidence["inside_positions"] = inside_positions
+            evidence["line"] = line_coords
+        else:
+            # no detailed inside positions available; ensure inside_positions key exists
+            evidence["inside_positions"] = []
+
+            # Avoid double-counting quick re-entries: if we have a previous event for
+            # this CID and the number of recorded snapshots between that event's
+            # latest_ts and the current latest_ts is <= 5, treat this as a bounce
+            # and skip recording a new penetration.
+            try:
+                cid_key = str(a.get("cid")) if a.get("cid") is not None else None
+                if cid_key:
+                    hist = p56_history.get_history()
+                    last_event = None
+                    for e in reversed(hist.get("events", [])):
+                        if str(e.get("cid")) == cid_key:
+                            last_event = e
+                            break
+                    if last_event:
+                        last_latest_ts = last_event.get("latest_ts") or last_event.get("recorded_at") or 0
+                        positions = positions_by_cid.get(cid_key, [])
+                        # positions after the last event up to current latest_ts
+                        positions_since = [p for p in positions if p.get("ts") and p["ts"] > last_latest_ts and p["ts"] <= latest_ts]
+                        if len(positions_since) <= 5:
+                            # Skip this detection as it's within the short re-entry window
+                            continue
+            except Exception:
+                # On any failure in this dedup logic, fall back to recording as before
+                pass
         # persist incident to storage
         detected_at = latest_ts or time.time()
         try:
@@ -166,23 +247,45 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
             pass
 
         # Record in persistent JSON history (will avoid double-count while pilot remains inside)
-        try:
-            p56_event = {
-                "identifier": ident,
-                "callsign": a.get("callsign"),
-                "cid": a.get("cid"),
-                "prev_position": {"lon": prev_pos[0], "lat": prev_pos[1]} if prev_pos is not None else None,
-                "latest_position": {"lon": latest_pt.x, "lat": latest_pt.y},
-                "prev_ts": prev_ts if prev_pos is not None else None,
-                "latest_ts": latest_ts,
-                "zones": matched_zones,
-                "evidence": evidence,
-                "flight_plan": a.get("flight_plan", {}),
-                "pre_positions": pre_positions,
-            }
-            p56_history.record_penetration(p56_event)
-        except Exception:
-            pass
+            try:
+                # Recompute matched_zones_line using the chronological inside path
+                try:
+                    if evidence.get("inside_positions"):
+                        # build a LineString from inside_positions (lon, lat)
+                        path_coords = [(float(p["lon"]), float(p["lat"])) for p in evidence.get("inside_positions", [])]
+                        if len(path_coords) >= 2:
+                            path_line = LineString(path_coords)
+                            matched_zones_line = []
+                            for idx, (shp, props) in enumerate(features):
+                                zone_name = props.get("name") or props.get("id") or f"{name}:{idx}"
+                                try:
+                                    if shp.intersects(path_line):
+                                        matched_zones_line.append(zone_name)
+                                except Exception:
+                                    continue
+                except Exception:
+                    # if anything goes wrong, fall back to previously computed matched_zones_line
+                    pass
+
+                p56_event = {
+                    "identifier": ident,
+                    "callsign": a.get("callsign"),
+                    "name": a.get("name"),
+                    "cid": a.get("cid"),
+                    "prev_position": {"lon": prev_pos[0], "lat": prev_pos[1]} if prev_pos is not None else None,
+                    "latest_position": {"lon": latest_pt.x, "lat": latest_pt.y},
+                    "prev_ts": prev_ts if prev_pos is not None else None,
+                    "latest_ts": latest_ts,
+                    "zones": matched_zones,
+                    "evidence": evidence,
+                    "flight_plan": a.get("flight_plan", {}),
+                    "pre_positions": pre_positions,
+                    # expose inside_positions at top level for easier consumption
+                    "inside_positions": evidence.get("inside_positions", []),
+                }
+                p56_history.record_penetration(p56_event)
+            except Exception:
+                pass
 
         breaches.append(
             {

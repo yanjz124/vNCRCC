@@ -9,28 +9,50 @@
 </head>
 <body>
   <header>
-    <h1>vNCRCC Live Dashboard</h1>
-    <div class="controls">
-      <label>VSO range (nm): <input id="vso-range" type="number" value="100" min="1"/></label>
-      <div class="affiliations">
-        <span>Affiliations:</span>
-        <label><input type="checkbox" class="aff-check" value="vusaf" checked/> VUSAF</label>
-        <label><input type="checkbox" class="aff-check" value="vuscg" checked/> VUSCG</label>
-        <label><input type="checkbox" class="aff-check" value="usnv" checked/> USNV</label>
-        <input id="custom-aff" type="text" placeholder="add,comma,separated" />
-        <button id="add-aff">Add</button>
-      </div>
-      <div class="controls-actions">
-        <button id="apply">Apply</button>
-        <button id="refresh">Refresh</button>
-      </div>
+    <div class="header-left">
+      <div id="logo-placeholder"><!-- Logo will go here --></div>
+      <h1>Virtual National Capital Regional Coordination Center</h1>
+    </div>
+    <div class="header-right">
+      <!-- Future dropdown menus will go here -->
     </div>
   </header>
+
+  <section id="maps-section">
+    <div id="maps-container">
+      <div id="p56-map-container">
+        <div id="p56-map"></div>
+      </div>
+      <div id="sfra-map-container">
+        <div id="sfra-map"></div>
+        <div id="legend" class="legend">
+          <div class="legend-header"><button id="legend-toggle" aria-expanded="true">Legend ▾</button></div>
+          <div class="legend-body">
+            <div><span class="swatch frz"></span> FRZ</div>
+            <div><span class="swatch p56"></span> P-56</div>
+            <div><span class="swatch sfra"></span> SFRA</div>
+            <div><span class="swatch ground"></span> On Ground</div>
+            <div><span class="swatch air"></span> Airborne</div>
+            <div><label><input type="checkbox" id="toggle-sfra" checked/> Show SFRA</label></div>
+            <div><label><input type="checkbox" id="toggle-frz" checked/> Show FRZ</label></div>
+            <div><label><input type="checkbox" id="toggle-p56" checked/> Show P-56</label></div>
+            <hr />
+            <h4 style="margin:6px 0 4px 0;color:#dfefff">Aircraft</h4>
+            <div><label><input type="checkbox" id="toggle-ac-p56" checked/> Show P-56 (orange)</label></div>
+            <div><label><input type="checkbox" id="toggle-ac-frz" checked/> Show FRZ (red)</label></div>
+            <div><label><input type="checkbox" id="toggle-ac-sfra" checked/> Show SFRA (blue)</label></div>
+            <div><label><input type="checkbox" id="toggle-ac-air" checked/> Show Airborne (green)</label></div>
+            <div><label><input type="checkbox" id="toggle-ac-ground" checked/> Show On Ground (gray)</label></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <main>
     <section class="panels">
       <div class="panel" id="p56-panel">
-        <h2>P56 Current Inside (<span id="p56-count">0</span>)</h2>
+        <h2>P56 Current Intrusion (<span id="p56-count">0</span>)</h2>
         <table id="p56-table" class="traffic-table">
           <thead>
             <tr>
@@ -38,34 +60,54 @@
               <th>Aircraft</th>
               <th>Pilot</th>
               <th>CID</th>
-              <th>DCA</th>
+              <th>Bullseye</th>
               <th>Alt</th>
               <th>GS</th>
-              <th>HDG</th>
-              <th>Dep → Arr</th>
+              <th>Squawk</th>
+              <th>Assigned Sq</th>
+        <th>Dep → Arr</th>
             </tr>
           </thead>
           <tbody id="p56-tbody"></tbody>
         </table>
       </div>
 
-      <div class="panel" id="p56-events-panel">
-        <h2>P56 Events</h2>
-        <table id="p56-events-table" class="traffic-table">
-          <thead>
-            <tr>
-              <th>Callsign</th>
-              <th>Aircraft</th>
-              <th>Pilot</th>
-              <th>CID</th>
-              <th>Time</th>
-              <th>Zones</th>
-            </tr>
-          </thead>
-          <tbody id="p56-events-tbody"></tbody>
-        </table>
-      </div>
+      <div class="panel-row">
+        <div class="panel" id="p56-events-panel">
+          <h2>P56 Intrusion Logs</h2>
+          <table id="p56-events-table" class="traffic-table">
+            <thead>
+              <tr>
+        <th>Callsign</th>
+        <th>Aircraft</th>
+        <th>Pilot</th>
+        <th>CID</th>
+        <th>Date / Time</th>
+        <th>Dep</th>
+        <th>Arr</th>
+              </tr>
+            </thead>
+            <tbody id="p56-events-tbody"></tbody>
+          </table>
+        </div>
 
+        <div class="panel" id="p56-leaderboard-panel">
+          <h2>P56 Leaderboard</h2>
+          <table id="p56-leaderboard-table" class="traffic-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>CID</th>
+                <th>Callsign</th>
+                <th>P56 Busts</th>
+                <th>First</th>
+                <th>Last</th>
+              </tr>
+            </thead>
+            <tbody id="p56-leaderboard-tbody"></tbody>
+          </table>
+        </div>
+      </div>
       <div class="panel-row">
         <div class="panel" id="sfra-panel">
           <h2>SFRA Traffic (<span id="sfra-count">0</span>)</h2>
@@ -76,11 +118,13 @@
                 <th>Aircraft</th>
                 <th>Pilot</th>
                 <th>CID</th>
-                <th>DCA</th>
+                <th>Bullseye</th>
                 <th>Alt</th>
                 <th>GS</th>
-                <th>HDG</th>
+                <th>Squawk</th>
+                <th>Assigned Sq</th>
                 <th>Dep → Arr</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody id="sfra-tbody"></tbody>
@@ -95,11 +139,13 @@
                 <th>Aircraft</th>
                 <th>Pilot</th>
                 <th>CID</th>
-                <th>DCA</th>
+                <th>Bullseye</th>
                 <th>Alt</th>
                 <th>GS</th>
-                <th>HDG</th>
+                <th>Squawk</th>
+                <th>Assigned Sq</th>
                 <th>Dep → Arr</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody id="frz-tbody"></tbody>
@@ -109,36 +155,20 @@
 
     </section>
 
-    <section id="map-section">
-      <div id="map"></div>
-      <div id="legend" class="legend">
-        <h3>Legend</h3>
-        <div><span class="swatch frz"></span> FRZ</div>
-        <div><span class="swatch p56"></span> P-56</div>
-        <div><span class="swatch sfra"></span> SFRA</div>
-        <div><span class="swatch ground"></span> On Ground</div>
-        <div><span class="swatch air"></span> Airborne</div>
-        <div><label><input type="checkbox" id="toggle-sfra" checked/> Show SFRA</label></div>
-        <div><label><input type="checkbox" id="toggle-frz" checked/> Show FRZ</label></div>
-        <div><label><input type="checkbox" id="toggle-p56" checked/> Show P-56</label></div>
-      </div>
-    </section>
-
     <section id="vso-section">
       <div class="panel" id="vso-panel">
         <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
         <div class="vso-controls">
           <label>VSO range (nm): <input id="vso-range" type="number" value="100" min="1"/></label>
           <div class="affiliations">
-            <label><input type="checkbox" class="aff-check" value="vusaf" checked/> VUSAF</label>
-            <label><input type="checkbox" class="aff-check" value="vuscg" checked/> VUSCG</label>
-            <label><input type="checkbox" class="aff-check" value="usnv" checked/> USNV</label>
+            <label class="aff-pill"><input type="checkbox" class="aff-check" value="vusaf" checked/><span>VUSAF</span></label>
+            <label class="aff-pill"><input type="checkbox" class="aff-check" value="vuscg" checked/><span>VUSCG</span></label>
+            <label class="aff-pill"><input type="checkbox" class="aff-check" value="usnv" checked/><span>USNV</span></label>
             <input id="custom-aff" type="text" placeholder="add,comma,separated" />
-            <button id="add-aff">Add</button>
+            <button id="add-aff" class="btn">Add</button>
           </div>
           <div class="controls-actions">
-            <button id="apply">Apply</button>
-            <button id="refresh">Refresh</button>
+            <button id="apply" class="btn">Apply</button>
           </div>
         </div>
         <ul id="vso-list"></ul>
@@ -147,7 +177,11 @@
   </main>
 
   <footer>
-    <p>Auto-refresh every <span id="interval">15</span>s. Open <a id="permalink" href="#">permalink</a> to save settings.</p>
+    <div class="disclaimers">
+      <p>This system is for flight simulation on the VATSIM network only and not for real-world use.</p>
+      <p>Not affiliated with the actual National Capital Regional Coordination Center or any government entity.</p>
+    </div>
+  <p>Auto-refresh every <span id="interval">15</span>s. Open <a id="permalink" href="#">permalink</a> to save settings.</p>
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

@@ -57,11 +57,14 @@ def record_penetration(event: Dict[str, Any]) -> None:
     events.append(event_copy)
 
     # mark current inside
+    # store a small summary for the currently-inside pilot (include name/callsign)
     current[str(cid)] = {
         "inside": True,
         "last_seen": event_copy.get("latest_ts") or event_copy.get("recorded_at"),
         "last_position": event_copy.get("latest_position"),
         "flight_plan": event_copy.get("flight_plan", {}),
+        "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
+        "name": event_copy.get("name")
     }
 
     _atomic_write(data)

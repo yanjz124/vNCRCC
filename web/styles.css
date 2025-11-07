@@ -1,13 +1,17 @@
 :root{--panel-bg:#071016;--panel-border:#152026;--accent:#0d2538}
 body{font-family:Segoe UI,Arial,sans-serif;margin:0;background:#0b0f14;color:#e6eef8}
 header{padding:12px 20px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:space-between}
-header h1{margin:0;font-size:1.1rem}
+.header-left{display:flex;align-items:center;gap:12px}
+.header-right{min-width:0} /* placeholder for future dropdowns */
+#logo-placeholder{width:60px;height:60px;background:#fff;border-radius:6px;border:2px solid #ccc;display:flex;align-items:center;justify-content:center;color:#000;font-weight:bold}
+h1{margin:0;font-size:1.5rem}
 .controls{display:flex;flex-direction:row;gap:12px;align-items:center}
 .controls label{margin-right:6px;color:#fff}
 .controls input{margin-left:6px}
 .affiliations{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .controls-actions{display:flex;gap:8px}
 main{padding:12px}
+.controls-section{margin-bottom:12px;padding:8px;background:#0b0f14;border:1px solid #152026;border-radius:6px}
 .panels{display:block;gap:12px}
 .panel{background:var(--panel-bg);border:1px solid var(--panel-border);padding:8px;border-radius:6px}
 .panel-row{display:flex;gap:12px}
@@ -20,11 +24,28 @@ main{padding:12px}
 .vso-controls label{color:#dfefff}
 .vso-controls input[type="text"], .vso-controls input[type="number"]{background:#081218;border:1px solid #23303a;color:#dfefff;padding:4px;border-radius:4px}
 .vso-controls .affiliations{display:flex;gap:8px;align-items:center}
+
+/* Affiliation pill buttons */
+.aff-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:20px;background:#081218;border:1px solid #23303a;color:#cfe6ff;cursor:pointer;font-size:0.9rem}
+.aff-pill input{display:none}
+.aff-pill span{padding:2px 6px;border-radius:12px}
+.aff-pill input:checked + span{background:#0d2538;color:#ffffff}
+
+/* Generic button styles */
+.btn{background:#0d2538;border:1px solid #23303a;color:#dfefff;padding:6px 10px;border-radius:6px;cursor:pointer}
+.btn:hover{background:#11507a}
+.controls-actions .btn{padding:6px 12px}
 .panel h2{color:#cfe6ff}
-#map-section{margin-top:12px;position:relative;display:flex;justify-content:center}
-/* make the map slightly smaller than full width so there is whitespace at the edges
-	and keep the map proportional using viewport height for vertical sizing. */
-#map{height:70vh;min-height:420px;border-radius:6px;max-width:calc(100% - 48px);width:100%;margin:0 auto}
+#maps-section{margin-top:12px;position:relative;}
+/* make the maps side by side */
+/* Make the two maps span the available window width with small side padding.
+	Slightly reduce height so the maps are a bit shorter. */
+/* Exact half-width maps and larger display */
+#maps-container{display:flex;gap:12px;height:55vh;width:100%;max-width:none;margin:0;padding:0;box-sizing:border-box;align-items:stretch}
+#p56-map-container{flex:0 0 50%;min-width:0;height:100%;position:relative}
+#sfra-map-container{flex:0 0 50%;min-width:0;height:100%;position:relative}
+#p56-map{height:100%;width:100%;border-radius:6px;background:#071016;border:1px solid rgba(255,255,255,0.04)}
+#sfra-map{height:100%;width:100%;border-radius:6px;background:#071016;border:1px solid rgba(255,255,255,0.04)}
 ul{margin:6px 0;padding-left:18px}
 li{margin-bottom:6px}
 .legend{position:absolute;right:12px;top:12px;background:rgba(6,10,14,0.85);padding:10px;border-radius:6px;color:#dfefff;z-index:4000}
@@ -42,7 +63,16 @@ li{margin-bottom:6px}
 /* Leaflet wraps tooltips with .leaflet-tooltip; ensure our fp-tooltip variant
 	and its inner .ac-tooltip inherit the white color regardless of defaults. */
 .leaflet-tooltip.fp-tooltip, .leaflet-tooltip.fp-tooltip .ac-tooltip { color: #ffffff !important; }
-.leaflet-tooltip.fp-tooltip .ac-type { color: #cfe6ff !important; font-weight:600; margin-left:6px; }
+.ac-tooltip .ac-type{color:#cfe6ff;font-weight:600;margin-left:6px}
+
+/* Collapsible legend styles */
+.legend .legend-header{margin-bottom:6px}
+.legend .legend-header button{background:transparent;border:0;color:#dfefff;font-size:1rem;cursor:pointer}
+.legend.collapsed .legend-body{display:none}
+
+footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
+.disclaimers{margin-bottom:8px}
+.disclaimers p{margin:4px 0;font-size:0.9rem;color:#cfe6ff}
 /* flight plan tooltip styling */
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
 .fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
@@ -51,6 +81,43 @@ li{margin-bottom:6px}
 .traffic-table th{background:#0d2538;color:#cfe6ff;font-weight:600}
 .traffic-table tbody tr:hover{background:#152026}
 .traffic-table .expandable{cursor:pointer}
-.traffic-table .flight-plan{display:none;background:#081218;padding:8px;border-top:1px solid #23303a}
-.traffic-table .flight-plan.show{display:block}
+.traffic-table .flight-plan{display:none}
+.traffic-table .flight-plan.show{display:table-row}
+.traffic-table .flight-plan-cell{background:#081218;padding:0 !important;border-top:1px solid #23303a}
 .traffic-table .flight-plan pre{font-size:0.8rem;color:#dfefff;margin:0;white-space:pre-wrap}
+/* Flight plan form styles (compact inline) */
+.fp-compact{display:block;width:100%;box-sizing:border-box;padding:10px;background:rgba(6,10,14,0.9);border-radius:4px;overflow:hidden}
+.fp-row-inline{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px;max-width:100%}
+.fp-inline-field{background:#071016;border:1px solid #23303a;padding:6px 12px;border-radius:4px;display:inline-flex;gap:8px;align-items:center;white-space:nowrap;box-sizing:border-box}
+.fp-lbl{font-size:11px;color:#5b9adb;font-weight:700;letter-spacing:0.02em}
+.fp-inline-field{color:#e6eef8;font-size:13px}
+.fp-route-field{flex:1 1 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
+.fp-remarks-box{flex:1 1 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);background:#071016;border:1px solid #23303a;padding:10px;border-radius:4px;display:flex;flex-direction:column;gap:4px;overflow:hidden;box-sizing:border-box}
+.fp-rmk-text{color:#e6eef8;font-size:12px;white-space:pre-wrap;line-height:1.4;word-break:break-word;overflow-wrap:break-word;max-width:100%}
+.traffic-table .flight-plan-cell{padding:0 !important;box-sizing:border-box}
+/* Squawk highlighting */
+.traffic-table .squawk-1200{color:#fff3cd !important} /* yellow */
+.traffic-table .squawk-emergency{color:#f8d7da !important} /* red */
+.traffic-table .squawk-7777{color:#ffeaa7 !important} /* orange */
+.traffic-table .squawk-vfr{color:#d1ecf1 !important} /* blue */
+
+/* Status text colors to match map colors */
+.status-frz{color:#d9534f;font-weight:700}
+.status-p56{color:#f0ad4e;font-weight:700}
+.status-sfra{color:#0275d8;font-weight:700}
+.status-ground{color:#6c757d;font-weight:700}
+.status-air{color:#28a745;font-weight:700}
+
+/* small swatches next to status labels */
+.status-swatch{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:8px;vertical-align:middle;border:1px solid rgba(0,0,0,0.25)}
+.status-swatch-frz{background:#d9534f}
+.status-swatch-p56{background:#f0ad4e}
+.status-swatch-sfra{background:#0275d8}
+.status-swatch-ground{background:#6c757d}
+.status-swatch-air{background:#28a745}
+.status-label{font-weight:700}
+
+/* clickable table headers */
+.traffic-table th{cursor:pointer}
+.traffic-table th.sort-asc::after{content:' ▴';font-size:1em;display:inline-block;margin-left:6px;color:#cfe6ff;opacity:0.95}
+.traffic-table th.sort-desc::after{content:' ▾';font-size:1em;display:inline-block;margin-left:6px;color:#cfe6ff;opacity:0.95}

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{{PAGE_TITLE}}</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Additional head content for specific pages -->
+  {{HEAD_EXTRA}}
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <div id="logo-placeholder"><!-- Logo will go here --></div>
+      <h1>Virtual National Capital Regional Coordination Center</h1>
+    </div>
+    <div class="header-right">
+      <!-- Future dropdown menus will go here -->
+    </div>
+  </header>
+
+  <main>
+    {{MAIN_CONTENT}}
+  </main>
+
+  <footer>
+    <div class="disclaimers">
+      <p>This system is for flight simulation on the VATSIM network only and not for real-world use.</p>
+      <p>Not affiliated with the actual National Capital Regional Coordination Center or any government entity.</p>
+    </div>
+    <p>Auto-refresh every <span id="interval">15</span>s. Open <a id="permalink" href="#">permalink</a> to save settings.</p>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+  <script src="app.js"></script>
+  <!-- Additional scripts for specific pages -->
+  {{SCRIPT_EXTRA}}
+</body>
+</html></content>
+<parameter name="filePath">c:\Users\JY\Documents\vNCRCC\web\layout.html
