@@ -26,45 +26,26 @@ async def elevation(lat: float = Query(...), lon: float = Query(...)) -> Dict[st
     if ent and now - ent[1] < _TTL:
         return {"elevation_m": ent[0], "cached": True}
 
-    # call open-meteo elevation API
-    # First try local raster lookup if available
-    try:
-        if getattr(raster_elevation, "RASTER_AVAILABLE", False):
-            try:
-                elev_local = raster_elevation.sample_elevation(lat, lon)
-                if elev_local is not None:
-                    _CACHE[key] = (float(elev_local), now)
-                    return {"elevation_m": float(elev_local), "cached": False, "source": "local-raster"}
-            except Exception:
-                # continue to remote lookup on any raster error
-                pass
-
-    except Exception:
-        # If any error in raster module import/usage, fall back to remote API
-        pass
+    # Use local raster data only. If raster support isn't available, or no data
+    # exists for the requested point, return a helpful HTTP error. This makes
+    # the elevation provider fully internal and avoids external network calls.
+    if not getattr(raster_elevation, "RASTER_AVAILABLE", False):
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Local raster elevation not available. "
+                "Install 'rasterio' and ensure 'src/vncrcc/geo/rasters_COP30.tar' is present and extracted."
+            ),
+        )
 
     try:
-        base = "https://api.open-meteo.com/v1/elevation"
-        qs = urllib.parse.urlencode({"latitude": lat, "longitude": lon})
-        with urllib.request.urlopen(f"{base}?{qs}", timeout=5) as resp:
-            body = resp.read()
-        j = json.loads(body)
-        elev = None
-        if isinstance(j, dict) and "elevation" in j:
-            # open-meteo returns an array even for a single coordinate: {"elevation": [87.0]}
-            val = j.get("elevation")
-            if isinstance(val, list):
-                if not val:
-                    raise ValueError("empty elevation array in response")
-                elev = val[0]
-            else:
-                elev = val
-        # fallback: older formats or other providers
-        if elev is None and isinstance(j.get("data"), list) and j.get("data"):
-            elev = j.get("data")[0].get("elevation")
-        if elev is None:
-            raise ValueError("no elevation in response")
-        _CACHE[key] = (float(elev), now)
-        return {"elevation_m": float(elev), "cached": False}
+        elev_local = raster_elevation.sample_elevation(lat, lon)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=f"Error sampling local raster: {exc}")
+
+    if elev_local is None:
+        # no data at this location in the provided rasters
+        raise HTTPException(status_code=404, detail="No elevation data available at this location in local rasters")
+
+    _CACHE[key] = (float(elev_local), now)
+    return {"elevation_m": float(elev_local), "cached": False, "source": "local-raster"}
