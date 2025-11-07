@@ -324,22 +324,26 @@
     });
     console.log('On-ground detection complete (simple heuristic)');
 
-  // update counts using sfra/frz endpoints for UI lists
-    console.log('Fetching SFRA/FRZ/P56 lists...');
-    const sfraList = await fetch(`${API_ROOT}/sfra/`).then(r=>r.ok?r.json():{aircraft:[]}).then(j=>j.aircraft||[]);
-    console.log('SFRA list fetched:', sfraList.length);
-    const frzList = await fetch(`${API_ROOT}/frz/`).then(r=>r.ok?r.json():{aircraft:[]}).then(j=>j.aircraft||[]);
-    console.log('FRZ list fetched:', frzList.length);
+  // Instead of calling SFRA/FRZ endpoints for counts/lists, compute them from
+  // the same client-side overlays used to render the map so the UI and map
+  // always match. We still fetch P56 history for the details panel but the
+  // count/listing will be driven by client-side classification below.
+    console.log('Fetching P56 history for details...');
     const p56json = await fetch(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}});
-    console.log('P56 data fetched');
 
   // keep a local copy of the latest aircraft snapshot for lookups
   const latest_ac = aircraft || [];
 
-    el('sfra-count').textContent = sfraList.length;
-    el('frz-count').textContent = frzList.length;
-    el('p56-count').textContent = Object.keys(p56json.history?.current_inside || {}).filter(cid => p56json.history.current_inside[cid].inside).length;
-    console.log('Counts updated');
+    // prepare empty lists which will be populated while creating markers
+    el('sfra-count').textContent = '0';
+    el('frz-count').textContent = '0';
+    el('p56-count').textContent = '0';
+    const sfraList = [];
+    const frzList = [];
+    const p56List = [];
+    const groundList = [];
+    const airList = [];
+    console.log('Prepared client-side lists for classification (will populate during render)');
 
   const renderTable = (tbodyId, items, rowFn, keyFn, fpOptions) => {
       console.log('Rendering table', tbodyId, 'with', items.length, 'items');
@@ -624,48 +628,8 @@
       }
     }catch(e){ /* ignore leaderboard errors */ }
 
-  // SFRA table - include On Ground detection so ground aircraft are shown as 'On Ground'
-  renderTable('sfra-tbody', sfraList, it => {
-      const ac = it.aircraft || it;
-      const dca = it.dca || computeDca(ac.latitude, ac.longitude);
-      const cid = ac.cid || '';
-      const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-      const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-      const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
-      const squawk = ac.transponder || '';
-      let squawkClass = '';
-      if (squawk === '1200') squawkClass = 'squawk-1200';
-      else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
-      else if (squawk === '7777') squawkClass = 'squawk-7777';
-      else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-      const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-  // compute status then override to 'ground' if precomputed on-ground flag set
-  let status = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-  if(ac._onGround) status = 'ground';
-      const statusHtmlRow = `<td><span class="status-${status} status-label">${statusLabel(status)}</span></td>`;
-      return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.radial_range}</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
-  }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
-
-  // FRZ table - same ground heuristics so ground aircraft appear as On Ground
-  renderTable('frz-tbody', frzList, it => {
-      const ac = it.aircraft || it;
-      const dca = it.dca || computeDca(ac.latitude, ac.longitude);
-      const cid = ac.cid || '';
-      const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-      const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-      const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
-      const squawk = ac.transponder || '';
-      let squawkClass = '';
-      if (squawk === '1200') squawkClass = 'squawk-1200';
-      else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
-      else if (squawk === '7777') squawkClass = 'squawk-7777';
-      else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-      const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-  let status = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-  if(ac._onGround) status = 'ground';
-      const statusHtmlRow = `<td><span class="status-${status} status-label">${statusLabel(status)}</span></td>`;
-      return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.radial_range}</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
-  }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+  // SFRA/FRZ tables rendering will be performed after markers are created so
+  // the lists reflect the exact same classification used on the map.
 
     // markers
   // clear per-category groups
@@ -772,11 +736,70 @@
       grp.addLayer(markerP56);
       sgrp.addLayer(markerSFRA);
       console.log('Added marker for', ac.callsign, 'to', status, 'group');
+      // Populate client-side lists so UI tables/counts match the map classification
+      try{
+        if(status === 'sfra') sfraList.push(ac);
+        else if(status === 'frz') frzList.push(ac);
+        else if(status === 'p56') p56List.push(ac);
+        else if(status === 'ground') groundList.push(ac);
+        else airList.push(ac);
+      }catch(e){/* ignore list population errors */}
       }catch(e){
         console.error('Failed to process aircraft', ac.callsign, e);
       }
     }
     console.log('Finished marker creation');
+
+    // Populate counts and render SFRA/FRZ tables from client-side lists so UI
+    // exactly matches the map classification.
+    try{
+      el('sfra-count').textContent = sfraList.length;
+      el('frz-count').textContent = frzList.length;
+      el('p56-count').textContent = p56List.length;
+
+      // Render SFRA table
+      renderTable('sfra-tbody', sfraList, it => {
+        const ac = it.aircraft || it;
+        const dca = it.dca || computeDca(ac.latitude, ac.longitude);
+        const cid = ac.cid || '';
+        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+        const squawk = ac.transponder || '';
+        let squawkClass = '';
+        if (squawk === '1200') squawkClass = 'squawk-1200';
+        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+        else if (squawk === '7777') squawkClass = 'squawk-7777';
+        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
+        let status = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+        if(ac._onGround) status = 'ground';
+        const statusHtmlRow = `<td><span class="status-${status} status-label">${statusLabel(status)}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.radial_range}</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+      }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+
+      // Render FRZ table
+      renderTable('frz-tbody', frzList, it => {
+        const ac = it.aircraft || it;
+        const dca = it.dca || computeDca(ac.latitude, ac.longitude);
+        const cid = ac.cid || '';
+        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+        const squawk = ac.transponder || '';
+        let squawkClass = '';
+        if (squawk === '1200') squawkClass = 'squawk-1200';
+        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+        else if (squawk === '7777') squawkClass = 'squawk-7777';
+        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
+        let status = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+        if(ac._onGround) status = 'ground';
+        const statusHtmlRow = `<td><span class="status-${status} status-label">${statusLabel(status)}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.radial_range}</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+      }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+
+    }catch(e){ console.error('Error rendering lists after markers', e); }
 
 
     // Ensure category groups visibility matches legend toggles
