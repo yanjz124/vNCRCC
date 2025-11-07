@@ -33,7 +33,7 @@
     sfra: { sfra: null, frz: null, p56: null }
   };
   // Per-category marker groups so we can toggle colored aircraft from the legend.
-  const categories = ['frz','p56','sfra','ground','air'];
+  const categories = ['frz','p56','sfra','ground','vicinity'];
   const p56MarkerGroups = {};
   const sfraMarkerGroups = {};
   categories.forEach(cat => {
@@ -50,8 +50,33 @@
   // icon sizing
   const ICON_SIZE = 32; // px, slightly larger than before
 
-  // caches
-  const elevCache = {};
+  // Create update time display in top right
+  const updateDiv = document.createElement('div');
+  updateDiv.id = 'update-time';
+  updateDiv.style.position = 'absolute';
+  updateDiv.style.top = '10px';
+  updateDiv.style.right = '10px';
+  updateDiv.style.background = 'rgba(0,0,0,0.8)';
+  updateDiv.style.color = 'white';
+  updateDiv.style.padding = '5px';
+  updateDiv.style.fontSize = '16px';
+  updateDiv.style.zIndex = '1000';
+  document.body.appendChild(updateDiv);
+
+  function updateTimeDisplay() {
+    const now = Date.now();
+    const last = lastUpdateTime;
+    const diff = last > 0 ? now - last : 0;
+    const lastStr = last > 0 ? formatZuluEpoch(Math.floor(last / 1000), true) : '--';
+    const nowStr = formatZuluEpoch(Math.floor(now / 1000), true);
+    updateDiv.innerHTML = `Last: ${lastStr}<br>Now: ${nowStr}`;
+    if (diff > 60000) updateDiv.style.color = 'red';
+    else if (diff > 30000) updateDiv.style.color = 'yellow';
+    else updateDiv.style.color = 'white';
+  }
+
+  // Update time display every second for live ticking
+  setInterval(updateTimeDisplay, 1000);
 
   // sort configuration per table body id: { key: function(item) -> value, order: 'asc'|'desc' }
   const sortConfig = {};
@@ -86,7 +111,7 @@
     el('permalink').href = p.toString();
   }
 
-  // Format epoch seconds in Zulu (UTC). If includeDate is true returns YYYY-MM-DD HHMMz, else HHMMz
+  // Format epoch seconds in Zulu (UTC). If includeDate is true returns YYYY-MM-DD HHMMSSz, else HHMMSSz
   function formatZuluEpoch(sec, includeDate=true){
     if(!sec) return '-';
     try{
@@ -96,7 +121,8 @@
       const D = String(d.getUTCDate()).padStart(2,'0');
       const H = String(d.getUTCHours()).padStart(2,'0');
       const m = String(d.getUTCMinutes()).padStart(2,'0');
-      const time = `${H}${m}z`;
+      const s = String(d.getUTCSeconds()).padStart(2,'0');
+      const time = `${H}${m}${s}z`;
       return includeDate ? `${Y}-${M}-${D} ${time}` : time;
     }catch(e){ return '-'; }
   }
@@ -255,12 +281,285 @@
     }catch(e){return null}
   }
 
+  // Background elevation checker: queries local elevation for suspicious aircraft
+  // without blocking the main rendering path. It deduplicates by rounded coords
+  // and limits concurrency. When results arrive it updates markers in-place.
+  async function runBackgroundElevationChecks(aircraftList){
+    try{
+      // Build map of unique keys -> aircraft array that share the same rounded coord
+      const keyMap = new Map();
+      aircraftList.forEach(ac=>{
+        try{
+          const lat = ac.latitude || ac.lat || ac.y;
+          const lon = ac.longitude || ac.lon || ac.x;
+          if(lat==null || lon==null) return;
+          const gs = Number(ac.groundspeed || ac.gs || 0);
+          const alt = Number(ac.altitude || ac.alt || 0);
+          // Suspicion trigger (same as earlier precise path): very low GS OR
+          // moderately low GS with low altitude. We only query those to conserve resources.
+          if((gs <= 5) || (gs < 100 && alt < 1000)){
+            const key = `${lat.toFixed(4)}:${lon.toFixed(4)}`;
+            if(elevCache[key] !== undefined) return; // already have cached value
+            if(!keyMap.has(key)) keyMap.set(key, { lat, lon, acs: [] });
+            keyMap.get(key).acs.push(ac);
+          }
+        }catch(e){/* ignore */}
+      });
+      const keys = Array.from(keyMap.keys());
+      if(keys.length === 0) return;
+      const concurrency = 6;
+      let idx = 0;
+      async function worker(){
+        while(true){
+          const i = idx++;
+          if(i >= keys.length) return;
+          const key = keys[i];
+          const entry = keyMap.get(key);
+          const lat = entry.lat; const lon = entry.lon;
+          let elev = null;
+          try{ elev = await maybeElevation(lat, lon); }catch(e){ elev = null; }
+          // Update all aircraft that share this key
+          for(const ac of entry.acs){
+            try{
+              const gs = Number(ac.groundspeed || ac.gs || 0);
+              const alt = Number(ac.altitude || ac.alt || 0);
+              let newOnGround = ac._onGround;
+              if(elev != null){
+                const elev_ft = elev * 3.28084;
+                const agl = alt - elev_ft;
+                newOnGround = (agl <= 5) || (gs <= 5);
+              }else{
+                // local elevation not available for this point: apply the user's
+                // specified fallback: treat as on-ground when alt < 1000 ft and GS < 20 kt.
+                newOnGround = (gs <= 5) || (gs < 20 && alt < 1000);
+              }
+              if(newOnGround !== ac._onGround){
+                ac._onGround = newOnGround;
+                // recompute status and move marker between groups if needed
+                const oldStatus = ac._status || classifyAircraft(ac, ac.latitude||ac.lat||ac.y, ac.longitude||ac.lon||ac.x, overlays);
+                const newStatus = ac._onGround ? 'ground' : classifyAircraft(ac, ac.latitude||ac.lat||ac.y, ac.longitude||ac.lon||ac.x, overlays);
+                if(oldStatus !== newStatus){
+                  try{
+                    const mP = ac._markerP56; const mS = ac._markerSFRA;
+                    const oldGrpP = p56MarkerGroups[oldStatus] || p56MarkerGroups['vicinity'];
+                    const oldGrpS = sfraMarkerGroups[oldStatus] || sfraMarkerGroups['vicinity'];
+                    const newGrpP = p56MarkerGroups[newStatus] || p56MarkerGroups['vicinity'];
+                    const newGrpS = sfraMarkerGroups[newStatus] || sfraMarkerGroups['vicinity'];
+                    if(oldGrpP && mP) oldGrpP.removeLayer(mP);
+                    if(oldGrpS && mS) oldGrpS.removeLayer(mS);
+                    if(newGrpP && mP) newGrpP.addLayer(mP);
+                    if(newGrpS && mS) newGrpS.addLayer(mS);
+                  }catch(e){/* ignore group move errors */}
+                }
+                // update marker color/icon in-place
+                const statusToColor = s => s==='frz'? '#d9534f' : s==='p56'? '#f0ad4e' : s==='sfra'? '#0275d8' : s==='ground'? '#6c757d' : '#28a745';
+                const targetColor = statusToColor(newStatus);
+                const heading = ac.heading || 0;
+                const marker = ac._markerP56 || ac._markerSFRA;
+                if(marker){
+                  if(typeof marker.setIcon === 'function'){
+                    try{
+                      const icon = await createPlaneIcon(targetColor, heading);
+                      marker.setIcon(icon);
+                    }catch(e){ try{ marker.setStyle && marker.setStyle({ color: targetColor, fillColor: targetColor }); }catch(e){} }
+                  } else {
+                    try{ marker.setStyle && marker.setStyle({ color: targetColor, fillColor: targetColor }); }catch(e){}
+                  }
+                }
+                ac._status = newStatus;
+              }
+            }catch(e){ console.error('Failed to apply background elevation result for', ac.callsign, e); }
+          }
+        }
+      }
+      const workers = [];
+      for(let w=0; w<Math.min(concurrency, keys.length); w++) workers.push(worker());
+      await Promise.all(workers);
+    }catch(e){ console.error('runBackgroundElevationChecks error', e); }
+  }
+
   function classifyAircraft(ac, lat, lon, layers){
     // priority: FRZ > P56 > SFRA - use p56 map overlays for classification
     if(pointInLayer(lat, lon, overlays.p56.frz)) return 'frz';
     if(pointInLayer(lat, lon, overlays.p56.p56)) return 'p56';
     if(pointInLayer(lat, lon, overlays.p56.sfra)) return 'sfra';
-    return 'air';
+    return 'vicinity';
+  }
+
+  // Global cache for table data to enable fast sorting without full refresh
+  let tableDataCache = null;
+
+  // Fast table re-rendering using cached data (for sorting without full refresh)
+  function rerenderTable(tbodyId) {
+    if (!tableDataCache) {
+      console.log('No cached data, falling back to full refresh');
+      refresh();
+      return;
+    }
+
+    console.log('Fast re-rendering table:', tbodyId);
+
+    const { currentInside, events, lb, sfraList, frzList, latest_ac, p56json } = tableDataCache;
+
+    // Re-render the specific table using cached data
+    if (tbodyId === 'p56-tbody') {
+      renderTable('p56-tbody', currentInside, ci => {
+        const lat = ci.latitude || ci.last_position?.lat;
+        const lon = ci.longitude || ci.last_position?.lon;
+        const dca = computeDca(lat, lon);
+        const dep = (ci.flight_plan && (ci.flight_plan.departure || ci.flight_plan.depart)) || '';
+        const arr = (ci.flight_plan && (ci.flight_plan.arrival || ci.flight_plan.arr)) || '';
+        const acType = (ci.flight_plan && ci.flight_plan.aircraft_faa) || (ci.flight_plan && ci.flight_plan.aircraft_short) || '';
+        const squawk = ci.transponder || '';
+        let squawkClass = '';
+        if (squawk === '1200') squawkClass = 'squawk-1200';
+        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+        else if (squawk === '7777') squawkClass = 'squawk-7777';
+        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
+        return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ci.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>`;
+      }, ci => `p56-current:${ci.cid||ci.callsign||''}`, { hideEquipment: true });
+    } else if (tbodyId === 'p56-events-tbody') {
+      const tbodyEvents = el('p56-events-tbody');
+      tbodyEvents.innerHTML = '';
+      // apply sorting here as we already do for renderTable
+      try{
+        const conf = sortConfig['p56-events-tbody'];
+        if(conf){
+          events.sort((a,b)=>{
+            const va = conf.key(a); const vb = conf.key(b);
+            return conf.order==='asc' ? (va - vb) : (vb - va);
+          });
+        }
+      }catch(e){/* ignore */}
+      events.forEach(evt => {
+        const tr = document.createElement('tr');
+        tr.className = 'expandable';
+        const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
+        const dep = (evt.flight_plan && (evt.flight_plan.departure || evt.flight_plan.depart)) || '';
+        const arr = (evt.flight_plan && (evt.flight_plan.arrival || evt.flight_plan.arr)) || '';
+        tr.innerHTML = `<td>${evt.callsign || ''}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${evt.name || ''}</td><td>${evt.cid || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
+        const fpDiv = document.createElement('tr');
+        fpDiv.className = 'flight-plan';
+        try{
+          const evtTable = tbodyEvents.closest('table');
+          const ncols = evtTable ? evtTable.querySelectorAll('thead th').length : 7;
+          fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="${ncols}">${formatFlightPlan(evt, { hideEquipment: true })}</td>`;
+        }catch(e){
+          fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="7">${formatFlightPlan(evt, { hideEquipment: true })}</td>`;
+        }
+        const evtKey = `${evt.cid||''}:${evt.recorded_at||''}`;
+        tr.dataset.fpKey = evtKey;
+        fpDiv.dataset.fpKey = evtKey;
+        if(expandedSet.has(evtKey)){
+          fpDiv.classList.add('show');
+          p56PathLayer.clearLayers();
+          const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
+          if (positions.length > 1) {
+            const latlngs = positions.map(p => [p.lat, p.lon]);
+            const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+            p56PathLayer.addLayer(polyline);
+          }
+        }
+        tr.addEventListener('click', () => {
+          const opening = !fpDiv.classList.contains('show');
+          fpDiv.classList.toggle('show');
+          if(opening){
+            p56PathLayer.clearLayers();
+            const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
+            if (positions.length > 1) {
+              const latlngs = positions.map(p => [p.lat, p.lon]);
+              const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+              p56PathLayer.addLayer(polyline);
+            }
+            expandedSet.add(evtKey); saveExpandedSet(expandedSet);
+          }else{
+            p56PathLayer.clearLayers();
+            expandedSet.delete(evtKey); saveExpandedSet(expandedSet);
+          }
+        });
+        tbodyEvents.appendChild(tr);
+        tbodyEvents.appendChild(fpDiv);
+      });
+    } else if (tbodyId === 'p56-leaderboard-tbody') {
+      const lbTb = el('p56-leaderboard-tbody');
+      if(lbTb){
+        const conf = sortConfig['p56-leaderboard-tbody'];
+        if(conf && conf.key && conf.key._col){
+          const col = conf.key._col;
+          lb = lb.slice();
+          lb.sort((A,B)=>{
+            let va, vb;
+            if(col==='rank'){ va = A._rank; vb = B._rank; }
+            else if(col==='cid'){ va = A.cid; vb = B.cid; }
+            else if(col==='callsign'){ va = (latest_ac.find(a=>String(a.cid)===String(A.cid))?.callsign) || A.callsign || A.name || '' ; vb = (latest_ac.find(a=>String(a.cid)===String(B.cid))?.callsign) || B.callsign || B.name || '' ; }
+            else if(col==='count'){ va = A.count; vb = B.count; }
+            else if(col==='first'){ va = A.first || 0; vb = B.first || 0; }
+            else if(col==='last'){ va = A.last || 0; vb = B.last || 0; }
+            if(typeof va === 'number' && typeof vb === 'number') return conf.order==='asc'? va-vb : vb-va;
+            const sa = String(va).toLowerCase(); const sb = String(vb).toLowerCase();
+            if(sa < sb) return conf.order==='asc'? -1: 1;
+            if(sa > sb) return conf.order==='asc'? 1: -1;
+            return 0;
+          });
+        }
+        lbTb.innerHTML = '';
+        lb.forEach((r, idx) => {
+          r._rank = idx+1;
+          const ac = latest_ac.find(a => String(a.cid) === String(r.cid)) || {};
+          const callsign = ac.callsign || r.callsign || r.name || '';
+          const first = r.first ? formatZuluEpoch(r.first, true) : '-';
+          const last = r.last ? formatZuluEpoch(r.last, true) : '-';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${idx+1}</td><td>${r.cid}</td><td>${callsign}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
+          lbTb.appendChild(tr);
+        });
+      }
+    } else if (tbodyId === 'sfra-tbody') {
+      renderTable('sfra-tbody', sfraList, it => {
+        const ac = it.aircraft || it;
+        const dca = it.dca || computeDca(ac.latitude, ac.longitude);
+        const cid = ac.cid || '';
+        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+        const squawk = ac.transponder || '';
+        let squawkClass = '';
+        if (squawk === '1200') squawkClass = 'squawk-1200';
+        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+        else if (squawk === '7777') squawkClass = 'squawk-7777';
+        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
+        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+        let isGround = ac._onGround;
+        let statusText = isGround ? 'Ground' : 'Airborne';
+        let statusClass = isGround ? 'ground' : 'airborne';
+        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+      }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+    } else if (tbodyId === 'frz-tbody') {
+      renderTable('frz-tbody', frzList, it => {
+        const ac = it.aircraft || it;
+        const dca = it.dca || computeDca(ac.latitude, ac.longitude);
+        const cid = ac.cid || '';
+        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+        const squawk = ac.transponder || '';
+        let squawkClass = '';
+        if (squawk === '1200') squawkClass = 'squawk-1200';
+        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+        else if (squawk === '7777') squawkClass = 'squawk-7777';
+        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
+        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+        let isGround = ac._onGround;
+        let statusText = isGround ? 'Ground' : 'Airborne';
+        let statusClass = isGround ? 'ground' : 'airborne';
+        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+      }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+    }
   }
 
   async function refresh(){
@@ -306,8 +605,10 @@
               const agl = alt - elev_ft;
               if(agl <= 5 || gs <= 5) onGround = true; // +5ft tolerance as requested
             }else{
-              // fallback: if elevation lookup failed, rely on very low GS
-              if(gs <= 5) onGround = true;
+              // fallback: if elevation lookup failed, rely on groundspeed+alt heuristic
+              // treat as on-ground when very low GS OR moderately low GS with low altitude
+              // (gs <= 5) OR (gs < 20 && alt < 1000)
+              if(gs <= 5 || (gs < 20 && alt < 1000)) onGround = true;
             }
           }
           ac._onGround = onGround;
@@ -316,11 +617,13 @@
     }catch(e){ }
     */
     // Simple on-ground heuristic without elevation lookup
+    // Use a conservative fallback: treat aircraft as on-ground when
+    // very low GS, or when GS is low and altitude is below 1000 ft.
+    // New rule: (gs <= 5) OR (gs < 20 && alt < 1000)
     filtered.forEach(ac => {
       const gs = Number(ac.groundspeed || ac.gs || 0);
       const alt = Number(ac.altitude || ac.alt || 0);
-      // Mark as on ground if very low GS or very low altitude + low GS
-      ac._onGround = (gs <= 5) || (gs < 50 && alt < 500);
+      ac._onGround = (gs <= 5) || (gs < 20 && alt < 1000);
     });
     console.log('On-ground detection complete (simple heuristic)');
 
@@ -344,6 +647,16 @@
     const groundList = [];
     const airList = [];
     console.log('Prepared client-side lists for classification (will populate during render)');
+
+    // If overlays are not loaded (geo data not available), fall back to API for SFRA/FRZ lists
+    // to ensure the UI populates even if client-side classification can't work.
+    if (!overlays.p56.sfra || !overlays.p56.frz) {
+      console.log('Geo overlays not loaded, falling back to API for SFRA/FRZ lists');
+      const sfrajson = await fetch(`${API_ROOT}/sfra/`).then(r=>r.ok?r.json():{aircraft:[]});
+      const frzjson = await fetch(`${API_ROOT}/frz/`).then(r=>r.ok?r.json():{aircraft:[]});
+      sfraList.push(...(sfrajson.aircraft || []));
+      frzList.push(...(frzjson.aircraft || []));
+    }
 
   const renderTable = (tbodyId, items, rowFn, keyFn, fpOptions) => {
       console.log('Rendering table', tbodyId, 'with', items.length, 'items');
@@ -462,7 +775,7 @@
       return { ...ci, ...ac };
     });
     // helper: friendly label for status and swatch class
-    const statusLabel = s => ({ p56: 'P-56', frz: 'FRZ', sfra: 'SFRA', ground: 'On Ground', air: 'Airborne' }[s] || s.toUpperCase());
+    const statusLabel = s => ({ p56: 'P-56', frz: 'FRZ', sfra: 'SFRA', ground: 'On Ground', vicinity: 'Vicinity' }[s] || s.toUpperCase());
     const swatchClass = s => `status-swatch-${s}`;
 
   // default sort for P56 current is callsign ascending
@@ -485,7 +798,7 @@
       else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
       const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
       // P56: per user request we remove the Status column for P56 tables.
-      return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.radial_range}</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ci.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>`;
+      return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ci.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>`;
   }, ci => `p56-current:${ci.cid||ci.callsign||''}`, { hideEquipment: true });
 
     // P56 events (intrusion log) - default sort: most recent on top
@@ -642,15 +955,15 @@
       const heading = ac.heading || 0;
       const groundspeed = Number(ac.groundspeed || ac.gs || 0);
       const altitude = Number(ac.altitude || ac.alt || 0);
-      let status = classifyAircraft(ac, lat, lon, overlays);
+      let area = classifyAircraft(ac, lat, lon, overlays);
+      let isGround = ac._onGround;
+      let statusText = isGround ? 'Ground' : 'Airborne';
+      let statusClass = isGround ? 'ground' : area;
 
-      // Use precomputed on-ground flag from earlier in this refresh (if set)
-      if(ac._onGround) status = 'ground';
+      console.log('Processing', ac.callsign, 'area:', area, 'isGround:', isGround, 'statusText:', statusText, 'statusClass:', statusClass, 'lat:', lat, 'lon:', lon);
 
-      console.log('Processing', ac.callsign, 'status:', status, 'lat:', lat, 'lon:', lon);
-
-      // Colors: FRZ (red), P56 (orange), SFRA (blue), ground (gray), airborne outside SFRA (green)
-      const color = status==='frz'? '#d9534f' : status==='p56'? '#f0ad4e' : status==='sfra'? '#0275d8' : status==='ground'? '#6c757d' : '#28a745';
+      // Colors: FRZ (red), P56 (orange), SFRA (blue), ground (gray), vicinity (green)
+      const color = statusClass==='frz'? '#d9534f' : statusClass==='p56'? '#f0ad4e' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
       // create marker/icon defensively so one failure doesn't prevent all markers from showing
       let markerP56, markerSFRA;
       
@@ -730,17 +1043,20 @@
           markerSFRA.openPopup();
         }catch(e){ /* ignore */ }
       });
-      // add markers to their category groups
-      const grp = p56MarkerGroups[status] || p56MarkerGroups['air'];
-      const sgrp = sfraMarkerGroups[status] || sfraMarkerGroups['air'];
-      grp.addLayer(markerP56);
-      sgrp.addLayer(markerSFRA);
+  // add markers to their category groups
+  const grp = p56MarkerGroups[status] || p56MarkerGroups['vicinity'];
+  const sgrp = sfraMarkerGroups[status] || sfraMarkerGroups['vicinity'];
+  grp.addLayer(markerP56);
+  sgrp.addLayer(markerSFRA);
+  // Attach marker references and current status to the aircraft object so
+  // background elevation checks can update markers in-place without a full refresh.
+  try{ ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = status; }catch(e){}
       console.log('Added marker for', ac.callsign, 'to', status, 'group');
       // Populate client-side lists so UI tables/counts match the map classification
       try{
-        if(status === 'sfra') sfraList.push(ac);
-        else if(status === 'frz') frzList.push(ac);
-        else if(status === 'p56') p56List.push(ac);
+        if(area === 'sfra') sfraList.push(ac);
+        else if(area === 'frz') frzList.push(ac);
+        else if(area === 'p56') p56List.push(ac);
         else if(status === 'ground') groundList.push(ac);
         else airList.push(ac);
       }catch(e){/* ignore list population errors */}
@@ -749,6 +1065,13 @@
       }
     }
     console.log('Finished marker creation');
+
+  // Kick off background elevation checks for suspicious aircraft. This runs
+  // asynchronously (non-blocking) and will update markers in-place when
+  // local elevation data is available. We deduplicate requests by rounded
+  // lat/lon (4 decimal places) and limit concurrency to avoid overloading
+  // the client or server.
+  try{ runBackgroundElevationChecks(filtered).catch(e=>console.error('Background elevation checks failed', e)); }catch(e){console.error(e)}
 
     // Populate counts and render SFRA/FRZ tables from client-side lists so UI
     // exactly matches the map classification.
@@ -772,10 +1095,12 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        let status = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-        if(ac._onGround) status = 'ground';
-        const statusHtmlRow = `<td><span class="status-${status} status-label">${statusLabel(status)}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.radial_range}</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+        let isGround = ac._onGround;
+        let statusText = isGround ? 'Ground' : 'Airborne';
+        let statusClass = isGround ? 'ground' : 'airborne';
+        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
       }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
       // Render FRZ table
@@ -793,10 +1118,12 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        let status = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-        if(ac._onGround) status = 'ground';
-        const statusHtmlRow = `<td><span class="status-${status} status-label">${statusLabel(status)}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.radial_range}</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+        let isGround = ac._onGround;
+        let statusText = isGround ? 'Ground' : 'Airborne';
+        let statusClass = isGround ? 'ground' : 'airborne';
+        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
     }catch(e){ console.error('Error rendering lists after markers', e); }
@@ -837,7 +1164,7 @@
     toggleGroup('toggle-ac-p56','p56');
     toggleGroup('toggle-ac-frz','frz');
     toggleGroup('toggle-ac-sfra','sfra');
-    toggleGroup('toggle-ac-air','air');
+    toggleGroup('toggle-ac-vicinity','vicinity');
     toggleGroup('toggle-ac-ground','ground');
 
     // Make legend collapsible
@@ -904,18 +1231,26 @@
                       return dca.range_nm * 1000 + dca.bearing; // distance is primary, bearing secondary
                     }, order };
                   }
+                  else if(col.includes('bearing')) sortConfig[tbodyId] = { key: (a)=> {
+                    const dca = a.dca || computeDca(a.latitude||a.last_position?.lat, a.longitude||a.last_position?.lon);
+                    return dca.bearing;
+                  }, order };
+                  else if(col.includes('range')) sortConfig[tbodyId] = { key: (a)=> {
+                    const dca = a.dca || computeDca(a.latitude||a.last_position?.lat, a.longitude||a.last_position?.lon);
+                    return dca.range_nm;
+                  }, order };
                   else if(col.includes('alt')) sortConfig[tbodyId] = { key: (a)=> Number(a.altitude||a.alt||0), order };
                   else if(col.includes('gs') || col.includes('ground')) sortConfig[tbodyId] = { key: (a)=> Number(a.groundspeed||a.gs||0), order };
                   else if(col.includes('squawk')) sortConfig[tbodyId] = { key: (a)=> Number(a.transponder||0), order };
                   else if(col.includes('assigned')) sortConfig[tbodyId] = { key: (a)=> Number(a.flight_plan?.assigned_transponder||0), order };
-                  else if(col.includes('route') || col.includes('dep') || col.includes('arr')) {
+                  else if(col.includes('route') || col.includes('dep') || col.includes('arr') || col.includes('→')) {
                     sortConfig[tbodyId] = { key: (a)=> {
                       const dep = (a.flight_plan?.departure || a.flight_plan?.depart || '');
                       const arr = (a.flight_plan?.arrival || a.flight_plan?.arr || '');
                       return `${dep} ${arr}`.toLowerCase();
                     }, order };
                   }
-                  else if(col.includes('status')) sortConfig[tbodyId] = { key: (a)=> (a.status||'').toLowerCase(), order };
+                  else if(col.includes('status')) sortConfig[tbodyId] = { key: (a)=> a._onGround ? 'ground' : 'airborne', order };
                   else sortConfig[tbodyId] = { key: (a)=> (String(a[col])||'').toLowerCase(), order };
                   sortConfig[tbodyId].key._col = col;
                 } else delete sortConfig[tbodyId];
@@ -923,19 +1258,9 @@
             // update header sort indicators
               document.querySelectorAll('.traffic-table thead th').forEach(h=>{ h.classList.remove('sort-asc','sort-desc'); });
               if(order === 'asc') th.classList.add('sort-asc'); else if(order === 'desc') th.classList.add('sort-desc');
-            // re-render only this table, don't refetch data
-            // The renderTable function will use the sortConfig we just set
+            // re-render only this table using cached data for fast sorting
             console.log('Sorting', tbodyId, 'by', col, 'order:', order);
-            // Trigger a minimal re-render by calling the table-specific render
-            // We can't call refresh() as it would refetch all data
-            // Instead, find and re-render just this table using the last data
-            // For now, we'll trigger a full refresh but this is suboptimal
-            // TODO: cache the last table data and re-render only that table
-            if(window._lastRefreshData){
-              // Use cached data to re-render without fetching
-              console.log('Would re-render from cache, but not implemented yet - calling full refresh');
-            }
-            refresh();
+            rerenderTable(tbodyId);
           });
         });
       });
@@ -957,10 +1282,25 @@
     }
     el('vso-count').textContent = vsoMatches.length;
     renderList('vso-list', vsoMatches, it=>{ const ac=it.aircraft; return `<strong>${ac.callsign||''}</strong> — ${ac.latitude?.toFixed?.(5)||''}, ${ac.longitude?.toFixed?.(5)||''} <br/><em>${(it.matched_affiliations||[]).join(', ')}</em>`; });
+    lastUpdateTime = Date.now();
+    updateTimeDisplay();
+
+    // Cache the processed data for fast table re-rendering during sorting
+    tableDataCache = {
+      currentInside,
+      events,
+      lb,
+      sfraList,
+      frzList,
+      latest_ac,
+      p56json
+    };
+    console.log('Cached table data for fast sorting');
+
     }catch(err){
       console.error('REFRESH ERROR:', err);
       console.error('Error stack:', err.stack);
-      alert('Dashboard refresh failed. Check console for details. Error: ' + err.message);
+      // Removed alert popup
     }
   }
 
@@ -974,9 +1314,14 @@
           // ensure permalink is up-to-date
           setPermalink();
           const link = el('permalink');
-          // navigate to the permalink in the same tab so the URL reflects new parameters
+          // Update the URL without navigating (single-page behavior) and refresh data
           if(link && link.href && link.href !== '#'){
-            window.location.href = link.href;
+            try{
+              const u = new URL(link.href);
+              // Use replaceState to update the address bar without reloading
+              history.replaceState(null, '', u.pathname + u.search + u.hash);
+            }catch(e){ /* if URL parsing fails, ignore and continue */ }
+            refresh();
           }else{
             // fallback to single-page refresh
             refresh();
@@ -994,7 +1339,7 @@
     // update when affiliation checkboxes change
     document.querySelectorAll('.aff-check').forEach(cb => cb.addEventListener('change', ()=>{ setPermalink(); }));
     // update when overlay toggles change
-    ['toggle-sfra','toggle-frz','toggle-p56','toggle-ac-p56','toggle-ac-frz','toggle-ac-sfra','toggle-ac-air','toggle-ac-ground'].forEach(id => {
+    ['toggle-sfra','toggle-frz','toggle-p56','toggle-ac-p56','toggle-ac-frz','toggle-ac-sfra','toggle-ac-vicinity','toggle-ac-ground'].forEach(id => {
       const elc = document.getElementById(id);
       if(elc) elc.addEventListener('change', ()=> setPermalink());
     });

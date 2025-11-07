@@ -54,7 +54,7 @@ li{margin-bottom:6px}
 .legend .p56{background:#f0ad4e}
 .legend .sfra{background:#0275d8}
 .legend .ground{background:#6c757d}
-.legend .air{background:#28a745}
+.legend .vicinity{background:#28a745}
 /* aircraft tooltip */
 /* Ensure tooltip text is readable even when Leaflet applies default styles.
 	Use selector specificity so our styles take precedence. */
@@ -86,13 +86,13 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .traffic-table .flight-plan-cell{background:#081218;padding:0 !important;border-top:1px solid #23303a}
 .traffic-table .flight-plan pre{font-size:0.8rem;color:#dfefff;margin:0;white-space:pre-wrap}
 /* Flight plan form styles (compact inline) */
-.fp-compact{display:block;width:100%;box-sizing:border-box;padding:10px;background:rgba(6,10,14,0.9);border-radius:4px;overflow:hidden}
+.fp-compact{display:block;width:100%;box-sizing:border-box;padding:10px;background:rgba(6,10,14,0.9);border-radius:4px;overflow-wrap:break-word}
 .fp-row-inline{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px;max-width:100%}
 .fp-inline-field{background:#071016;border:1px solid #23303a;padding:6px 12px;border-radius:4px;display:inline-flex;gap:8px;align-items:center;white-space:nowrap;box-sizing:border-box}
 .fp-lbl{font-size:11px;color:#5b9adb;font-weight:700;letter-spacing:0.02em}
 .fp-inline-field{color:#e6eef8;font-size:13px}
-.fp-route-field{flex:1 1 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
-.fp-remarks-box{flex:1 1 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);background:#071016;border:1px solid #23303a;padding:10px;border-radius:4px;display:flex;flex-direction:column;gap:4px;overflow:hidden;box-sizing:border-box}
+.fp-route-field{flex:1 1 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;box-sizing:border-box}
+.fp-remarks-box{flex:1 1 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);background:#071016;border:1px solid #23303a;padding:10px;border-radius:4px;display:flex;flex-direction:column;gap:4px;overflow-wrap:break-word;box-sizing:border-box}
 .fp-rmk-text{color:#e6eef8;font-size:12px;white-space:pre-wrap;line-height:1.4;word-break:break-word;overflow-wrap:break-word;max-width:100%}
 .traffic-table .flight-plan-cell{padding:0 !important;box-sizing:border-box}
 /* Squawk highlighting */
@@ -106,7 +106,8 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .status-p56{color:#f0ad4e;font-weight:700}
 .status-sfra{color:#0275d8;font-weight:700}
 .status-ground{color:#6c757d;font-weight:700}
-.status-air{color:#28a745;font-weight:700}
+.status-vicinity{color:#28a745;font-weight:700}
+.status-airborne{color:#ffffff;font-weight:700}
 
 /* small swatches next to status labels */
 .status-swatch{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:8px;vertical-align:middle;border:1px solid rgba(0,0,0,0.25)}
@@ -114,7 +115,8 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .status-swatch-p56{background:#f0ad4e}
 .status-swatch-sfra{background:#0275d8}
 .status-swatch-ground{background:#6c757d}
-.status-swatch-air{background:#28a745}
+.status-swatch-vicinity{background:#28a745}
+.status-swatch-airborne{background:#ffffff}
 .status-label{font-weight:700}
 
 /* clickable table headers */

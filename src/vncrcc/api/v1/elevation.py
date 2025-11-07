@@ -1,9 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException
 from typing import Any, Dict
 import time
-import urllib.request
-import urllib.parse
-import json
 from vncrcc.geo import raster_elevation
 
 router = APIRouter(prefix="/elevation")
@@ -26,26 +23,34 @@ async def elevation(lat: float = Query(...), lon: float = Query(...)) -> Dict[st
     if ent and now - ent[1] < _TTL:
         return {"elevation_m": ent[0], "cached": True}
 
-    # Use local raster data only. If raster support isn't available, or no data
-    # exists for the requested point, return a helpful HTTP error. This makes
-    # the elevation provider fully internal and avoids external network calls.
+    # Use local raster data only. If raster support isn't available or the
+    # rasters don't contain the point, return a 200 JSON with elevation_m=null
+    # and a clear source so clients can apply a deterministic fallback. This
+    # keeps the service local-only while avoiding 503/404 responses that clutter
+    # logs and complicate client error handling.
     if not getattr(raster_elevation, "RASTER_AVAILABLE", False):
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Local raster elevation not available. "
-                "Install 'rasterio' and ensure 'src/vncrcc/geo/rasters_COP30.tar' is present and extracted."
-            ),
-        )
+        # Local sampling not available; return neutral response (no external calls)
+        return {
+            "elevation_m": None,
+            "cached": False,
+            "source": "none",
+            "message": "Local raster support not available. Install rasterio and ensure local rasters are present for precise elevation."
+        }
 
     try:
         elev_local = raster_elevation.sample_elevation(lat, lon)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Error sampling local raster: {exc}")
+        # Sampling failed; return neutral response rather than an HTTP error
+        return {
+            "elevation_m": None,
+            "cached": False,
+            "source": "error",
+            "message": f"Error sampling local raster: {exc}"
+        }
 
     if elev_local is None:
-        # no data at this location in the provided rasters
-        raise HTTPException(status_code=404, detail="No elevation data available at this location in local rasters")
+        # no data at this location in the provided rasters - return neutral
+        return {"elevation_m": None, "cached": False, "source": "none", "message": "No local elevation data for this location"}
 
     _CACHE[key] = (float(elev_local), now)
     return {"elevation_m": float(elev_local), "cached": False, "source": "local-raster"}
