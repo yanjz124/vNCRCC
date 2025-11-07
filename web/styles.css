@@ -94,6 +94,10 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .fp-route-field{flex:1 1 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);overflow:hidden;text-overflow:ellipsis;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;box-sizing:border-box}
 .fp-remarks-box{flex:1 1 calc(100% - 20px);min-width:0;max-width:calc(100% - 20px);background:#071016;border:1px solid #23303a;padding:10px;border-radius:4px;display:flex;flex-direction:column;gap:4px;overflow-wrap:break-word;box-sizing:border-box}
 .fp-rmk-text{color:#e6eef8;font-size:12px;white-space:pre-wrap;line-height:1.4;word-break:break-word;overflow-wrap:break-word;max-width:100%}
+/* Block layout for RTE and RMK sections */
+.fp-row-block{display:block;margin-bottom:8px;max-width:100%;background:#071016;border:1px solid #23303a;padding:10px;border-radius:4px;overflow-wrap:break-word;box-sizing:border-box}
+.fp-route-content{color:#e6eef8;font-size:13px;white-space:pre-wrap;line-height:1.4;word-break:break-word;overflow-wrap:break-word;max-width:100%;margin-top:4px;padding-left:0}
+.fp-rmk-content{color:#e6eef8;font-size:12px;white-space:pre-wrap;line-height:1.4;word-break:break-word;overflow-wrap:break-word;max-width:100%;margin-top:4px;padding-left:0}
 .traffic-table .flight-plan-cell{padding:0 !important;box-sizing:border-box}
 /* Squawk highlighting */
 .traffic-table .squawk-1200{color:#fff3cd !important} /* yellow */

@@ -751,14 +751,16 @@
       html += `</div>`;
       
       // Row 2: RTE (full width)
-      html += `<div class="fp-row-inline">`;
-      html += `<span class="fp-inline-field fp-route-field"><span class="fp-lbl">RTE</span> ${route}</span>`;
+      html += `<div class="fp-row-block">`;
+      html += `<div class="fp-lbl">RTE</div>`;
+      html += `<div class="fp-route-content">${route}</div>`;
       html += `</div>`;
       
       // Row 3: RMK (full width)
       if (remarks) {
-        html += `<div class="fp-row-inline">`;
-        html += `<div class="fp-remarks-box"><div class="fp-lbl">RMK</div><div class="fp-rmk-text">${remarks}</div></div>`;
+        html += `<div class="fp-row-block">`;
+        html += `<div class="fp-lbl">RMK</div>`;
+        html += `<div class="fp-rmk-content">${remarks}</div>`;
         html += `</div>`;
       }
 
