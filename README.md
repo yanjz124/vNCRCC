@@ -114,4 +114,24 @@ Notes & tips
 - To run tests locally: `pytest -q` from the repository root (activate the virtualenv first).
 - If the SPA shows stale assets after an update, do a hard refresh (Ctrl+F5) or open DevTools → Network → Disable cache before reloading.
 
+Local raster elevation data
+---------------------------
+
+If you have the `rasters_COP30.tar` archive included under `src/vncrcc/geo/` the API can sample elevations from the contained GeoTIFF(s) locally instead of calling the remote Open-Meteo elevation API. This is optional and uses `rasterio` when available.
+
+To enable local raster sampling:
+
+1. Install rasterio in your environment (note: rasterio requires GDAL and may need system packages):
+
+```powershell
+# Windows (using pip; make sure GDAL is available on the system)
+pip install rasterio
+```
+
+2. Ensure `src/vncrcc/geo/rasters_COP30.tar` is present. On first import the server will extract the archive into `src/vncrcc/geo/rasters/` and attempt to open the first TIFF file it finds.
+
+3. The elevation endpoint will prefer local raster values when available and fall back to the remote service when not.
+
+If you prefer not to install rasterio, no action is needed — the API continues to use the remote elevation provider as before.
+
 
