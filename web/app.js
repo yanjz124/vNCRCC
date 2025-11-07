@@ -380,10 +380,19 @@
 
   function classifyAircraft(ac, lat, lon, layers){
     // priority: FRZ > P56 > SFRA - use p56 map overlays for classification
-    if(pointInLayer(lat, lon, overlays.p56.frz)) return 'frz';
-    if(pointInLayer(lat, lon, overlays.p56.p56)) return 'p56';
-    if(pointInLayer(lat, lon, overlays.p56.sfra)) return 'sfra';
-    return 'vicinity';
+    // Check geographical location first
+    let geoArea = 'vicinity';
+    if(pointInLayer(lat, lon, overlays.p56.frz)) geoArea = 'frz';
+    else if(pointInLayer(lat, lon, overlays.p56.p56)) geoArea = 'p56';
+    else if(pointInLayer(lat, lon, overlays.p56.sfra)) geoArea = 'sfra';
+
+    // If aircraft is in a restricted area but above 18000ft, classify as vicinity
+    const altitude = Number(ac.altitude || ac.alt || 0);
+    if(geoArea !== 'vicinity' && altitude > 18000) {
+      return 'vicinity';
+    }
+
+    return geoArea;
   }
 
   // Global cache for table data to enable fast sorting without full refresh
@@ -418,7 +427,7 @@
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
         return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ci.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>`;
-      }, ci => `p56-current:${ci.cid||ci.callsign||''}`, { hideEquipment: true });
+      }, ci => `p56-current:${ci.cid||ci.callsign||''}`);
     } else if (tbodyId === 'p56-events-tbody') {
       const tbodyEvents = el('p56-events-tbody');
       tbodyEvents.innerHTML = '';
@@ -444,9 +453,9 @@
         try{
           const evtTable = tbodyEvents.closest('table');
           const ncols = evtTable ? evtTable.querySelectorAll('thead th').length : 7;
-          fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="${ncols}">${formatFlightPlan(evt, { hideEquipment: true })}</td>`;
+          fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="${ncols}">${formatFlightPlan(evt)}</td>`;
         }catch(e){
-          fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="7">${formatFlightPlan(evt, { hideEquipment: true })}</td>`;
+          fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="7">${formatFlightPlan(evt)}</td>`;
         }
         const evtKey = `${evt.cid||''}:${evt.recorded_at||''}`;
         tr.dataset.fpKey = evtKey;
@@ -724,7 +733,6 @@
       const cid = ac.cid || '—';
       const bcn = ac.transponder || '—';
       const typ = fp.aircraft_faa || fp.aircraft_short || '—';
-  const eq = fp.equipment || '—';
       const dep = fp.departure || '—';
       const dest = fp.arrival || '—';
       const spd = fp.cruise_tas || '—';
@@ -735,15 +743,12 @@
       // Compact full-width layout: all main fields in 1-2 lines, then RTE and RMK full-width
       let html = '<div class="fp-compact">';
       
-      // Row 1: All main fields (AID, CID, BCN, TYP, EQ, DEP, DEST, SPD, ALT) - will wrap to 2 lines if needed
+      // Row 1: All main fields (AID, CID, BCN, TYP, DEP, DEST, SPD, ALT) - will wrap to 2 lines if needed
       html += `<div class="fp-row-inline">`;
       html += `<span class="fp-inline-field"><span class="fp-lbl">AID</span> ${aid}</span>`;
       html += `<span class="fp-inline-field"><span class="fp-lbl">CID</span> ${cid}</span>`;
       html += `<span class="fp-inline-field"><span class="fp-lbl">BCN</span> ${bcn}</span>`;
       html += `<span class="fp-inline-field"><span class="fp-lbl">TYP</span> ${typ}</span>`;
-      if(!(opts && opts.hideEquipment)){
-        html += `<span class="fp-inline-field"><span class="fp-lbl">EQ</span> ${eq}</span>`;
-      }
       html += `<span class="fp-inline-field"><span class="fp-lbl">DEP</span> ${dep}</span>`;
       html += `<span class="fp-inline-field"><span class="fp-lbl">DEST</span> ${dest}</span>`;
       html += `<span class="fp-inline-field"><span class="fp-lbl">SPD</span> ${spd}</span>`;
@@ -836,9 +841,9 @@
         try{
         const evtTable = tbodyEvents.closest('table');
         const ncols = evtTable ? evtTable.querySelectorAll('thead th').length : 7;
-        fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="${ncols}">${formatFlightPlan(evt, { hideEquipment: true })}</td>`;
+        fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="${ncols}">${formatFlightPlan(evt)}</td>`;
       }catch(e){
-        fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="7">${formatFlightPlan(evt, { hideEquipment: true })}</td>`;
+        fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="7">${formatFlightPlan(evt)}</td>`;
       }
       // attach persistence key for this event so expanded state survives refresh
       const evtKey = `${evt.cid||''}:${evt.recorded_at||''}`;
