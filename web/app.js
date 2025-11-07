@@ -880,13 +880,6 @@
       tbodyEvents.appendChild(fpDiv);
     });
 
-    // prune expandedSet entries for keys that are no longer present in any table
-    try{
-      const toRemove = [];
-      expandedSet.forEach(k => { if(!presentKeys.has(k)) toRemove.push(k); });
-      if(toRemove.length){ toRemove.forEach(k=>expandedSet.delete(k)); saveExpandedSet(expandedSet); }
-    }catch(e){/* ignore pruning errors */}
-
     // Build a simple leaderboard from intrusion events (count by CID)
     try{
       const lbMap = {};
@@ -1129,6 +1122,13 @@
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
     }catch(e){ console.error('Error rendering lists after markers', e); }
+
+    // prune expandedSet entries for keys that are no longer present in any table
+    try{
+      const toRemove = [];
+      expandedSet.forEach(k => { if(!presentKeys.has(k)) toRemove.push(k); });
+      if(toRemove.length){ toRemove.forEach(k=>expandedSet.delete(k)); saveExpandedSet(expandedSet); }
+    }catch(e){/* ignore pruning errors */}
 
 
     // Ensure category groups visibility matches legend toggles
