@@ -539,12 +539,9 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-        let isGround = ac._onGround;
-        let statusText = isGround ? 'Ground' : 'Airborne';
-        let statusClass = isGround ? 'ground' : 'airborne';
-        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+        const assigned = ac.flight_plan?.assigned_transponder || '';
+        const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
       }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
     } else if (tbodyId === 'frz-tbody') {
       renderTable('frz-tbody', frzList, it => {
@@ -561,12 +558,9 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-        let isGround = ac._onGround;
-        let statusText = isGround ? 'Ground' : 'Airborne';
-        let statusClass = isGround ? 'ground' : 'airborne';
-        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+        const assigned = ac.flight_plan?.assigned_transponder || '';
+        const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
     }
   }
@@ -702,6 +696,8 @@
       items.forEach(item => {
         const tr = document.createElement('tr');
         tr.className = 'expandable';
+        // shade row slightly if aircraft is on the ground
+        try{ if(item._onGround) tr.classList.add('on-ground'); }catch(e){}
         tr.innerHTML = rowFn(item);
   const fpDiv = document.createElement('tr');
   fpDiv.className = 'flight-plan';
@@ -797,15 +793,17 @@
       const dep = (ci.flight_plan && (ci.flight_plan.departure || ci.flight_plan.depart)) || '';
       const arr = (ci.flight_plan && (ci.flight_plan.arrival || ci.flight_plan.arr)) || '';
       const acType = (ci.flight_plan && ci.flight_plan.aircraft_faa) || (ci.flight_plan && ci.flight_plan.aircraft_short) || '';
-      const squawk = ci.transponder || '';
+  const squawk = ci.transponder || '';
       let squawkClass = '';
       if (squawk === '1200') squawkClass = 'squawk-1200';
       else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
       else if (squawk === '7777') squawkClass = 'squawk-7777';
       else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-      const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-      // P56: per user request we remove the Status column for P56 tables.
-      return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ci.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>`;
+    const assigned = ci.flight_plan?.assigned_transponder || '';
+    const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
+    // Combined squawk/assigned into a single wrappable cell
+    const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
+    return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
   }, ci => `p56-current:${ci.cid||ci.callsign||''}`, { hideEquipment: true });
 
     // P56 events (intrusion log) - default sort: most recent on top
@@ -989,9 +987,11 @@
       // Summary popup: first line = callsign, pilot name, CID. Second line = DCA radial-range,
       // dep → dest, aircraft type. Clicking the aircraft replaces the popup with the full
       // JSON returned by the API for that aircraft.
+      // Show either ON GROUND or the area (SFRA/FRZ/P56/VICINITY) in the popup
+      const popupStatus = isGround ? 'ON GROUND' : (String(area || 'vicinity').toUpperCase());
       const summary = `<div class="ac-summary"><strong>${ac.callsign||''}</strong> — ${ac.name||''} (CID: ${cid})</div>
         <div>${dca.radial_range} — ${dep || '-'} → ${arr || '-'} — ${(ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '-'}</div>
-        <div><em>${status.toUpperCase()}</em> — Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}</div>`;
+        <div><em>${popupStatus}</em> — Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}</div>`;
       markerP56.bindPopup(summary);
       markerSFRA.bindPopup(summary);
 
@@ -1043,14 +1043,14 @@
           markerSFRA.openPopup();
         }catch(e){ /* ignore */ }
       });
-  // add markers to their category groups
-  const grp = p56MarkerGroups[status] || p56MarkerGroups['vicinity'];
-  const sgrp = sfraMarkerGroups[status] || sfraMarkerGroups['vicinity'];
+  // add markers to their category groups (use statusClass which holds the final group)
+  const grp = p56MarkerGroups[statusClass] || p56MarkerGroups['vicinity'];
+  const sgrp = sfraMarkerGroups[statusClass] || sfraMarkerGroups['vicinity'];
   grp.addLayer(markerP56);
   sgrp.addLayer(markerSFRA);
   // Attach marker references and current status to the aircraft object so
   // background elevation checks can update markers in-place without a full refresh.
-  try{ ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = status; }catch(e){}
+  try{ ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass; }catch(e){}
       console.log('Added marker for', ac.callsign, 'to', status, 'group');
       // Populate client-side lists so UI tables/counts match the map classification
       try{
@@ -1095,12 +1095,9 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-        let isGround = ac._onGround;
-        let statusText = isGround ? 'Ground' : 'Airborne';
-        let statusClass = isGround ? 'ground' : 'airborne';
-        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+        const assigned = ac.flight_plan?.assigned_transponder || '';
+        const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
       }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
       // Render FRZ table
@@ -1109,7 +1106,7 @@
         const dca = it.dca || computeDca(ac.latitude, ac.longitude);
         const cid = ac.cid || '';
         const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+        const arr = (ac.flight_plan && ac.flight_plan.arrival || ac.flight_plan.arr) || '';
         const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
         const squawk = ac.transponder || '';
         let squawkClass = '';
@@ -1118,12 +1115,9 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-        let isGround = ac._onGround;
-        let statusText = isGround ? 'Ground' : 'Airborne';
-        let statusClass = isGround ? 'ground' : 'airborne';
-        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ac.flight_plan?.assigned_transponder || ''}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
+        const assigned = ac.flight_plan?.assigned_transponder || '';
+        const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
     }catch(e){ console.error('Error rendering lists after markers', e); }
@@ -1288,7 +1282,43 @@
       }
     }
     el('vso-count').textContent = vsoMatches.length;
-    renderList('vso-list', vsoMatches, it=>{ const ac=it.aircraft; return `<strong>${ac.callsign||''}</strong> — ${ac.latitude?.toFixed?.(5)||''}, ${ac.longitude?.toFixed?.(5)||''} <br/><em>${(it.matched_affiliations||[]).join(', ')}</em>`; });
+    // Render VSO matches in a traffic-table matching SFRA/FRZ layout with an
+    // extra leftmost Affiliation column.
+    renderTable('vso-tbody', vsoMatches, it => {
+      const ac = it.aircraft || {};
+      const lat = ac.latitude || ac.lat || ac.y;
+      const lon = ac.longitude || ac.lon || ac.x;
+      const dca = it.dca || (lat!=null && lon!=null ? computeDca(lat, lon) : { bearing: '-', range_nm: 0 });
+      const aff = (it.matched_affiliations || []).join(', ');
+      const cid = ac.cid || '';
+      const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+      const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+      const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+      const squawk = ac.transponder || '';
+      let squawkClass = '';
+      if (squawk === '1200') squawkClass = 'squawk-1200';
+      else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+      else if (squawk === '7777') squawkClass = 'squawk-7777';
+      else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+      const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
+      const assigned = ac.flight_plan?.assigned_transponder || '';
+      const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
+      return `<td>${aff}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
+    }, it => `vso:${(it.aircraft||{}).cid|| (it.aircraft||{}).callsign || ''}`);
+    // Default sort for VSO table: affiliation (alpha) then range (numeric asc)
+    if(!sortConfig['vso-tbody']){
+      sortConfig['vso-tbody'] = { key: (it)=>{
+        try{
+          const aff = (it.matched_affiliations || []).join(',').toLowerCase();
+          const ac = it.aircraft || {};
+          const dca = it.dca || (ac.latitude!=null && ac.longitude!=null ? computeDca(ac.latitude, ac.longitude) : { range_nm: 0 });
+          // Build a sortable string: affiliation then zero-padded numeric range
+          const rn = String(Math.round(Number(dca.range_nm || 0))).padStart(6,'0');
+          return `${aff} ${rn}`;
+        }catch(e){ return ''; }
+      }, order: 'asc' };
+      sortConfig['vso-tbody'].key._col = 'affiliation/range';
+    }
     lastUpdateTime = Date.now();
     updateTimeDisplay();
 
