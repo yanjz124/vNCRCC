@@ -406,8 +406,48 @@
     return geoArea;
   }
 
-  // Global cache for table data to enable fast sorting without full refresh
-  let tableDataCache = null;
+  // Global map for track layers
+  const trackLayers = new Map(); // cid -> polyline
+
+  function toggleTrack(cid) {
+    if (!cid) return;
+    const existing = trackLayers.get(cid);
+    if (existing) {
+      // remove track
+      p56Map.removeLayer(existing);
+      sfraMap.removeLayer(existing);
+      trackLayers.delete(cid);
+      console.log('Removed track for CID', cid);
+    } else {
+      // find the aircraft
+      let ac = null;
+      // search in markers, since they have ac attached
+      p56Map.eachLayer(layer => {
+        if (layer.ac && String(layer.ac.cid) === String(cid)) {
+          ac = layer.ac;
+        }
+      });
+      if (!ac) {
+        sfraMap.eachLayer(layer => {
+          if (layer.ac && String(layer.ac.cid) === String(cid)) {
+            ac = layer.ac;
+          }
+        });
+      }
+      if (!ac || !ac.position_history || ac.position_history.length < 2) {
+        console.log('No position history for CID', cid);
+        return;
+      }
+      // create polyline
+      const latlngs = ac.position_history.map(h => [h.latitude, h.longitude]).filter(([lat, lon]) => lat != null && lon != null);
+      if (latlngs.length < 2) return;
+      const polyline = L.polyline(latlngs, { color: 'blue', weight: 2, opacity: 0.8 });
+      p56Map.addLayer(polyline);
+      sfraMap.addLayer(polyline);
+      trackLayers.set(cid, polyline);
+      console.log('Added track for CID', cid, 'with', latlngs.length, 'points');
+    }
+  }
 
   // Fast table re-rendering using cached data (for sorting without full refresh)
   function rerenderTable(tbodyId) {
@@ -954,6 +994,13 @@
     // markers
   // clear per-category groups
   categories.forEach(cat => { p56MarkerGroups[cat].clearLayers(); sfraMarkerGroups[cat].clearLayers(); });
+    // clear old track layers
+    trackLayers.forEach(polyline => {
+      p56Map.removeLayer(polyline);
+      sfraMap.removeLayer(polyline);
+    });
+    trackLayers.clear();
+
     console.log('Starting marker creation for', filtered.length, 'aircraft');
     for(const ac of filtered){
       try{
@@ -989,10 +1036,8 @@
         markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
       }
-  const dca = ac.dca || computeDca(lat, lon);
-  const cid = ac.cid || '';
-  const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-  const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+      markerP56.ac = ac;
+      markerSFRA.ac = ac;
       // Summary popup: first line = callsign, pilot name, CID. Second line = DCA radial-range,
       // dep → dest, aircraft type. Clicking the aircraft replaces the popup with the full
       // JSON returned by the API for that aircraft.
@@ -1000,7 +1045,8 @@
       const popupStatus = isGround ? 'ON GROUND' : (String(area || 'vicinity').toUpperCase());
       const summary = `<div class="ac-summary"><strong>${ac.callsign||''}</strong> — ${ac.name||''} (CID: ${cid})</div>
         <div>${dca.radial_range} — ${dep || '-'} → ${arr || '-'} — ${(ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '-'}</div>
-        <div><em>${popupStatus}</em> — Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}</div>`;
+        <div><em>${popupStatus}</em> — Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}</div>
+        <div><button onclick="toggleTrack('${cid}')">Toggle Track</button></div>`;
       markerP56.bindPopup(summary);
       markerSFRA.bindPopup(summary);
 
