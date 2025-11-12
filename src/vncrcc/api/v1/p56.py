@@ -45,6 +45,15 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
     latest_ac = (latest.get("data") or {}).get("pilots") or (latest.get("data") or {}).get("aircraft") or []
     prev_ac = (prev.get("data") or {}).get("pilots") or (prev.get("data") or {}).get("aircraft") or []
 
+    # Add position history to latest_ac
+    if storage.STORAGE:
+        for ac in latest_ac:
+            cid = ac.get("cid")
+            if cid is not None:
+                ac["position_history"] = storage.STORAGE.get_aircraft_position_history(cid, 10)
+            else:
+                ac["position_history"] = []
+
     # Collect positions by cid from recent snapshots
     positions_by_cid = defaultdict(list)
     for snap in snaps:

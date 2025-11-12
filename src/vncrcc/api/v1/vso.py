@@ -58,6 +58,6 @@ async def vso_aircraft(range_nm: int = Query(60, description="maximum range (nau
         if patterns and not matched:
             continue
 
-        out.append({"aircraft": a, "dca": dca, "matched_affiliations": matched})
+        out.append({"aircraft": a, "dca": dca, "matched_affiliations": matched, "position_history": storage.STORAGE.get_aircraft_position_history(a.get("cid"), 10) if storage.STORAGE else []})
 
     return {"aircraft": out}

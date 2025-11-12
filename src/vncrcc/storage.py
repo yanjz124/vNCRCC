@@ -43,6 +43,21 @@ class Storage:
         )
         """
         )
+        cur.execute(
+            """
+        CREATE TABLE IF NOT EXISTS aircraft_positions (
+            id INTEGER PRIMARY KEY,
+            cid INTEGER,
+            callsign TEXT,
+            timestamp REAL,
+            latitude REAL,
+            longitude REAL,
+            altitude REAL,
+            groundspeed REAL,
+            heading REAL
+        )
+        """
+        )
         self.conn.commit()
 
     def save_snapshot(self, data: Dict[str, Any], fetched_at: Optional[float] = None) -> int:
@@ -52,6 +67,9 @@ class Storage:
         cur.execute("INSERT INTO snapshots (fetched_at, raw_json) VALUES (?, ?)", (fetched_at, json.dumps(data)))
         self.conn.commit()
         sid = cur.lastrowid or 0
+        
+        # Save aircraft positions
+        self._save_aircraft_positions(data, fetched_at)
         
         # Keep only the most recent 100 snapshots to prevent unlimited growth
         self._cleanup_old_snapshots()
@@ -95,6 +113,45 @@ class Storage:
         """, (keep_recent,))
         self.conn.commit()
 
+    def _save_aircraft_positions(self, data: Dict[str, Any], timestamp: float) -> None:
+        """Save positions for all aircraft in the snapshot."""
+        aircraft = data.get("pilots") or data.get("aircraft") or []
+        cur = self.conn.cursor()
+        for ac in aircraft:
+            try:
+                cid = ac.get("cid")
+                callsign = ac.get("callsign")
+                lat = ac.get("latitude") or ac.get("lat")
+                lon = ac.get("longitude") or ac.get("lon")
+                alt = ac.get("altitude")
+                gs = ac.get("groundspeed")
+                heading = ac.get("heading")
+                if cid is not None and lat is not None and lon is not None:
+                    cur.execute(
+                        "INSERT INTO aircraft_positions (cid, callsign, timestamp, latitude, longitude, altitude, groundspeed, heading) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        (cid, callsign, timestamp, lat, lon, alt, gs, heading)
+                    )
+            except Exception:
+                pass  # Skip invalid aircraft
+        self.conn.commit()
+        # Keep only the most recent 10 positions per aircraft
+        self._cleanup_old_positions()
+
+    def _cleanup_old_positions(self) -> None:
+        """Keep only the most recent 10 positions per aircraft."""
+        cur = self.conn.cursor()
+        # Delete positions older than the 10th most recent for each cid
+        cur.execute("""
+            DELETE FROM aircraft_positions 
+            WHERE id NOT IN (
+                SELECT id FROM (
+                    SELECT id, ROW_NUMBER() OVER (PARTITION BY cid ORDER BY timestamp DESC) as rn
+                    FROM aircraft_positions
+                ) WHERE rn <= 10
+            )
+        """)
+        self.conn.commit()
+
     def save_incident(self, detected_at: float, callsign: str, cid: Optional[int], lat: float, lon: float, altitude: Optional[float], zone: str, evidence: str) -> int:
         cur = self.conn.cursor()
         cur.execute(
@@ -109,6 +166,26 @@ class Storage:
         cur.execute("UPDATE incidents SET evidence = ? WHERE id = ?", (evidence, id))
         self.conn.commit()
 
+    def get_aircraft_position_history(self, cid: int, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get the most recent position history for an aircraft."""
+        cur = self.conn.cursor()
+        cur.execute(
+            "SELECT timestamp, latitude, longitude, altitude, groundspeed, heading FROM aircraft_positions WHERE cid = ? ORDER BY timestamp DESC LIMIT ?",
+            (cid, limit)
+        )
+        rows = cur.fetchall()
+        history = []
+        for ts, lat, lon, alt, gs, hdg in rows:
+            history.append({
+                "timestamp": ts,
+                "latitude": lat,
+                "longitude": lon,
+                "altitude": alt,
+                "groundspeed": gs,
+                "heading": hdg
+            })
+        return history
+
     def list_aircraft(self) -> List[Dict[str, Any]]:
         snap = self.get_latest_snapshot()
         if not snap:
@@ -118,6 +195,13 @@ class Storage:
             return []
         # VATSIM v3 places flights/aircraft under 'pilots' or 'aircraft' depending on feed
         aircraft = data.get("pilots") or data.get("aircraft") or []
+        # Add position history to each aircraft
+        for ac in aircraft:
+            cid = ac.get("cid")
+            if cid is not None:
+                ac["position_history"] = self.get_aircraft_position_history(cid, 10)
+            else:
+                ac["position_history"] = []
         return aircraft
 
 

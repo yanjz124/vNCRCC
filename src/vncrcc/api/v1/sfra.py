@@ -75,6 +75,7 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
             if inside_match:
                 # return the original aircraft dict plus matched geo properties and DCA radial/range
                 dca = _dca_radial_range(pt.y, pt.x)
-                inside.append({"aircraft": a, "matched_props": props, "dca": dca})
+                history = storage.STORAGE.get_aircraft_position_history(a.get("cid"), 10) if storage.STORAGE else []
+                inside.append({"aircraft": a, "matched_props": props, "dca": dca, "position_history": history})
                 break
     return {"aircraft": inside}

@@ -166,7 +166,7 @@
     const dist_nm = haversineNm(DCA[0], DCA[1], lat, lon);
     const dist_i = Math.round(dist_nm);
     const compact = `DCA${String(brng_i).padStart(3,'0')}${String(dist_i).padStart(3,'0')}`;
-    return {radial_range: compact, bearing: brng_i, range_nm: dist_i};
+    return {radial_range: compact, bearing: brng_i, range_nm: Math.round(dist_nm * 10) / 10};
   }
 
   async function loadGeo(name){

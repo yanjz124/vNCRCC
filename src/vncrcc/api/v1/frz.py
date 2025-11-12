@@ -98,6 +98,7 @@ async def frz_aircraft(name: str = Query("frz", description="keyword to find the
 
             if matched:
                 dca = _dca_radial_range(pt.y, pt.x)
-                inside.append({"aircraft": a, "matched_props": props, "dca": dca})
+                history = storage.STORAGE.get_aircraft_position_history(a.get("cid"), 10) if storage.STORAGE else []
+                inside.append({"aircraft": a, "matched_props": props, "dca": dca, "position_history": history})
                 break
     return {"aircraft": inside}
