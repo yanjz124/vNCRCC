@@ -36,7 +36,7 @@ def _dca_radial_range(lat: float, lon: float) -> dict:
     brng_i = int(round(brng)) % 360
     dist_i = int(round(dist_nm))
     compact = f"DCA{brng_i:03d}{dist_i:03d}"
-    return {"radial_range": compact, "bearing": brng_i, "range_nm": dist_i}
+    return {"radial_range": compact, "bearing": brng_i, "range_nm": round(dist_nm, 1)}
 
 router = APIRouter(prefix="/sfra")
 
