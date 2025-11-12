@@ -460,6 +460,12 @@
         console.log('No position history for CID', cid);
         return;
       }
+      
+      if (!ac.position_history || ac.position_history.length < 2) {
+        console.log('No position history available for', ac.callsign || cid, '(need at least 2 positions)');
+        return;
+      }
+      
       // create polyline
       const latlngs = ac.position_history.map(h => [h.latitude, h.longitude]).filter(([lat, lon]) => lat != null && lon != null);
       if (latlngs.length < 2) return;
@@ -1613,8 +1619,8 @@
   document.addEventListener('click', (e) => {
     const dropdown = el('aff-dropdown');
     const container = el('aff-dropdown-container');
-    if (!container.contains(e.target)) {
-      el('aff-dropdown').classList.remove('show');
+    if (container && dropdown && !container.contains(e.target)) {
+      dropdown.classList.remove('show');
     }
   });
 
