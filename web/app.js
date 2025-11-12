@@ -1100,24 +1100,6 @@
         markerSFRA.bindTooltip(tooltipHtml, {direction:'top', className:'fp-tooltip', sticky:true});
       }catch(e){/* ignore tooltip errors */}
 
-      // When the marker is clicked, replace the popup content with the full aircraft JSON
-      // so users can see the full data from the API.
-      markerP56.on('click', ()=>{
-        try{
-          const full = JSON.stringify(ac, null, 2).replace(/</g, '&lt;');
-          const detailHtml = `<div class="ac-full"><pre class="fp">${full}</pre></div>`;
-          markerP56.setPopupContent(detailHtml);
-          markerP56.openPopup();
-        }catch(e){ /* ignore */ }
-      });
-      markerSFRA.on('click', ()=>{
-        try{
-          const full = JSON.stringify(ac, null, 2).replace(/</g, '&lt;');
-          const detailHtml = `<div class="ac-full"><pre class="fp">${full}</pre></div>`;
-          markerSFRA.setPopupContent(detailHtml);
-          markerSFRA.openPopup();
-        }catch(e){ /* ignore */ }
-      });
   // add markers to their category groups (use statusClass which holds the final group)
   const grp = p56MarkerGroups[statusClass] || p56MarkerGroups['vicinity'];
   const sgrp = sfraMarkerGroups[statusClass] || sfraMarkerGroups['vicinity'];
