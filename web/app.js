@@ -640,7 +640,8 @@
     // fetch aircraft
     const aircraft = await fetchAllAircraft();
     console.log('Fetched aircraft count:', aircraft.length);
-    const range_nm = parseInt(el('vso-range').value || DEFAULT_RANGE_NM, 10);
+    const range_val = parseInt(el('vso-range').value || DEFAULT_RANGE_NM, 10);
+    const range_nm = range_val > 0 ? range_val : DEFAULT_RANGE_NM;
     console.log('VSO range setting:', range_nm, 'nm from DCA');
     const filtered = aircraft.filter(a=>{
       const lat = a.latitude || a.lat || a.y;
