@@ -15,8 +15,6 @@ main{padding:12px}
 .panels{display:block;gap:12px}
 .panel{background:var(--panel-bg);border:1px solid var(--panel-border);padding:8px;border-radius:6px}
 .panel-row{display:flex;gap:12px}
-/* make the P56 panel span full width and make the SFRA/FRZ panels 50% each */
-#p56-panel{width:100%;margin-bottom:12px}
 .panel-row > .panel{flex:1;min-width:0}
 .panel{min-width:0}
 .panel ul{max-width:100%;overflow-wrap:break-word}
@@ -24,12 +22,31 @@ main{padding:12px}
 .vso-controls label{color:#dfefff}
 .vso-controls input[type="text"], .vso-controls input[type="number"]{background:#081218;border:1px solid #23303a;color:#dfefff;padding:4px;border-radius:4px}
 .vso-controls .affiliations{display:flex;gap:8px;align-items:center}
-
-/* Affiliation pill buttons */
-.aff-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:20px;background:#081218;border:1px solid #23303a;color:#cfe6ff;cursor:pointer;font-size:0.9rem}
-.aff-pill input{display:none}
-.aff-pill span{padding:2px 6px;border-radius:12px}
-.aff-pill input:checked + span{background:#0d2538;color:#ffffff}
+.aff-dropdown-container{position:relative;display:flex;gap:4px}
+.dropdown-btn{background:#0d2538;border:1px solid #23303a;color:#dfefff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;min-width:30px}
+.dropdown-btn:hover{background:#11507a}
+.aff-dropdown{position:absolute;top:100%;left:0;background:#081218;border:1px solid #23303a;border-radius:4px;padding:8px;min-width:200px;max-height:300px;overflow-y:auto;z-index:1000;display:none}
+.aff-dropdown.show{display:block}
+.aff-option{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #23303a}
+.aff-option:last-child{border-bottom:none}
+.aff-option input[type="checkbox"]{margin:0}
+.aff-option label{color:#dfefff;cursor:pointer;flex:1;display:flex;align-items:center;gap:8px}
+.aff-option .delete-aff{
+	background: transparent;
+	border: none;
+	color: #ff6b6b;
+	width: 20px;
+	height: 20px;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	cursor:pointer;
+	transition: transform .12s ease, color .12s ease;
+	padding:0;
+}
+.aff-option .delete-aff svg{display:block;width:14px;height:14px}
+.aff-option .delete-aff:hover{color:#ff4757;transform:scale(1.12)}
+.aff-option .delete-aff:focus{outline:2px solid rgba(255,71,87,0.12);outline-offset:2px;border-radius:4px}
 
 /* Generic button styles */
 .btn{background:#0d2538;border:1px solid #23303a;color:#dfefff;padding:6px 10px;border-radius:6px;cursor:pointer}
@@ -127,3 +144,6 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .traffic-table th{cursor:pointer}
 .traffic-table th.sort-asc::after{content:' ▴';font-size:1em;display:inline-block;margin-left:6px;color:#cfe6ff;opacity:0.95}
 .traffic-table th.sort-desc::after{content:' ▾';font-size:1em;display:inline-block;margin-left:6px;color:#cfe6ff;opacity:0.95}
+
+/* Make squawk column wrappable */
+#sfra-table td:nth-child(9), #frz-table td:nth-child(9), #vso-table td:nth-child(10), #p56-table td:nth-child(9) { white-space: normal; word-break: break-word; }

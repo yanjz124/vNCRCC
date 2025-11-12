@@ -16,8 +16,21 @@
 
   // initialize inputs from URL
   el('vso-range').value = params.get('vso_range') || DEFAULT_RANGE_NM;
-  // load any provided vso_aff as comma-separated and add as checkboxes
+  // load any provided vso_aff as comma-separated
   const providedAff = (params.get('vso_aff') || '').split(',').map(s=>s.trim()).filter(Boolean);
+  if(providedAff.length){
+    // Store selected affiliations (both defaults and customs)
+    el('custom-aff').dataset.selected = providedAff.join(',');
+    // Add custom affiliations to the dataset
+    const customAff = providedAff.filter(aff => !DEFAULT_AFF.includes(aff.toLowerCase()));
+    if(customAff.length){
+      el('custom-aff').dataset.custom = customAff.join(',');
+    }
+  } else {
+    // Default: select all default affiliations
+    el('custom-aff').dataset.selected = DEFAULT_AFF.join(',');
+  }
+  renderAffDropdown(); // Render the dropdown with current selections
 
   // map setup - dark tiles
   // create maps without default zoom control (remove zoom +/- control)
@@ -101,13 +114,11 @@
 
   function setPermalink(){
     const r = el('vso-range').value;
-    // build affiliations list from checked boxes and extras
-    const checks = Array.from(document.querySelectorAll('.aff-check:checked')).map(i=>i.value);
-    const extras = (el('custom-aff').dataset.added || '').split(',').map(s=>s.trim()).filter(Boolean);
-    const affs = [...checks, ...extras];
+    // build affiliations list from selected affiliations in dataset
+    const selectedAff = (el('custom-aff').dataset.selected || '').split(',').map(s=>s.trim()).filter(Boolean);
     const p = new URL(window.location.href);
     p.searchParams.set('vso_range', r);
-    if(affs.length) p.searchParams.set('vso_aff', affs.join(',')); else p.searchParams.delete('vso_aff');
+    if(selectedAff.length) p.searchParams.set('vso_aff', selectedAff.join(',')); else p.searchParams.delete('vso_aff');
     el('permalink').href = p.toString();
   }
 
@@ -800,10 +811,8 @@
       else if (squawk === '7777') squawkClass = 'squawk-7777';
       else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
     const assigned = ci.flight_plan?.assigned_transponder || '';
-    const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-    // Combined squawk/assigned into a single wrappable cell
-    const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
-    return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
+    const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
+    return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} → ${arr}</td>`;
   }, ci => `p56-current:${ci.cid||ci.callsign||''}`, { hideEquipment: true });
 
     // P56 events (intrusion log) - default sort: most recent on top
@@ -1094,10 +1103,14 @@
         else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
         const assigned = ac.flight_plan?.assigned_transponder || '';
-        const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
+        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+        let isGround = ac._onGround;
+        let statusText = isGround ? 'Ground' : 'Airborne';
+        let statusClass = isGround ? 'ground' : 'airborne';
+        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
       }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
       // Render FRZ table
@@ -1114,10 +1127,14 @@
         else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
         const assigned = ac.flight_plan?.assigned_transponder || '';
-        const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
+        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+        let isGround = ac._onGround;
+        let statusText = isGround ? 'Ground' : 'Airborne';
+        let statusClass = isGround ? 'ground' : 'airborne';
+        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
     }catch(e){ console.error('Error rendering lists after markers', e); }
@@ -1268,16 +1285,14 @@
     }catch(e){/* ignore */}
 
     // VSO panel: use filtered but further filter by affiliations
-    // build affiliations list from checked boxes + custom
-    const checks = Array.from(document.querySelectorAll('.aff-check:checked')).map(i=>i.value);
-    const extras = (el('custom-aff').dataset.added || '').split(',').map(s=>s.trim()).filter(Boolean);
-    const affs = [...checks, ...extras].map(s=>s.toLowerCase());
+    // build affiliations list from selected affiliations in dataset
+    const selectedAff = (el('custom-aff').dataset.selected || '').split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.toLowerCase());
     const vsoMatches = [];
     for(const ac of filtered){
       const rmk = ((ac.flight_plan||{}).remarks||'').toLowerCase();
-      if(affs.length===0){ vsoMatches.push({aircraft:ac, dca:ac.dca||null, matched_affiliations:[]}); }
+      if(selectedAff.length===0){ vsoMatches.push({aircraft:ac, dca:ac.dca||null, matched_affiliations:[]}); }
       else{
-        const matched = affs.filter(p=> rmk.includes(p));
+        const matched = selectedAff.filter(p=> rmk.includes(p));
         if(matched.length) vsoMatches.push({aircraft:ac, dca:ac.dca||null, matched_affiliations: matched});
       }
     }
@@ -1289,7 +1304,7 @@
       const lat = ac.latitude || ac.lat || ac.y;
       const lon = ac.longitude || ac.lon || ac.x;
       const dca = it.dca || (lat!=null && lon!=null ? computeDca(lat, lon) : { bearing: '-', range_nm: 0 });
-      const aff = (it.matched_affiliations || []).join(', ');
+      const aff = (it.matched_affiliations || []).map(a => a.toUpperCase()).join(', ');
       const cid = ac.cid || '';
       const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
       const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
@@ -1300,10 +1315,14 @@
       else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
       else if (squawk === '7777') squawkClass = 'squawk-7777';
       else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-      const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
       const assigned = ac.flight_plan?.assigned_transponder || '';
-      const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
-      return `<td>${aff}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
+      const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
+      let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+      let isGround = ac._onGround;
+      let statusText = isGround ? 'Ground' : 'Airborne';
+      let statusClass = isGround ? 'ground' : 'airborne';
+      const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
+      return `<td>${aff}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} → ${arr}</td>${statusHtmlRow}`;
     }, it => `vso:${(it.aircraft||{}).cid|| (it.aircraft||{}).callsign || ''}`);
     // Default sort for VSO table: affiliation (alpha) then range (numeric asc)
     if(!sortConfig['vso-tbody']){
@@ -1373,15 +1392,11 @@
 
   // Keep permalink updated whenever inputs that affect it change.
   try{
-    // update when affiliation checkboxes change
-    document.querySelectorAll('.aff-check').forEach(cb => cb.addEventListener('change', ()=>{ setPermalink(); }));
     // update when overlay toggles change
     ['toggle-sfra','toggle-frz','toggle-p56','toggle-ac-p56','toggle-ac-frz','toggle-ac-sfra','toggle-ac-vicinity','toggle-ac-ground'].forEach(id => {
       const elc = document.getElementById(id);
       if(elc) elc.addEventListener('change', ()=> setPermalink());
     });
-    // update when custom aff is added (the add-aff handler already updates permalink, but ensure consistency)
-    const addAff = el('add-aff'); if(addAff) addAff.addEventListener('click', ()=> setPermalink());
     // update when permalink should reflect current VSO range input changes
     const vsoRange = el('vso-range'); if(vsoRange) vsoRange.addEventListener('input', ()=> setPermalink());
   }catch(e){ console.error('Failed to attach permalink-updating listeners', e); }
@@ -1432,16 +1447,147 @@
     }
   });
 
-  // add custom affiliation
-  el('add-aff').addEventListener('click', ()=>{
+  // Render affiliation dropdown with checkboxes
+  function renderAffDropdown(){
+    const container = el('aff-options');
+    container.innerHTML = '';
+    const selectedAff = (el('custom-aff').dataset.selected || '').split(',').map(s=>s.trim()).filter(Boolean);
+    const customAff = (el('custom-aff').dataset.custom || '').split(',').map(s=>s.trim()).filter(Boolean);
+
+    // Add default affiliations
+    DEFAULT_AFF.forEach(aff => {
+      const optionDiv = document.createElement('div');
+      optionDiv.className = 'aff-option';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = `aff-${aff}`;
+      checkbox.value = aff;
+      checkbox.checked = selectedAff.includes(aff.toLowerCase());
+      checkbox.addEventListener('change', () => {
+        updateSelectedAffiliations();
+        setPermalink();
+        updateDropdownButton();
+      });
+      const label = document.createElement('label');
+      label.htmlFor = `aff-${aff}`;
+      label.textContent = aff.toUpperCase();
+      optionDiv.appendChild(checkbox);
+      optionDiv.appendChild(label);
+      container.appendChild(optionDiv);
+    });
+
+    // Add custom affiliations with delete buttons
+    customAff.forEach(aff => {
+      const optionDiv = document.createElement('div');
+      optionDiv.className = 'aff-option';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = `aff-${aff}`;
+      checkbox.value = aff.toLowerCase();
+      checkbox.checked = selectedAff.includes(aff.toLowerCase());
+      checkbox.addEventListener('change', () => {
+        updateSelectedAffiliations();
+        setPermalink();
+        updateDropdownButton();
+      });
+      const label = document.createElement('label');
+      label.htmlFor = `aff-${aff}`;
+      label.textContent = aff.toUpperCase();
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'delete-aff';
+      deleteBtn.setAttribute('aria-label', `Delete ${aff}`);
+      deleteBtn.title = `Delete ${aff}`;
+      // modern inline SVG 'X' icon for a crisp, consistent look
+      deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false"><path d="M6 6 L18 18 M6 18 L18 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+      deleteBtn.onclick = () => deleteCustomAffiliation(aff);
+      optionDiv.appendChild(checkbox);
+      optionDiv.appendChild(label);
+      optionDiv.appendChild(deleteBtn);
+      container.appendChild(optionDiv);
+    });
+
+    updateDropdownButton();
+  }
+
+  // Update selected affiliations based on checkbox states
+  function updateSelectedAffiliations(){
+    const checkboxes = document.querySelectorAll('#aff-options input[type="checkbox"]:checked');
+    const selected = Array.from(checkboxes).map(cb => cb.value);
+    el('custom-aff').dataset.selected = selected.join(',');
+  }
+
+  // Update dropdown button text to show selected affiliations
+  function updateDropdownButton(){
+    const btn = el('aff-dropdown-btn');
+    btn.textContent = '▼';
+  }
+
+  // Delete a custom affiliation
+  function deleteCustomAffiliation(aff){
+    const customAff = (el('custom-aff').dataset.custom || '').split(',').map(s=>s.trim()).filter(Boolean);
+    const newCustom = customAff.filter(a => a !== aff);
+    el('custom-aff').dataset.custom = newCustom.join(',');
+
+    // Also remove from selected if it was selected
+    const selectedAff = (el('custom-aff').dataset.selected || '').split(',').map(s=>s.trim()).filter(Boolean);
+    const newSelected = selectedAff.filter(a => a !== aff.toLowerCase());
+    el('custom-aff').dataset.selected = newSelected.join(',');
+
+    renderAffDropdown();
+    setPermalink();
+  }
+
+  // Dropdown button click handler
+  el('aff-dropdown-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const dropdown = el('aff-dropdown');
+    const isVisible = dropdown.classList.contains('show');
+    if (isVisible) {
+      dropdown.classList.remove('show');
+    } else {
+      dropdown.classList.add('show');
+    }
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    const dropdown = el('aff-dropdown');
+    const container = el('aff-dropdown-container');
+    if (!container.contains(e.target)) {
+      el('aff-dropdown').classList.remove('show');
+    }
+  });
+
+  // Add custom affiliation
+  function addCustomAffiliation(){
     const v = el('custom-aff').value.trim();
     if(!v) return;
-    const prev = el('custom-aff').dataset.added || '';
-    const arr = prev? prev.split(',').map(s=>s.trim()).filter(Boolean):[];
-    if(!arr.includes(v)) arr.push(v);
-    el('custom-aff').dataset.added = arr.join(',');
+    const customAff = (el('custom-aff').dataset.custom || '').split(',').map(s=>s.trim()).filter(Boolean);
+    const selectedAff = (el('custom-aff').dataset.selected || '').split(',').map(s=>s.trim()).filter(Boolean);
+
+    // Check if already exists
+    if(customAff.includes(v) || DEFAULT_AFF.includes(v.toLowerCase())) return;
+
+    // Add to custom affiliations
+    customAff.push(v);
+    el('custom-aff').dataset.custom = customAff.join(',');
+
+    // Auto-select the new affiliation
+    selectedAff.push(v.toLowerCase());
+    el('custom-aff').dataset.selected = selectedAff.join(',');
+
     el('custom-aff').value = '';
+    renderAffDropdown();
     setPermalink();
+  }
+
+  // Add Enter key support for custom affiliation input
+  el('custom-aff').addEventListener('keydown', (ev)=>{
+    if(ev.key === 'Enter'){
+      ev.preventDefault();
+      addCustomAffiliation();
+    }
   });
 
   // initial load

@@ -51,28 +51,28 @@
 
   <main>
     <section class="panels">
-      <div class="panel" id="p56-panel">
-        <h2>P56 Current Intrusion (<span id="p56-count">0</span>)</h2>
-        <table id="p56-table" class="traffic-table">
-          <thead>
-            <tr>
-              <th>Callsign</th>
-              <th>Aircraft</th>
-              <th>Pilot</th>
-              <th>CID</th>
-              <th>Bearing</th>
-              <th>Range</th>
-              <th>Alt</th>
-              <th>GS</th>
-              <th>Squawk</th>
-        <th>Dep → Arr</th>
-            </tr>
-          </thead>
-          <tbody id="p56-tbody"></tbody>
-        </table>
-      </div>
-
       <div class="panel-row">
+        <div class="panel" id="p56-panel">
+          <h2>P56 Current Intrusion (<span id="p56-count">0</span>)</h2>
+          <table id="p56-table" class="traffic-table">
+            <thead>
+              <tr>
+                <th>Callsign</th>
+                <th>Aircraft</th>
+                <th>Pilot</th>
+                <th>CID</th>
+                <th>Bearing</th>
+                <th>Range</th>
+                <th>Alt</th>
+                <th>GS</th>
+                <th>Squawk</th>
+        <th>Dep → Arr</th>
+              </tr>
+            </thead>
+            <tbody id="p56-tbody"></tbody>
+          </table>
+        </div>
+
         <div class="panel" id="p56-events-panel">
           <h2>P56 Intrusion Logs</h2>
           <table id="p56-events-table" class="traffic-table">
@@ -90,7 +90,9 @@
             <tbody id="p56-events-tbody"></tbody>
           </table>
         </div>
+      </div>
 
+      <div class="panel-row">
         <div class="panel" id="p56-leaderboard-panel">
           <h2>P56 Leaderboard</h2>
           <table id="p56-leaderboard-table" class="traffic-table">
@@ -107,7 +109,46 @@
             <tbody id="p56-leaderboard-tbody"></tbody>
           </table>
         </div>
+
+        <div class="panel" id="vso-panel">
+          <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
+          <div class="vso-controls">
+            <label>VSO range (nm): <input id="vso-range" type="number" value="100" min="1"/></label>
+            <div class="affiliations">
+              <div class="aff-dropdown-container">
+                <input id="custom-aff" type="text" placeholder="add affiliation" />
+                <button id="aff-dropdown-btn" class="btn dropdown-btn">▼</button>
+                <div id="aff-dropdown" class="aff-dropdown">
+                  <div id="aff-options"></div>
+                </div>
+              </div>
+            </div>
+            <div class="controls-actions">
+              <button id="apply" class="btn">Apply</button>
+            </div>
+          </div>
+          <table id="vso-table" class="traffic-table">
+            <thead>
+              <tr>
+                <th>Affiliation</th>
+                <th>Callsign</th>
+                <th>Aircraft</th>
+                <th>Pilot</th>
+                <th>CID</th>
+                <th>Bearing</th>
+                <th>Range</th>
+                <th>Alt</th>
+                <th>GS</th>
+                <th>Squawk (current/assigned)</th>
+                <th>Dep → Arr</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="vso-tbody"></tbody>
+          </table>
+        </div>
       </div>
+
       <div class="panel-row">
         <div class="panel" id="sfra-panel">
           <h2>SFRA Traffic (<span id="sfra-count">0</span>)</h2>
@@ -122,8 +163,9 @@
                 <th>Range</th>
                 <th>Alt</th>
                 <th>GS</th>
-                <th>Squawk</th>
+                <th>Squawk (current/assigned)</th>
                 <th>Dep → Arr</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody id="sfra-tbody"></tbody>
@@ -142,8 +184,9 @@
                 <th>Range</th>
                 <th>Alt</th>
                 <th>GS</th>
-                <th>Squawk</th>
+                <th>Squawk (current/assigned)</th>
                 <th>Dep → Arr</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody id="frz-tbody"></tbody>
@@ -151,43 +194,6 @@
         </div>
       </div>
 
-    </section>
-
-    <section id="vso-section">
-      <div class="panel" id="vso-panel">
-        <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
-        <div class="vso-controls">
-          <label>VSO range (nm): <input id="vso-range" type="number" value="100" min="1"/></label>
-          <div class="affiliations">
-            <label class="aff-pill"><input type="checkbox" class="aff-check" value="vusaf" checked/><span>VUSAF</span></label>
-            <label class="aff-pill"><input type="checkbox" class="aff-check" value="vuscg" checked/><span>VUSCG</span></label>
-            <label class="aff-pill"><input type="checkbox" class="aff-check" value="usnv" checked/><span>USNV</span></label>
-            <input id="custom-aff" type="text" placeholder="add,comma,separated" />
-            <button id="add-aff" class="btn">Add</button>
-          </div>
-          <div class="controls-actions">
-            <button id="apply" class="btn">Apply</button>
-          </div>
-        </div>
-        <table id="vso-table" class="traffic-table">
-          <thead>
-            <tr>
-              <th>Affiliation</th>
-              <th>Callsign</th>
-              <th>Aircraft</th>
-              <th>Pilot</th>
-              <th>CID</th>
-              <th>Bearing</th>
-              <th>Range</th>
-              <th>Alt</th>
-              <th>GS</th>
-              <th>Squawk</th>
-              <th>Dep → Arr</th>
-            </tr>
-          </thead>
-          <tbody id="vso-tbody"></tbody>
-        </table>
-      </div>
     </section>
   </main>
 
