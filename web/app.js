@@ -104,6 +104,9 @@
   let tableDataCache = null;
   const elevCache = {};
   let lb = [];
+  
+  // Track layers for position history
+  const trackLayers = new Map(); // cid -> polyline
 
   function renderList(listId, items, itemFn){
     const list = el(listId);
@@ -1099,6 +1102,12 @@
         markerP56.bindTooltip(tooltipHtml, {direction:'top', className:'fp-tooltip', sticky:true});
         markerSFRA.bindTooltip(tooltipHtml, {direction:'top', className:'fp-tooltip', sticky:true});
       }catch(e){/* ignore tooltip errors */}
+
+      // Click handler to toggle position history track
+      markerP56.ac = ac;
+      markerSFRA.ac = ac;
+      markerP56.on('click', () => toggleTrack(ac.cid));
+      markerSFRA.on('click', () => toggleTrack(ac.cid));
 
   // add markers to their category groups (use statusClass which holds the final group)
   const grp = p56MarkerGroups[statusClass] || p56MarkerGroups['vicinity'];
