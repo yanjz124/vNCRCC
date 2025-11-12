@@ -1104,10 +1104,12 @@
       }catch(e){/* ignore tooltip errors */}
 
       // Click handler to toggle position history track
-      markerP56.ac = ac;
-      markerSFRA.ac = ac;
-      markerP56.on('click', () => toggleTrack(ac.cid));
-      markerSFRA.on('click', () => toggleTrack(ac.cid));
+      try{
+        markerP56.ac = ac;
+        markerSFRA.ac = ac;
+        markerP56.on('click', () => toggleTrack(ac.cid));
+        markerSFRA.on('click', () => toggleTrack(ac.cid));
+      }catch(e){/* ignore click handler errors */}
 
   // add markers to their category groups (use statusClass which holds the final group)
   const grp = p56MarkerGroups[statusClass] || p56MarkerGroups['vicinity'];
