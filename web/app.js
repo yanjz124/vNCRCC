@@ -415,8 +415,6 @@
     return geoArea;
   }
 
-  // Global map for track layers
-  const trackLayers = new Map(); // cid -> polyline
 
   function findAircraftByCid(cid) {
     for (const cat of categories) {
@@ -505,7 +503,7 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ci.flight_plan?.assigned_transponder || ''}</td><td>${dep} â†’ ${arr}</td>`;
+        return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ci.flight_plan?.assigned_transponder || ''}</td><td>${dep} â†?${arr}</td>`;
       }, ci => `p56-current:${ci.cid||ci.callsign||''}`);
     } else if (tbodyId === 'p56-events-tbody') {
       const tbodyEvents = el('p56-events-tbody');
@@ -620,7 +618,7 @@
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
         const assigned = ac.flight_plan?.assigned_transponder || '';
         const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} â†’ ${arr}</td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} â†?${arr}</td>`;
       }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
     } else if (tbodyId === 'frz-tbody') {
       renderTable('frz-tbody', frzList, it => {
@@ -639,7 +637,7 @@
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
         const assigned = ac.flight_plan?.assigned_transponder || '';
         const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} â†’ ${arr}</td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} â†?${arr}</td>`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
     }
   }
@@ -805,15 +803,15 @@
       const fp = ac.flight_plan || {};
       
       // Extract all fields
-      const aid = ac.callsign || 'â€”';
-      const cid = ac.cid || 'â€”';
-      const bcn = ac.transponder || 'â€”';
-      const typ = fp.aircraft_faa || fp.aircraft_short || 'â€”';
-      const dep = fp.departure || 'â€”';
-      const dest = fp.arrival || 'â€”';
-      const spd = fp.cruise_tas || 'â€”';
-      const alt = fp.altitude || ac.altitude || 'â€”';
-      const route = fp.route || 'â€”';
+      const aid = ac.callsign || 'â€?;
+      const cid = ac.cid || 'â€?;
+      const bcn = ac.transponder || 'â€?;
+      const typ = fp.aircraft_faa || fp.aircraft_short || 'â€?;
+      const dep = fp.departure || 'â€?;
+      const dest = fp.arrival || 'â€?;
+      const spd = fp.cruise_tas || 'â€?;
+      const alt = fp.altitude || ac.altitude || 'â€?;
+      const route = fp.route || 'â€?;
       const remarks = fp.remarks || '';
 
       // Compact full-width layout: all main fields in 1-2 lines, then RTE and RMK full-width
@@ -881,7 +879,7 @@
       else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
     const assigned = ci.flight_plan?.assigned_transponder || '';
     const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
-    return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} â†’ ${arr}</td>`;
+    return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} â†?${arr}</td>`;
   }, ci => `p56-current:${ci.cid||ci.callsign||''}`, { hideEquipment: true });
 
     // P56 events (intrusion log) - default sort: most recent on top
@@ -1068,13 +1066,13 @@
       markerP56.ac = ac;
       markerSFRA.ac = ac;
       // Summary popup: first line = callsign, pilot name, CID. Second line = DCA radial-range,
-      // dep â†’ dest, aircraft type. Clicking the aircraft replaces the popup with the full
+      // dep â†?dest, aircraft type. Clicking the aircraft replaces the popup with the full
       // JSON returned by the API for that aircraft.
       // Show either ON GROUND or the area (SFRA/FRZ/P56/VICINITY) in the popup
       const popupStatus = isGround ? 'ON GROUND' : (String(area || 'vicinity').toUpperCase());
-      const summary = `<div class="ac-summary"><strong>${ac.callsign||''}</strong> â€” ${ac.name||''} (CID: ${cid})</div>
-        <div>${dca.radial_range} â€” ${dep || '-'} â†’ ${arr || '-'} â€” ${(ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '-'}</div>
-        <div><em>${popupStatus}</em> â€” Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}</div>
+      const summary = `<div class="ac-summary"><strong>${ac.callsign||''}</strong> â€?${ac.name||''} (CID: ${cid})</div>
+        <div>${dca.radial_range} â€?${dep || '-'} â†?${arr || '-'} â€?${(ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '-'}</div>
+        <div><em>${popupStatus}</em> â€?Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}</div>
         <div><button onclick="toggleTrack('${cid}')">Toggle Track</button></div>`;
       markerP56.bindPopup(summary);
       markerSFRA.bindPopup(summary);
@@ -1097,8 +1095,8 @@
   if(pilotName && cidField) line2 = `${pilotName}, ${cidField}`;
   else if(pilotName) line2 = pilotName;
   else if(cidField) line2 = cidField;
-        const line3 = `GS: ${gsVal} kt â€” ALT: ${altVal} ft â€” Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}`;
-        const line4 = (depField || arrField) ? `${depField || '-'} â†’ ${arrField || '-'}` : '';
+        const line3 = `GS: ${gsVal} kt â€?ALT: ${altVal} ft â€?Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}`;
+        const line4 = (depField || arrField) ? `${depField || '-'} â†?${arrField || '-'}` : '';
         const tooltipHtml = `<div class="ac-tooltip">` +
                             `<div>${line1}</div>` +
                             `<div>${line2}</div>` +
@@ -1175,7 +1173,7 @@
         let statusText = isGround ? 'Ground' : 'Airborne';
         let statusClass = isGround ? 'ground' : 'airborne';
         const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} â†’ ${arr}</td>${statusHtmlRow}`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} â†?${arr}</td>${statusHtmlRow}`;
       }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
       // Render FRZ table
@@ -1199,7 +1197,7 @@
         let statusText = isGround ? 'Ground' : 'Airborne';
         let statusClass = isGround ? 'ground' : 'airborne';
         const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} â†’ ${arr}</td>${statusHtmlRow}`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} â†?${arr}</td>${statusHtmlRow}`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
     }catch(e){ console.error('Error rendering lists after markers', e); }
@@ -1259,7 +1257,7 @@
         btn.addEventListener('click', ()=>{
           const collapsed = legend.classList.toggle('collapsed');
           btn.setAttribute('aria-expanded', String(!collapsed));
-          btn.textContent = collapsed ? 'Legend â–¸' : 'Legend â–¾';
+          btn.textContent = collapsed ? 'Legend â–? : 'Legend â–?;
         });
       }
     }catch(e){/* ignore */}
@@ -1326,7 +1324,7 @@
                   else if(col.includes('gs') || col.includes('ground')) sortConfig[tbodyId] = { key: (a)=> Number(a.groundspeed||a.gs||0), order };
                   else if(col.includes('squawk')) sortConfig[tbodyId] = { key: (a)=> Number(a.transponder||0), order };
                   else if(col.includes('assigned')) sortConfig[tbodyId] = { key: (a)=> Number(a.flight_plan?.assigned_transponder||0), order };
-                  else if(col.includes('route') || col.includes('dep') || col.includes('arr') || col.includes('â†’')) {
+                  else if(col.includes('route') || col.includes('dep') || col.includes('arr') || col.includes('â†?)) {
                     sortConfig[tbodyId] = { key: (a)=> {
                       const dep = (a.flight_plan?.departure || a.flight_plan?.depart || '');
                       const arr = (a.flight_plan?.arrival || a.flight_plan?.arr || '');
@@ -1387,7 +1385,7 @@
       let statusText = isGround ? 'Ground' : 'Airborne';
       let statusClass = isGround ? 'ground' : 'airborne';
       const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-      return `<td>${aff}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} â†’ ${arr}</td>${statusHtmlRow}`;
+      return `<td>${aff}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}Â°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} â†?${arr}</td>${statusHtmlRow}`;
     }, it => `vso:${(it.aircraft||{}).cid|| (it.aircraft||{}).callsign || ''}`);
     // Default sort for VSO table: affiliation (alpha) then range (numeric asc)
     if(!sortConfig['vso-tbody']){
@@ -1585,7 +1583,7 @@
   // Update dropdown button text to show selected affiliations
   function updateDropdownButton(){
     const btn = el('aff-dropdown-btn');
-    btn.textContent = 'â–¼';
+    btn.textContent = 'â–?;
   }
 
   // Delete a custom affiliation
