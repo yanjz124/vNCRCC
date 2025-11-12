@@ -739,7 +739,7 @@
       frzList.push(...(frzjson.aircraft || []));
     }
 
-  const renderTable = (tbodyId, items, rowFn, keyFn, fpOptions) => {
+  function renderTable(tbodyId, items, rowFn, keyFn, fpOptions) {
       console.log('Rendering table', tbodyId, 'with', items.length, 'items');
       const tbody = el(tbodyId);
       tbody.innerHTML = '';
@@ -796,7 +796,7 @@
       });
 
       // after rendering tables and events we'll prune expandedSet entries not present
-    };
+    }
 
     const formatFlightPlan = (item, opts) => {
       const ac = item.aircraft || item;
