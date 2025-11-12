@@ -409,6 +409,32 @@
   // Global map for track layers
   const trackLayers = new Map(); // cid -> polyline
 
+  function findAircraftByCid(cid) {
+    for (const cat of categories) {
+      const grp = p56MarkerGroups[cat];
+      if (grp) {
+        let found = null;
+        grp.eachLayer(layer => {
+          if (layer.ac && String(layer.ac.cid) === String(cid)) {
+            found = layer.ac;
+          }
+        });
+        if (found) return found;
+      }
+      const sgrp = sfraMarkerGroups[cat];
+      if (sgrp) {
+        let found = null;
+        sgrp.eachLayer(layer => {
+          if (layer.ac && String(layer.ac.cid) === String(cid)) {
+            found = layer.ac;
+          }
+        });
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
   function toggleTrack(cid) {
     if (!cid) return;
     const existing = trackLayers.get(cid);
@@ -420,20 +446,7 @@
       console.log('Removed track for CID', cid);
     } else {
       // find the aircraft
-      let ac = null;
-      // search in markers, since they have ac attached
-      p56Map.eachLayer(layer => {
-        if (layer.ac && String(layer.ac.cid) === String(cid)) {
-          ac = layer.ac;
-        }
-      });
-      if (!ac) {
-        sfraMap.eachLayer(layer => {
-          if (layer.ac && String(layer.ac.cid) === String(cid)) {
-            ac = layer.ac;
-          }
-        });
-      }
+      const ac = findAircraftByCid(cid);
       if (!ac || !ac.position_history || ac.position_history.length < 2) {
         console.log('No position history for CID', cid);
         return;
