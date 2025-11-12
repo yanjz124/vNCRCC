@@ -99,6 +99,12 @@
   function saveExpandedSet(s){ try{ localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify(Array.from(s))); }catch(e){} }
   let expandedSet = loadExpandedSet();
 
+  // Global state variables
+  let lastUpdateTime = 0;
+  let tableDataCache = null;
+  const elevCache = {};
+  let lb = [];
+
   function renderList(listId, items, itemFn){
     const list = el(listId);
     if(!list) return;
@@ -957,7 +963,7 @@
         const t = evt.recorded_at || null;
         if(t){ if(!lbMap[cid].first || t < lbMap[cid].first) lbMap[cid].first = t; if(!lbMap[cid].last || t > lbMap[cid].last) lbMap[cid].last = t; }
       });
-      let lb = Object.values(lbMap).sort((a,b)=>b.count - a.count).slice(0,50);
+      lb = Object.values(lbMap).sort((a,b)=>b.count - a.count).slice(0,50);
       // default leaderboard sort: rank ascending (1..n) based on count desc above
       if(!sortConfig['p56-leaderboard-tbody']) {
         const keyFn = function(r, idx){ return idx+1; };
@@ -1179,7 +1185,7 @@
         const dca = it.dca || computeDca(ac.latitude, ac.longitude);
         const cid = ac.cid || '';
         const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-        const arr = (ac.flight_plan && ac.flight_plan.arrival || ac.flight_plan.arr) || '';
+        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
         const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
         const squawk = ac.transponder || '';
         let squawkClass = '';
