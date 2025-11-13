@@ -89,6 +89,26 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
                 except Exception as e:
                     print(f"SFRA: update_history ERROR for {cid}: {e}")
                 break
+            else:
+                # Not strictly inside — record vicinity if within a small distance (default 5 NM)
+                try:
+                    # Allow overriding tolerance (in nautical miles) via geo properties
+                    vic_nm = float(props.get("vicinity_nm", 5)) if props and props.get("vicinity_nm") is not None else 5.0
+                except Exception:
+                    vic_nm = 5.0
+                # Convert nautical miles to degrees approximately (1 NM ~= 1/60 degree)
+                tol_deg = vic_nm / 60.0
+                try:
+                    dist_deg = pt.distance(shp)
+                except Exception:
+                    dist_deg = None
+                try:
+                    if dist_deg is not None and dist_deg <= tol_deg:
+                        # Record as vicinity (do not include in 'inside' list)
+                        update_history(str(a.get("cid", "")), {"lat": pt.y, "lon": pt.x, "alt": alt_val, "callsign": a.get("callsign", ""), "vicinity": True})
+                        print(f"SFRA: recorded vicinity for {cid} at distance {dist_deg} deg (~{dist_deg*60:.2f} nm)")
+                except Exception as e:
+                    print(f"SFRA: vicinity recording error for {cid}: {e}")
     return {"aircraft": inside}
 
 
