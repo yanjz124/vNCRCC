@@ -6,6 +6,7 @@ import time
 
 from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
+from ...p56_history import get_history, record_penetration, sync_snapshot
 
 router = APIRouter(prefix="/p56")
 
@@ -29,7 +30,7 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
     # For penetration calculation we require at least two snapshots
     snaps = storage.STORAGE.get_latest_snapshots(2) if storage.STORAGE else []
     if len(snaps) < 2:
-        return {"breaches": [], "note": "need 2 snapshots to calculate P56 penetration"}
+        return {"breaches": [], "note": "need 2 snapshots to calculate P56 penetration", "history": get_history()}
     latest = snaps[0]
     prev = snaps[1]
     latest_ts = latest.get("fetched_at")
@@ -121,6 +122,18 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
             # don't let storage failures stop detection; continue
             pass
 
+        # record penetration in history
+        record_penetration({
+            "cid": a.get("cid"),
+            "identifier": ident,
+            "callsign": a.get("callsign"),
+            "name": a.get("name"),
+            "latest_position": {"lon": latest_pt.x, "lat": latest_pt.y},
+            "latest_ts": latest_ts,
+            "zones": matched_zones,
+            "flight_plan": a.get("flight_plan", {}),
+        })
+
         breaches.append(
             {
                 "identifier": ident,
@@ -135,4 +148,6 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
                 "flight_plan": a.get("flight_plan", {}),
             }
         )
-    return {"breaches": breaches}
+    # sync history with current snapshot to mark exits
+    sync_snapshot(latest_ac, features, latest_ts)
+    return {"breaches": breaches, "history": get_history()}
