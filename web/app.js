@@ -93,6 +93,8 @@
 
   // sort configuration per table body id: { key: function(item) -> value, order: 'asc'|'desc' }
   const sortConfig = {};
+  // Track last update time for display
+  let lastUpdateTime = 0;
   // Expanded flight-plan persistence (store set of keys in localStorage)
   const EXPANDED_STORAGE_KEY = 'vncrcc.expandedFP';
   function loadExpandedSet(){ try{ const v = JSON.parse(localStorage.getItem(EXPANDED_STORAGE_KEY) || '[]'); return new Set(Array.isArray(v)?v:[]); }catch(e){return new Set()} }
