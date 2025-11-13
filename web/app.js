@@ -550,9 +550,7 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        const assigned = ac.flight_plan?.assigned_transponder || '';
-        const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} → ${arr}</td>`;
       }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
     } else if (tbodyId === 'frz-tbody') {
       renderTable('frz-tbody', frzList, it => {
@@ -569,9 +567,7 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        const assigned = ac.flight_plan?.assigned_transponder || '';
-        const combined = `<div class="squawk-cell">${squawkHtml}${assigned? ('<span class="assigned">assigned: ' + assigned + '</span>') : ''}</div>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${combined}</td><td>${dep} → ${arr}</td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} → ${arr}</td>`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
     }
   }
@@ -811,7 +807,7 @@
       else if (squawk === '7777') squawkClass = 'squawk-7777';
       else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
     const assigned = ci.flight_plan?.assigned_transponder || '';
-    const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
+    const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
     return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} → ${arr}</td>`;
   }, ci => `p56-current:${ci.cid||ci.callsign||''}`, { hideEquipment: true });
 
@@ -1001,8 +997,8 @@
       const summary = `<div class="ac-summary"><strong>${ac.callsign||''}</strong> — ${ac.name||''} (CID: ${cid})</div>
         <div>${dca.radial_range} — ${dep || '-'} → ${arr || '-'} — ${(ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '-'}</div>
         <div><em>${popupStatus}</em> — Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}</div>`;
-      markerP56.bindPopup(summary);
-      markerSFRA.bindPopup(summary);
+      // markerP56.bindPopup(summary);
+      // markerSFRA.bindPopup(summary);
 
       // show a compact tooltip on hover with first-line summary (callsign, pilot, cid, gs, alt, route)
       try{
@@ -1034,25 +1030,7 @@
         markerSFRA.bindTooltip(tooltipHtml, {direction:'top', className:'fp-tooltip', sticky:true});
       }catch(e){/* ignore tooltip errors */}
 
-      // When the marker is clicked, replace the popup content with the full aircraft JSON
-      // so users can see the full data from the API.
-      markerP56.on('click', ()=>{
-        try{
-          const full = JSON.stringify(ac, null, 2).replace(/</g, '&lt;');
-          const detailHtml = `<div class="ac-full"><pre class="fp">${full}</pre></div>`;
-          markerP56.setPopupContent(detailHtml);
-          markerP56.openPopup();
-        }catch(e){ /* ignore */ }
-      });
-      markerSFRA.on('click', ()=>{
-        try{
-          const full = JSON.stringify(ac, null, 2).replace(/</g, '&lt;');
-          const detailHtml = `<div class="ac-full"><pre class="fp">${full}</pre></div>`;
-          markerSFRA.setPopupContent(detailHtml);
-          markerSFRA.openPopup();
-        }catch(e){ /* ignore */ }
-      });
-  // add markers to their category groups (use statusClass which holds the final group)
+      // add markers to their category groups (use statusClass which holds the final group)
   const grp = p56MarkerGroups[statusClass] || p56MarkerGroups['vicinity'];
   const sgrp = sfraMarkerGroups[statusClass] || sfraMarkerGroups['vicinity'];
   grp.addLayer(markerP56);
@@ -1315,8 +1293,7 @@
       else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
       else if (squawk === '7777') squawkClass = 'squawk-7777';
       else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-      const assigned = ac.flight_plan?.assigned_transponder || '';
-      const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
+      const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
       let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
       let isGround = ac._onGround;
       let statusText = isGround ? 'Ground' : 'Airborne';
