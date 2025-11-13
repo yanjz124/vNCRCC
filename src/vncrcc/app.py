@@ -4,7 +4,8 @@ from typing import Any
 from datetime import datetime
 
 import yaml
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .storage import STORAGE
@@ -24,6 +25,17 @@ CFG = _load_config(CONFIG_PATH)
 
 
 app = FastAPI(title="vNCRCC API")
+
+# Middleware to disable caching for all responses
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
+
+app.add_middleware(NoCacheMiddleware)
 
 # module logger
 logger = logging.getLogger("vncrcc")

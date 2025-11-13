@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from ... import storage
 from ...geo.loader import load_all_geojson, find_geo_by_keyword, point_from_aircraft
 import math
+from ...sfra_history import update_history, get_history
 
 # DCA bullseye (lat, lon)
 DCA_BULL = (38.8514403, -77.0377214)
@@ -43,6 +44,7 @@ router = APIRouter(prefix="/sfra")
 
 @router.get("/")
 async def sfra_aircraft(name: str = Query("sfra", description="keyword to find the SFRA geojson file, default 'sfra'")) -> Dict[str, Any]:
+    print("SFRA / endpoint called")
     shapes = find_geo_by_keyword(name)
     if not shapes:
         raise HTTPException(status_code=404, detail=f"No geo named like '{name}' found in geo directory")
@@ -54,8 +56,10 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
 
     inside: List[Dict[str, Any]] = []
     for a in aircraft:
+        cid = a.get("cid") or a.get("callsign") or '<no-cid>'
         pt = point_from_aircraft(a)
         if not pt:
+            print(f"SFRA: skipping {cid} - no point_from_aircraft result")
             continue
         # altitude: require present and <= 18000 ft
         alt = a.get("altitude") or a.get("alt")
@@ -65,6 +69,7 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
             alt_val = None
         # SFRA applies up to 17,999 ft; skip unknown altitude or above 17,999
         if alt_val is None or alt_val > 17999:
+            print(f"SFRA: skipping {cid} - altitude filtered (alt={alt_val})")
             continue
         for shp, props in shapes:
             # treat points on the polygon boundary as inside as well
@@ -72,10 +77,22 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
                 inside_match = shp.contains(pt) or shp.touches(pt)
             except Exception:
                 inside_match = False
+            print(f"SFRA: processed {cid} - inside_match={inside_match}")
             if inside_match:
                 # return the original aircraft dict plus matched geo properties and DCA radial/range
                 dca = _dca_radial_range(pt.y, pt.x)
-                history = storage.STORAGE.get_aircraft_position_history(a.get("cid"), 10) if storage.STORAGE else []
-                inside.append({"aircraft": a, "matched_props": props, "dca": dca, "position_history": history})
+                inside.append({"aircraft": a, "matched_props": props, "dca": dca})
+                # Update history with current position
+                try:
+                    update_history(str(a.get("cid", "")), {"lat": pt.y, "lon": pt.x, "alt": alt_val, "callsign": a.get("callsign", "")})
+                    print(f"SFRA: update_history called for {cid}")
+                except Exception as e:
+                    print(f"SFRA: update_history ERROR for {cid}: {e}")
                 break
     return {"aircraft": inside}
+
+
+@router.get("/history")
+async def sfra_history() -> Dict[str, Any]:
+    print("SFRA /history endpoint called")
+    return get_history()
