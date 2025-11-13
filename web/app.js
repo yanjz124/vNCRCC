@@ -577,6 +577,8 @@
     setPermalink();
     // track keys present in this refresh so we can prune persisted expanded keys
     const presentKeys = new Set();
+    // Declare variables that need function-level scope for caching
+    let lb = [];
     // load overlays if not yet
     if(!overlays.p56.sfra && !overlays.p56.frz && !overlays.p56.p56) await loadOverlays();
 
