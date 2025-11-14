@@ -49,5 +49,25 @@ def update_history(cid: str, position: Dict[str, Any]) -> None:
     # Keep only last 10
     history[cid] = history[cid][-10:]
 
-    print(f"Updated aircraft history for {cid}: now {len(history[cid])} positions")
     _atomic_write(data)
+
+
+def update_history_batch(updates: Dict[str, Dict[str, Any]]) -> None:
+    """Update history for multiple CIDs in a single batch operation."""
+    data = _load()
+    history: Dict[str, List[Dict[str, Any]]] = data.setdefault("history", {})
+
+    for cid, position in updates.items():
+        if cid not in history:
+            history[cid] = []
+
+        # Add new position
+        pos_copy = dict(position)
+        pos_copy.setdefault("ts", time.time())
+        history[cid].append(pos_copy)
+
+        # Keep only last 10
+        history[cid] = history[cid][-10:]
+
+    _atomic_write(data)
+    print(f"Updated aircraft history for {len(updates)} aircraft")

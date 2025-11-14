@@ -4,7 +4,6 @@ from typing import List, Dict, Any
 from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
 import math
-from ...frz_history import update_history, get_history
 
 # DCA bullseye (lat, lon)
 DCA_BULL = (38.8514403, -77.0377214)
@@ -37,7 +36,7 @@ def _dca_radial_range(lat: float, lon: float) -> dict:
     brng_i = int(round(brng)) % 360
     dist_i = int(round(dist_nm))
     compact = f"DCA{brng_i:03d}{dist_i:03d}"
-    return {"radial_range": compact, "bearing": brng_i, "range_nm": round(dist_nm, 1)}
+    return {"radial_range": compact, "bearing": brng_i, "range_nm": dist_i}
 
 router = APIRouter(prefix="/frz")
 
@@ -100,12 +99,5 @@ async def frz_aircraft(name: str = Query("frz", description="keyword to find the
             if matched:
                 dca = _dca_radial_range(pt.y, pt.x)
                 inside.append({"aircraft": a, "matched_props": props, "dca": dca})
-                # Update history with current position
-                update_history(str(a.get("cid", "")), {"lat": pt.y, "lon": pt.x, "alt": alt_val, "callsign": a.get("callsign", "")})
                 break
     return {"aircraft": inside}
-
-
-@router.get("/history")
-async def frz_history() -> Dict[str, Any]:
-    return get_history()

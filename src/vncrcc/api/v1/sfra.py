@@ -4,7 +4,6 @@ from typing import List, Dict, Any
 from ... import storage
 from ...geo.loader import load_all_geojson, find_geo_by_keyword, point_from_aircraft
 import math
-from ...sfra_history import update_history, get_history
 
 # DCA bullseye (lat, lon)
 DCA_BULL = (38.8514403, -77.0377214)
@@ -82,12 +81,6 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
                 # return the original aircraft dict plus matched geo properties and DCA radial/range
                 dca = _dca_radial_range(pt.y, pt.x)
                 inside.append({"aircraft": a, "matched_props": props, "dca": dca})
-                # Update history with current position
-                try:
-                    update_history(str(a.get("cid", "")), {"lat": pt.y, "lon": pt.x, "alt": alt_val, "callsign": a.get("callsign", "")})
-                    print(f"SFRA: update_history called for {cid}")
-                except Exception as e:
-                    print(f"SFRA: update_history ERROR for {cid}: {e}")
                 break
             else:
                 # Not strictly inside — record vicinity if within a small distance (default 5 NM)
@@ -105,14 +98,7 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
                 try:
                     if dist_deg is not None and dist_deg <= tol_deg:
                         # Record as vicinity (do not include in 'inside' list)
-                        update_history(str(a.get("cid", "")), {"lat": pt.y, "lon": pt.x, "alt": alt_val, "callsign": a.get("callsign", ""), "vicinity": True})
-                        print(f"SFRA: recorded vicinity for {cid} at distance {dist_deg} deg (~{dist_deg*60:.2f} nm)")
+                        print(f"SFRA: vicinity aircraft {cid} at distance {dist_deg} deg (~{dist_deg*60:.2f} nm)")
                 except Exception as e:
-                    print(f"SFRA: vicinity recording error for {cid}: {e}")
+                    print(f"SFRA: vicinity check error for {cid}: {e}")
     return {"aircraft": inside}
-
-
-@router.get("/history")
-async def sfra_history() -> Dict[str, Any]:
-    print("SFRA /history endpoint called")
-    return get_history()
