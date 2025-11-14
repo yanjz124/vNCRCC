@@ -703,8 +703,15 @@
         else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>`;
+        const assigned = ac.flight_plan?.assigned_transponder || '';
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
+        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+        let isGround = ac._onGround;
+        let statusText = isGround ? 'Ground' : 'Airborne';
+        // If this CID is currently inside P-56, show the P56 swatch (red) but keep status text
+        const statusSwatch = (typeof currentP56Cids !== 'undefined' && currentP56Cids.has && currentP56Cids.has(String(cid))) ? 'p56' : (isGround ? 'ground' : 'airborne');
+        const statusHtmlRow = `<td><span class="status-${statusSwatch} status-label">${statusText}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>${statusHtmlRow}`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
     }
   }
@@ -852,7 +859,19 @@
         tr.className = 'expandable';
         // shade row slightly if aircraft is on the ground
         try{ if(item._onGround) tr.classList.add('on-ground'); }catch(e){}
-        tr.innerHTML = rowFn(item);
+        // Render row HTML using the provided rowFn. Protect against exceptions
+        // inside rowFn so a single problematic item doesn't prevent the
+        // whole table from rendering (which caused empty tables when a row
+        // threw). Log the error and render a minimal fallback row instead.
+        let rowHtml = '';
+        try{
+          rowHtml = rowFn(item) || '';
+        }catch(err){
+          console.error('renderTable rowFn error for', tbodyId, err, item);
+          // Fallback: show a minimal row spanning the table width with an error
+          rowHtml = `<td colspan="${colspan}">Error rendering row</td>`;
+        }
+        tr.innerHTML = rowHtml;
   const fpDiv = document.createElement('tr');
   fpDiv.className = 'flight-plan';
   fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="${colspan}">${formatFlightPlan(item, fpOptions)}</td>`;
@@ -1062,14 +1081,18 @@
     // Build a simple leaderboard from intrusion events (count by CID)
     try{
       const lbMap = {};
+      // Collect multiple callsigns per CID (some CIDs may use different callsigns over time)
       events.forEach(evt => {
         const cid = String(evt.cid || (evt.flight_plan && evt.flight_plan.cid) || '');
         if(!cid) return;
-        if(!lbMap[cid]) lbMap[cid] = { cid, callsign: evt.callsign || '', name: evt.name || '', count: 0, first: evt.recorded_at || null, last: evt.recorded_at || null };
+        if(!lbMap[cid]) lbMap[cid] = { cid, callsigns: new Set(), names: new Set(), count: 0, first: evt.recorded_at || null, last: evt.recorded_at || null };
+        if(evt.callsign) lbMap[cid].callsigns.add(evt.callsign);
+        if(evt.name) lbMap[cid].names.add(evt.name);
         lbMap[cid].count += 1;
         const t = evt.recorded_at || null;
         if(t){ if(!lbMap[cid].first || t < lbMap[cid].first) lbMap[cid].first = t; if(!lbMap[cid].last || t > lbMap[cid].last) lbMap[cid].last = t; }
       });
+      // Convert to array for sorting and limit
       let lb = Object.values(lbMap).sort((a,b)=>b.count - a.count).slice(0,50);
       // default leaderboard sort: rank ascending (1..n) based on count desc above
       if(!sortConfig['p56-leaderboard-tbody']) {
@@ -1105,11 +1128,24 @@
           // assign rank after sorting (rank = index+1)
           r._rank = idx+1;
           const ac = latest_ac.find(a => String(a.cid) === String(r.cid)) || {};
-          const callsign = ac.callsign || r.callsign || r.name || '';
+          // prefer collected callsigns (may be multiple); render each on its own line for wrapping
+          let callsignHtml = '';
+          try{
+            if(r.callsigns && r.callsigns.size){
+              const all = Array.from(r.callsigns);
+              // show only the most recent up to 5 callsigns; Sets preserve insertion order
+              const max = 5;
+              const recent = all.length > max ? all.slice(-max) : all;
+              callsignHtml = recent.join('<br/>');
+              if(all.length > max){ const more = all.length - max; callsignHtml += `<div class="callsign-more">... (+${more} more)</div>`; }
+            } else {
+              callsignHtml = ac.callsign || (Array.from(r.names||[])[0]) || '';
+            }
+          }catch(e){ callsignHtml = ac.callsign || '' }
           const first = r.first ? formatZuluEpoch(r.first, true) : '-';
           const last = r.last ? formatZuluEpoch(r.last, true) : '-';
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${idx+1}</td><td>${r.cid}</td><td>${callsign}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
+          tr.innerHTML = `<td>${idx+1}</td><td>${r.cid}</td><td class="lb-callsigns">${callsignHtml}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
           lbTb.appendChild(tr);
         });
       }
@@ -1225,11 +1261,14 @@
   try{ ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass; }catch(e){}
   console.log('Added marker for', ac.callsign, 'to', statusClass, 'group');
       // Populate client-side lists so UI tables/counts match the map classification
+      // Use the final computed `statusClass` (which may be forced to 'p56'
+      // when the aircraft is currently recorded as inside P-56) so that
+      // P56 intrusions appear in the FRZ/P56 lists consistently.
       try{
-        if(area === 'sfra') sfraList.push(ac);
-        else if(area === 'frz') frzList.push(ac);
-        else if(area === 'p56') p56List.push(ac);
-        else if(status === 'ground') groundList.push(ac);
+        if(statusClass === 'sfra' || area === 'sfra') sfraList.push(ac);
+        else if(statusClass === 'frz' || area === 'frz') frzList.push(ac);
+        else if(statusClass === 'p56' || area === 'p56') p56List.push(ac);
+        else if(isGround) groundList.push(ac);
         else airList.push(ac);
       }catch(e){/* ignore list population errors */}
       }catch(e){
@@ -1248,9 +1287,12 @@
     // Populate counts and render SFRA/FRZ tables from client-side lists so UI
     // exactly matches the map classification.
     try{
-      el('sfra-count').textContent = sfraList.length;
-      el('frz-count').textContent = frzList.length;
-      el('p56-count').textContent = p56List.length;
+  el('sfra-count').textContent = sfraList.length;
+  el('frz-count').textContent = frzList.length;
+  // Show current P56 intrusions count (from history.current_inside) so the
+  // "P56 Current Intrusion" panel reflects the server-side detection
+  // rather than client-side classification which may differ.
+  el('p56-count').textContent = (currentInside || []).length;
 
       // Render SFRA table
       renderTable('sfra-tbody', sfraList, it => {
@@ -1281,8 +1323,8 @@
         const ac = it.aircraft || it;
         const dca = it.dca || computeDca(ac.latitude, ac.longitude);
         const cid = ac.cid || '';
-        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-        const arr = (ac.flight_plan && ac.flight_plan.arrival || ac.flight_plan.arr) || '';
+  const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+  const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
         const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
         const squawk = ac.transponder || '';
         let squawkClass = '';
@@ -1295,9 +1337,10 @@
         let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
         let isGround = ac._onGround;
         let statusText = isGround ? 'Ground' : 'Airborne';
-        let statusClass = isGround ? 'ground' : 'airborne';
-        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>${statusHtmlRow}`;
+        // If this CID is currently inside P-56, show the P56 swatch (red) but keep status text
+        const statusSwatch = (typeof currentP56Cids !== 'undefined' && currentP56Cids.has && currentP56Cids.has(String(cid))) ? 'p56' : (isGround ? 'ground' : 'airborne');
+        const statusHtmlRow = `<td><span class="status-${statusSwatch} status-label">${statusText}</span></td>`;
+        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>${statusHtmlRow}`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
 
     }catch(e){ console.error('Error rendering lists after markers', e); }

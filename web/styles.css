@@ -133,7 +133,7 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .traffic-table{width:100%;border-collapse:collapse;font-size:0.9rem}
 .traffic-table tbody{display:block;max-height:400px;overflow-y:auto;scrollbar-gutter:stable}
 .traffic-table thead, .traffic-table tbody tr{display:table;width:100%;table-layout:fixed}
-.traffic-table th, .traffic-table td{padding:4px 6px;border-bottom:1px solid #23303a;text-align:left}
+.traffic-table th, .traffic-table td{padding:4px 6px;border-bottom:1px solid #23303a;text-align:center}
 .traffic-table th{background:#0d2538;color:#cfe6ff;font-weight:600}
 .traffic-table tbody tr:hover{background:#152026}
 .traffic-table .expandable{cursor:pointer}
@@ -178,6 +178,11 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .status-swatch-vicinity{background:#28a745}
 .status-swatch-airborne{background:#ffffff}
 .status-label{font-weight:700}
+
+/* Leaderboard callsigns cell: allow multiple callsigns to wrap and display on separate lines */
+.lb-callsigns{white-space:normal;word-break:break-word;line-height:1.2;font-size:0.95rem}
+/* small, subtle indicator when there are additional callsigns not shown */
+.callsign-more{color:#9fb9d8;font-size:0.85rem;margin-top:4px}
 
 /* clickable table headers */
 .traffic-table th{cursor:pointer}
