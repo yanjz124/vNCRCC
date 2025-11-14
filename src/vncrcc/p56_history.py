@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 from .geo.loader import point_from_aircraft
 
 HISTORY_PATH = Path.cwd() / "data" / "p56_history.json"
+# If two intrusions for the same CID occur within this many seconds, treat as one
+DEDUPE_WINDOW_SECONDS = 60
 
 
 def _ensure_parent():
@@ -51,9 +53,48 @@ def record_penetration(event: Dict[str, Any]) -> None:
         # already inside; ignore duplicate penetration
         return
 
-    # Append event with recorded_at timestamp
+    # Append event with recorded_at timestamp, unless a recent event exists
     event_copy = dict(event)
     event_copy.setdefault("recorded_at", time.time())
+
+    # Deduplicate: if the last recorded event for this CID is within the
+    # DEDUPE_WINDOW_SECONDS, merge the new data into that event instead of
+    # appending a new one so quick re-entries count as a single buster.
+    last_event = None
+    for e in reversed(events):
+        if str(e.get("cid")) == str(cid):
+            last_event = e
+            break
+
+    if last_event:
+        try:
+            last_ts = float(last_event.get("recorded_at") or 0)
+        except Exception:
+            last_ts = 0
+        if (event_copy.get("recorded_at", 0) - last_ts) <= DEDUPE_WINDOW_SECONDS:
+            # Merge useful fields from the incoming event into last_event.
+            # Preserve the original recorded_at (earliest detection).
+            # Update latest_ts if provided and is newer.
+            if event_copy.get("latest_ts"):
+                if (not last_event.get("latest_ts")) or event_copy.get("latest_ts") > last_event.get("latest_ts"):
+                    last_event["latest_ts"] = event_copy.get("latest_ts")
+            # Merge pre_positions/post_positions if available and last_event doesn't have them
+            if event_copy.get("pre_positions") and not last_event.get("pre_positions"):
+                last_event["pre_positions"] = event_copy.get("pre_positions")
+            if event_copy.get("post_positions") and not last_event.get("post_positions"):
+                last_event["post_positions"] = event_copy.get("post_positions")
+            # Ensure we still mark current inside
+            current[str(cid)] = {
+                "inside": True,
+                "last_seen": event_copy.get("latest_ts") or event_copy.get("recorded_at"),
+                "last_position": event_copy.get("latest_position"),
+                "flight_plan": event_copy.get("flight_plan", {}),
+                "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
+                "name": event_copy.get("name")
+            }
+            _atomic_write(data)
+            return
+
     events.append(event_copy)
 
     # mark current inside
