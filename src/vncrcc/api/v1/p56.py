@@ -93,8 +93,44 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
                     continue
 
         if not matched_zones:
-            # no penetration detected for this aircraft
-            continue
+            # No line intersection detected. However, the aircraft may have
+            # appeared (connected) already inside the P56 zone — detect that
+            # by testing the latest point directly against the zones. If the
+            # previous snapshot shows the aircraft was already inside, skip
+            # (it's not a new penetration).
+            latest_inside_zones = []
+            for idx, (shp, props) in enumerate(features):
+                zone_name = props.get("name") or props.get("id") or f"{name}:{idx}"
+                try:
+                    if getattr(shp, "contains", lambda x: False)(latest_pt) or getattr(shp, "intersects", lambda x: False)(latest_pt):
+                        latest_inside_zones.append(zone_name)
+                except Exception:
+                    continue
+            if latest_inside_zones:
+                # Check whether previous position was also inside (if we have it)
+                prev_inside = False
+                if ident in prev_map:
+                    try:
+                        px, py = prev_map[ident]["pos"]
+                        from shapely.geometry import Point as ShPoint
+                        pprev = ShPoint(px, py)
+                        for shp, props in features:
+                            try:
+                                if getattr(shp, "contains", lambda x: False)(pprev) or getattr(shp, "intersects", lambda x: False)(pprev):
+                                    prev_inside = True
+                                    break
+                            except Exception:
+                                continue
+                    except Exception:
+                        prev_inside = False
+                if prev_inside:
+                    # already inside in previous snapshot; not a new penetration
+                    continue
+                # treat as penetration (connect-inside)
+                matched_zones = latest_inside_zones
+            else:
+                # still no zones matched, skip
+                continue
         prev_pos = prev_map[ident]["pos"] if ident in prev_map else None
         evidence = {
             "zones": matched_zones,
