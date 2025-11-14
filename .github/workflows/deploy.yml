@@ -1,0 +1,30 @@
+name: Deploy to Raspberry Pi
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Pi via SSH
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: ${{ secrets.PI_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          port: ${{ secrets.PI_PORT || '22' }}
+          script: |
+            set -euo pipefail
+            # ensure we use the correct user home
+            cd /home/${{ secrets.PI_USER }} || exit 1
+            # run the repo deploy script (assumes repo already cloned at /home/pi/vNCRCC)
+            /bin/bash /home/${{ secrets.PI_USER }}/vNCRCC/scripts/deploy.sh
+
+      - name: Done
+        run: echo "Deploy job finished"
