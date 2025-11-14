@@ -56,6 +56,14 @@ main{padding:12px}
 .btn:hover{background:#11507a}
 .controls-actions .btn{padding:6px 12px}
 .panel h2{color:#cfe6ff}
+/* Panel header layout: align title left and controls right */
+.panel-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-header .vso-controls{margin-bottom:0}
+/* On narrow viewports stack header elements */
+@media (max-width:960px){
+	.panel-header{flex-direction:column;align-items:stretch;gap:8px}
+	.panel-header .vso-controls{justify-content:flex-start;flex-wrap:wrap}
+}
 /* Give the maps section the same horizontal padding as <main> so the
 	outer edges of the maps align with the tables rendered inside <main>. */
 #maps-section{padding:12px 0 0;position:relative;}

@@ -111,20 +111,22 @@
         </div>
 
         <div class="panel" id="vso-panel">
-          <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
-          <div class="vso-controls">
-            <label>VSO range (nm): <input id="vso-range" type="number" value="10000" min="1"/></label>
-            <div class="affiliations">
-              <div class="aff-dropdown-container">
-                <input id="custom-aff" type="text" placeholder="add affiliation" />
-                <button id="aff-dropdown-btn" class="btn dropdown-btn">▼</button>
-                <div id="aff-dropdown" class="aff-dropdown">
-                  <div id="aff-options"></div>
+          <div class="panel-header vso-header">
+            <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
+            <div class="vso-controls">
+              <label>VSO range (nm): <input id="vso-range" type="number" value="10000" min="1" step="0.1"/></label>
+              <div class="affiliations">
+                <div class="aff-dropdown-container">
+                  <input id="custom-aff" type="text" placeholder="add affiliation" />
+                  <button id="aff-dropdown-btn" class="btn dropdown-btn">▼</button>
+                  <div id="aff-dropdown" class="aff-dropdown">
+                    <div id="aff-options"></div>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="controls-actions">
-              <button id="apply" class="btn">Apply</button>
+              <div class="controls-actions">
+                <button id="apply" class="btn">Apply</button>
+              </div>
             </div>
           </div>
           <table id="vso-table" class="traffic-table">
