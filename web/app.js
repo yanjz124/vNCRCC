@@ -36,7 +36,7 @@
   // create maps without default zoom control (remove zoom +/- control)
   const p56Map = L.map('p56-map', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false });
   // SFRA map: zoom ~9 shows a bit wider view (slightly zoomed out from 40nm)
-  const sfraMap = L.map('sfra-map', { zoomControl: false }).setView(DCA, 9);
+  const sfraMap = L.map('sfra-map', { zoomControl: false, doubleClickZoom: false }).setView(DCA, 9);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{maxZoom:19,attribution:''}).addTo(p56Map);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{maxZoom:19,attribution:''}).addTo(sfraMap);
 
@@ -61,10 +61,84 @@
     sfraMarkerGroups[cat] = L.layerGroup();
   });
 
+  // Helper: highlight a table row and marker halo for a given CID when a path is visible
+  function highlightRowAndMarker(cidVal, show){
+    try{
+      // Rows: sfra:, frz:, p56-current:
+      const sfraRow = document.querySelector(`tr[data-fp-key="sfra:${cidVal}"]`);
+      const frzRow = document.querySelector(`tr[data-fp-key="frz:${cidVal}"]`);
+      const p56Row = document.querySelector(`tr[data-fp-key="p56-current:${cidVal}"]`);
+      [sfraRow, frzRow, p56Row].forEach(r => {
+        if(!r) return;
+        const fp = document.querySelector(`tr.flight-plan[data-fp-key="${r.dataset.fpKey}"]`);
+        if(show){ r.classList.add('row-path-highlight'); if(fp && !fp.classList.contains('show')) fp.classList.add('show'); expandedSet.add(r.dataset.fpKey); }
+        else { r.classList.remove('row-path-highlight'); if(fp && fp.classList.contains('show')) fp.classList.remove('show'); expandedSet.delete(r.dataset.fpKey); }
+      });
+    }catch(e){/* ignore DOM errors */}
+
+    try{
+      // Marker halo: iterate marker groups
+      categories.forEach(cat => {
+        const groups = [p56MarkerGroups[cat], sfraMarkerGroups[cat]];
+        groups.forEach(g => {
+          try{
+            g.eachLayer(m => {
+              try{
+                if(m._flightPathCid === cidVal){
+                  const el = m.getElement && m.getElement();
+                  if(el){ if(show) el.classList.add('path-highlight'); else el.classList.remove('path-highlight'); }
+                }
+              }catch(e){/* ignore marker element errors */}
+            });
+          }catch(e){/* ignore group errors */}
+        });
+      });
+    }catch(e){/* ignore overall errors */}
+    // Persist expandedSet to localStorage after changes
+    try{ saveExpandedSet(expandedSet); }catch(e){}
+  }
+
   // Function to toggle flight path for an aircraft
   async function toggleFlightPath(cid, mapType) {
     const pathLayer = mapType === 'p56' ? p56PathLayer : sfraPathLayer;
-    
+
+    // Helper: find and toggle table row highlight/expansion for sfra/frz rows
+    function setRowHighlight(cidVal, show){
+      try{
+        const sfraRow = document.querySelector(`tr[data-fp-key="sfra:${cidVal}"]`);
+        const frzRow = document.querySelector(`tr[data-fp-key="frz:${cidVal}"]`);
+        [sfraRow, frzRow].forEach(r => {
+          if(!r) return;
+          const fp = document.querySelector(`tr.flight-plan[data-fp-key="${r.dataset.fpKey}"]`);
+          if(show){ r.classList.add('row-path-highlight'); if(fp && !fp.classList.contains('show')) fp.classList.add('show'); expandedSet.add(r.dataset.fpKey); saveExpandedSet(expandedSet); }
+          else { r.classList.remove('row-path-highlight'); if(fp && fp.classList.contains('show')) fp.classList.remove('show'); expandedSet.delete(r.dataset.fpKey); saveExpandedSet(expandedSet); }
+        });
+      }catch(e){/* ignore DOM errors */}
+    }
+
+    // Helper: add/remove marker halo for both marker variants if present on aircraft object
+    function setMarkerHalo(cidVal, add){
+      try{
+        // search for markers in marker groups that we previously attached _flightPathCid to
+        // iterate all groups and their layers
+        categories.forEach(cat => {
+          const groups = [p56MarkerGroups[cat], sfraMarkerGroups[cat]];
+          groups.forEach(g => {
+            try{
+              g.eachLayer(m => {
+                try{
+                  if(m._flightPathCid === cidVal){
+                    const el = m.getElement && m.getElement();
+                    if(el){ if(add) el.classList.add('path-highlight'); else el.classList.remove('path-highlight'); }
+                  }
+                }catch(e){}
+              });
+            }catch(e){}
+          });
+        });
+      }catch(e){}
+    }
+
     if (visiblePaths.has(cid)) {
       // Hide path - remove all polylines for this CID
       pathLayer.eachLayer(layer => {
@@ -73,6 +147,9 @@
         }
       });
       visiblePaths.delete(cid);
+      // remove visual highlights
+      setRowHighlight(cid, false);
+      setMarkerHalo(cid, false);
       console.log(`Hidden flight path for ${cid}`);
     } else {
       // Show path - fetch history and draw polyline
@@ -80,11 +157,11 @@
         const response = await fetch(`${API_ROOT}/aircraft/list/history`);
         const data = await response.json();
         const history = data.history?.[cid];
-        
+
         if (history && history.length > 1) {
           // Create lat/lng points from history
           const points = history.map(pos => [pos.lat, pos.lon]);
-          
+
           // Create polyline with aircraft color
           const polyline = L.polyline(points, {
             color: '#00ff00', // Bright green for visibility
@@ -92,14 +169,18 @@
             opacity: 0.8,
             dashArray: '5, 5' // Dashed line
           });
-          
+
           // Mark this polyline with the CID for later removal
           polyline._flightPathCid = cid;
-          
+
           // Add to path layer
           pathLayer.addLayer(polyline);
           visiblePaths.add(cid);
-          
+
+          // add visual highlights
+          setRowHighlight(cid, true);
+          setMarkerHalo(cid, true);
+
           console.log(`Shown flight path for ${cid} with ${points.length} points`);
         } else {
           console.log(`No history data available for ${cid}`);
@@ -243,16 +324,18 @@
       }
     }
     if(frz){
-      overlays.p56.frz = L.geoJSON(frz, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
-      overlays.sfra.frz = L.geoJSON(frz, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
+      // FRZ color swapped to orange
+      overlays.p56.frz = L.geoJSON(frz, {style:{color:'#f0ad4e',weight:2,fillOpacity:0.05}});
+      overlays.sfra.frz = L.geoJSON(frz, {style:{color:'#f0ad4e',weight:2,fillOpacity:0.05}});
       if(el('toggle-frz').checked) { 
         overlays.p56.frz.addTo(p56Map); 
         overlays.sfra.frz.addTo(sfraMap); 
       }
     }
     if(p56){
-      overlays.p56.p56 = L.geoJSON(p56, {style:{color:'#f0ad4e',weight:2,fillOpacity:0.05}});
-      overlays.sfra.p56 = L.geoJSON(p56, {style:{color:'#f0ad4e',weight:2,fillOpacity:0.05}});
+      // P56 color swapped to red
+      overlays.p56.p56 = L.geoJSON(p56, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
+      overlays.sfra.p56 = L.geoJSON(p56, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
       if(el('toggle-p56').checked) { 
         overlays.p56.p56.addTo(p56Map); 
         overlays.sfra.p56.addTo(sfraMap); 
@@ -415,7 +498,7 @@
                   }catch(e){/* ignore group move errors */}
                 }
                 // update marker color/icon in-place
-                const statusToColor = s => s==='frz'? '#d9534f' : s==='p56'? '#f0ad4e' : s==='sfra'? '#0275d8' : s==='ground'? '#6c757d' : '#28a745';
+                const statusToColor = s => s==='frz'? '#f0ad4e' : s==='p56'? '#d9534f' : s==='sfra'? '#0275d8' : s==='ground'? '#6c757d' : '#28a745';
                 const targetColor = statusToColor(newStatus);
                 const heading = ac.heading || 0;
                 const marker = ac._markerP56 || ac._markerSFRA;
@@ -697,6 +780,13 @@
   // count/listing will be driven by client-side classification below.
     console.log('Fetching P56 history for details...');
     const p56json = await fetch(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}});
+    // Build a quick lookup set of CIDs currently inside P-56 so we can
+    // force their marker color to the P-56 color regardless of on-ground state.
+    const currentP56Cids = new Set();
+    try{
+      const cis = p56json.history?.current_inside || {};
+      Object.keys(cis).forEach(k => { try{ if(cis[k] && cis[k].inside) currentP56Cids.add(String(k)); }catch(e){} });
+    }catch(e){ /* ignore */ }
 
   // keep a local copy of the latest aircraft snapshot for lookups
   const latest_ac = aircraft || [];
@@ -772,7 +862,24 @@
         tr.addEventListener('click', () => {
           const opening = !fpDiv.classList.contains('show');
           fpDiv.classList.toggle('show');
-          if(key){ if(opening) { expandedSet.add(key); saveExpandedSet(expandedSet); } else { expandedSet.delete(key); saveExpandedSet(expandedSet); } }
+          if(key){
+            if(opening) { expandedSet.add(key); saveExpandedSet(expandedSet); } else { expandedSet.delete(key); saveExpandedSet(expandedSet); }
+            try{
+              // Sync flight-path display for SFRA/FRZ lists with the same toggle used by markers.
+              // Persistence keys are formatted like 'sfra:<cid>' or 'frz:<cid>' so parse prefix.
+              const parts = String(key).split(':');
+              const prefix = parts[0];
+              const cidVal = parts.slice(1).join(':');
+              let mapType = null;
+              if(prefix === 'sfra') mapType = 'sfra';
+              else if(prefix === 'frz') mapType = 'p56';
+              // Only trigger toggle for SFRA/FRZ rows to avoid unexpected behavior for other tables
+              if(mapType && cidVal){
+                // Call toggleFlightPath (async) but do not await so UI remains responsive
+                toggleFlightPath(cidVal, mapType).catch(e=>console.error('toggleFlightPath error', e));
+              }
+            }catch(e){ console.error('Failed to sync flight-path for row click', e); }
+          }
         });
         tbody.appendChild(tr);
         tbody.appendChild(fpDiv);
@@ -908,40 +1015,42 @@
       fpDiv.dataset.fpKey = evtKey;
   presentKeys.add(evtKey);
       // if it was expanded previously, show it and draw path
-      if(expandedSet.has(evtKey)){
-        fpDiv.classList.add('show');
-        p56PathLayer.clearLayers();
-        sfraPathLayer.clearLayers();
-        const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
-        if (positions.length > 1) {
-          const latlngs = positions.map(p => [p.lat, p.lon]);
-          const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-          p56PathLayer.addLayer(polyline);
-          sfraPathLayer.addLayer(polyline);
-        }
-      }
-      tr.addEventListener('click', () => {
-        // Toggle flight-plan row
-        const opening = !fpDiv.classList.contains('show');
-        fpDiv.classList.toggle('show');
-        if(opening){
-          // Draw path when opening
+        if(expandedSet.has(evtKey)){
+          fpDiv.classList.add('show');
           p56PathLayer.clearLayers();
           sfraPathLayer.clearLayers();
           const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
           if (positions.length > 1) {
             const latlngs = positions.map(p => [p.lat, p.lon]);
-            const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-            p56PathLayer.addLayer(polyline);
-            sfraPathLayer.addLayer(polyline);
+            const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+            const polylineSFRA = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+            p56PathLayer.addLayer(polylineP56);
+            sfraPathLayer.addLayer(polylineSFRA);
           }
-          expandedSet.add(evtKey); saveExpandedSet(expandedSet);
-        }else{
-          // If collapsing, remove the displayed path
-          p56PathLayer.clearLayers();
-          sfraPathLayer.clearLayers();
-          expandedSet.delete(evtKey); saveExpandedSet(expandedSet);
         }
+      tr.addEventListener('click', () => {
+        // Toggle flight-plan row
+        const opening = !fpDiv.classList.contains('show');
+        fpDiv.classList.toggle('show');
+          if(opening){
+            // Draw path when opening
+            p56PathLayer.clearLayers();
+            sfraPathLayer.clearLayers();
+            const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
+            if (positions.length > 1) {
+              const latlngs = positions.map(p => [p.lat, p.lon]);
+              const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+              const polylineSFRA = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+              p56PathLayer.addLayer(polylineP56);
+              sfraPathLayer.addLayer(polylineSFRA);
+            }
+            expandedSet.add(evtKey); saveExpandedSet(expandedSet);
+          }else{
+            // If collapsing, remove the displayed path
+            p56PathLayer.clearLayers();
+            sfraPathLayer.clearLayers();
+            expandedSet.delete(evtKey); saveExpandedSet(expandedSet);
+          }
       });
       tbodyEvents.appendChild(tr);
       tbodyEvents.appendChild(fpDiv);
@@ -1021,11 +1130,17 @@
       let isGround = ac._onGround;
       let statusText = isGround ? 'Ground' : 'Airborne';
       let statusClass = isGround ? 'ground' : area;
+      // If this aircraft is currently recorded as inside P-56, force its
+      // visual status to P-56 so it shows the P-56 color regardless of
+      // whether it's on the ground or airborne.
+      try{
+        if(currentP56Cids.has(String(ac.cid || ''))){ statusClass = 'p56'; statusText = 'P-56'; }
+      }catch(e){ }
 
       console.log('Processing', ac.callsign, 'area:', area, 'isGround:', isGround, 'statusText:', statusText, 'statusClass:', statusClass, 'lat:', lat, 'lon:', lon);
 
-      // Colors: FRZ (red), P56 (orange), SFRA (blue), ground (gray), vicinity (green)
-      const color = statusClass==='frz'? '#d9534f' : statusClass==='p56'? '#f0ad4e' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
+  // Colors: FRZ (orange), P56 (red), SFRA (blue), ground (gray), vicinity (green)
+  const color = statusClass==='frz'? '#f0ad4e' : statusClass==='p56'? '#d9534f' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
       // create marker/icon defensively so one failure doesn't prevent all markers from showing
       let markerP56, markerSFRA;
       
@@ -1039,10 +1154,13 @@
           markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
           markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         }
+        // tag markers with CID so we can find them later for highlighting
+        try{ markerP56._flightPathCid = cid; markerSFRA._flightPathCid = cid; }catch(e){}
       }catch(err){
         console.error('Marker creation failed for aircraft', ac, err);
         markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
+        try{ markerP56._flightPathCid = cid; markerSFRA._flightPathCid = cid; }catch(e){}
       }
   const dca = ac.dca || computeDca(lat, lon);
   const cid = ac.cid || '';
