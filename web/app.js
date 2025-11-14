@@ -709,7 +709,7 @@
     }
   }
 
-  async function refresh(){
+  async function refresh(aircraftSnapshot){
     try{
     setPermalink();
     // track keys present in this refresh so we can prune persisted expanded keys
@@ -719,9 +719,9 @@
     // load overlays if not yet
     if(!overlays.p56.sfra && !overlays.p56.frz && !overlays.p56.p56) await loadOverlays();
 
-    // fetch aircraft
-    const aircraft = await fetchAllAircraft();
-    console.log('Fetched aircraft count:', aircraft.length);
+  // fetch aircraft (use provided snapshot if caller already fetched it)
+  const aircraft = aircraftSnapshot || await fetchAllAircraft();
+  console.log('Fetched aircraft count:', aircraft.length);
   // Read VSO range as a floating value so fractional nautical miles are respected
   const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
   console.log('VSO range setting:', range_nm, 'nm from DCA');
@@ -1753,12 +1753,22 @@
     }
   });
 
+  // Helper wrapper: poll aircraft first, then call refresh with that snapshot so
+  // other API calls are executed immediately after the aircraft fetch.
+  async function pollAircraftThenRefresh(){
+    try{
+      const aircraft = await fetchAllAircraft();
+      await refresh(aircraft);
+    }catch(e){ console.error('pollAircraftThenRefresh error', e); }
+  }
+
   // initial load
   setPermalink();
-  loadOverlays().then(()=>refresh()).then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
+  loadOverlays().then(()=>pollAircraftThenRefresh()).then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
   // ensure maps reflow on window resize
   window.addEventListener('resize', ()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
-  // run refresh periodically and trigger Leaflet reflow after each refresh
-  window.setInterval(()=>{ refresh().then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} }); }, REFRESH);
+  // run periodic polling: each tick first fetches aircraft, then immediately
+  // runs the remaining refresh logic so other API calls stay in sync.
+  window.setInterval(()=>{ pollAircraftThenRefresh().then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} }); }, REFRESH);
 
 })();
