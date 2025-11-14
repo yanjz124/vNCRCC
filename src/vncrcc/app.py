@@ -4,7 +4,8 @@ from typing import Any
 from datetime import datetime
 
 import yaml
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -22,6 +23,10 @@ def _load_config(path: str) -> Any:
 
 CONFIG_PATH = os.environ.get("VNCRCC_CONFIG", "config/example_config.yaml")
 CFG = _load_config(CONFIG_PATH)
+
+# Base directory of the project (repo root). Use this to reliably locate the
+# `web` static files regardless of current working directory when the app runs.
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 app = FastAPI(title="vNCRCC API")
@@ -97,12 +102,15 @@ async def last_snapshot() -> dict:
 # Mount API package (routes under /api/v1/...)
 app.include_router(api_router)
 
-# Serve the simple web dashboard from /web
+
+# Serve the entire `web` directory at root so requests like /app.js and
+# /styles.css return the actual files. We mount the API router first so
+# routes under /api/* take precedence.
 try:
-    app.mount("/web", StaticFiles(directory="web", html=True), name="web")
+    web_dir = os.path.join(BASE_DIR, "web")
+    app.mount("/", StaticFiles(directory=web_dir, html=True), name="webroot")
 except Exception:
-    # don't fail startup if static files can't be mounted in some environments
-    logger.exception("Failed to mount /web static directory")
+    logger.exception("Failed to mount web static directory at /")
 
 
 __all__ = ["app", "STORAGE", "FETCHER"]

@@ -1816,8 +1816,9 @@
   document.addEventListener('click', (e) => {
     const dropdown = el('aff-dropdown');
     const container = el('aff-dropdown-container');
-    if (!container.contains(e.target)) {
-      el('aff-dropdown').classList.remove('show');
+    // Defensive: container may be missing in some embed or reduced pages
+    if (!container || !container.contains(e.target)) {
+      if (dropdown && dropdown.classList) dropdown.classList.remove('show');
     }
   });
 
