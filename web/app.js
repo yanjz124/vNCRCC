@@ -299,7 +299,9 @@
     const dist_nm = haversineNm(DCA[0], DCA[1], lat, lon);
     const dist_i = Math.round(dist_nm);
     const compact = `DCA${String(brng_i).padStart(3,'0')}${String(dist_i).padStart(3,'0')}`;
-    return {radial_range: compact, bearing: brng_i, range_nm: dist_i};
+    // Return range_nm as a numeric value with one decimal of precision so
+    // the frontend can display and filter using the more accurate distance.
+    return {radial_range: compact, bearing: brng_i, range_nm: Number(dist_nm.toFixed(1))};
   }
 
   async function loadGeo(name){
@@ -720,8 +722,9 @@
     // fetch aircraft
     const aircraft = await fetchAllAircraft();
     console.log('Fetched aircraft count:', aircraft.length);
-    const range_nm = parseInt(el('vso-range').value || DEFAULT_RANGE_NM, 10);
-    console.log('VSO range setting:', range_nm, 'nm from DCA');
+  // Read VSO range as a floating value so fractional nautical miles are respected
+  const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
+  console.log('VSO range setting:', range_nm, 'nm from DCA');
     const filtered = aircraft.filter(a=>{
       const lat = a.latitude || a.lat || a.y;
       const lon = a.longitude || a.lon || a.x;
@@ -1491,7 +1494,8 @@
           const ac = it.aircraft || {};
           const dca = it.dca || (ac.latitude!=null && ac.longitude!=null ? computeDca(ac.latitude, ac.longitude) : { range_nm: 0 });
           // Build a sortable string: affiliation then zero-padded numeric range
-          const rn = String(Math.round(Number(dca.range_nm || 0))).padStart(6,'0');
+          // Use tenths of a nautical mile for stable, fractional-aware sorting
+          const rn = String(Math.round(Number(dca.range_nm || 0) * 10)).padStart(6,'0');
           return `${aff} ${rn}`;
         }catch(e){ return ''; }
       }, order: 'asc' };
