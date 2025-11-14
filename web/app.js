@@ -823,91 +823,109 @@
     }
 
   const renderTable = (tbodyId, items, rowFn, keyFn, fpOptions) => {
-      console.log('Rendering table', tbodyId, 'with', items.length, 'items');
+      // Fast batched render: build HTML for all rows and attach a single delegated
+      // click handler on the tbody. This avoids creating many DOM nodes and
+      // per-row listeners, making sorting much faster.
       const tbody = el(tbodyId);
-      tbody.innerHTML = '';
-      // compute colspan dynamically from the table header so different tables
-      // that have different column counts (e.g. P56 with no Status) automatically
-      // produce the correct flight-plan expansion width.
+      if(!tbody) return;
+      // compute colspan dynamically from the table header
       const table = tbody.closest('table');
       let colspan = 1;
       try{ colspan = table.querySelectorAll('thead th').length }catch(e){}
+
       // Apply sorting if configured for this table
       try{
         const conf = sortConfig[tbodyId];
         if(conf && typeof conf.key === 'function'){
-          console.log('Applying sort to', tbodyId, '- column:', conf.key._col, 'order:', conf.order);
           items = items.slice(); // copy
           items.sort((a,b)=>{
-            const va = conf.key(a);
-            const vb = conf.key(b);
-            if(va==null && vb==null) return 0;
-            if(va==null) return conf.order==='asc'? -1: 1;
-            if(vb==null) return conf.order==='asc'? 1: -1;
-            if(typeof va === 'number' && typeof vb === 'number') return conf.order==='asc'? va-vb : vb-va;
-            const sa = String(va).toLowerCase();
-            const sb = String(vb).toLowerCase();
-            if(sa < sb) return conf.order==='asc'? -1: 1;
-            if(sa > sb) return conf.order==='asc'? 1: -1;
+            try{
+              const va = conf.key(a); const vb = conf.key(b);
+              if(va==null && vb==null) return 0;
+              if(va==null) return conf.order==='asc'? -1: 1;
+              if(vb==null) return conf.order==='asc'? 1: -1;
+              if(typeof va === 'number' && typeof vb === 'number') return conf.order==='asc'? va-vb : vb-va;
+              const sa = String(va).toLowerCase(); const sb = String(vb).toLowerCase();
+              if(sa < sb) return conf.order==='asc'? -1: 1;
+              if(sa > sb) return conf.order==='asc'? 1: -1;
+            }catch(e){ /* fallback to equal on error */ }
             return 0;
           });
-          console.log('Sorted', tbodyId, '- first item:', items[0]?.callsign || items[0]?.cid || '?');
         }
-      }catch(e){console.error('Sort error for', tbodyId, e)}
+      }catch(e){ console.error('Sort error for', tbodyId, e) }
+
+      const parts = [];
+      // build HTML string for all rows
       items.forEach(item => {
-        const tr = document.createElement('tr');
-        tr.className = 'expandable';
-        // shade row slightly if aircraft is on the ground
-        try{ if(item._onGround) tr.classList.add('on-ground'); }catch(e){}
-        // Render row HTML using the provided rowFn. Protect against exceptions
-        // inside rowFn so a single problematic item doesn't prevent the
-        // whole table from rendering (which caused empty tables when a row
-        // threw). Log the error and render a minimal fallback row instead.
         let rowHtml = '';
-        try{
-          rowHtml = rowFn(item) || '';
-        }catch(err){
-          console.error('renderTable rowFn error for', tbodyId, err, item);
-          // Fallback: show a minimal row spanning the table width with an error
-          rowHtml = `<td colspan="${colspan}">Error rendering row</td>`;
-        }
-        tr.innerHTML = rowHtml;
-  const fpDiv = document.createElement('tr');
-  fpDiv.className = 'flight-plan';
-  fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="${colspan}">${formatFlightPlan(item, fpOptions)}</td>`;
-        // compute optional key for persistence
-        let key = null;
-        try{ if(typeof keyFn === 'function') key = keyFn(item); }catch(e){}
-  if(key){ tr.dataset.fpKey = key; fpDiv.dataset.fpKey = key; presentKeys.add(key); }
-  // if this key is in expandedSet, show it initially
-  if(key && expandedSet.has(key)) fpDiv.classList.add('show');
-        tr.addEventListener('click', () => {
-          const opening = !fpDiv.classList.contains('show');
-          fpDiv.classList.toggle('show');
-          if(key){
-            if(opening) { expandedSet.add(key); saveExpandedSet(expandedSet); } else { expandedSet.delete(key); saveExpandedSet(expandedSet); }
-            try{
-              // Sync flight-path display for SFRA/FRZ lists with the same toggle used by markers.
-              // Persistence keys are formatted like 'sfra:<cid>' or 'frz:<cid>' so parse prefix.
-              const parts = String(key).split(':');
-              const prefix = parts[0];
-              const cidVal = parts.slice(1).join(':');
-              let mapType = null;
-              if(prefix === 'sfra') mapType = 'sfra';
-              else if(prefix === 'frz') mapType = 'p56';
-              // Only trigger toggle for SFRA/FRZ rows to avoid unexpected behavior for other tables
-              if(mapType && cidVal){
-                // Call toggleFlightPath (async) but do not await so UI remains responsive
-                toggleFlightPath(cidVal, mapType).catch(e=>console.error('toggleFlightPath error', e));
-              }
-            }catch(e){ console.error('Failed to sync flight-path for row click', e); }
-          }
-        });
-        tbody.appendChild(tr);
-        tbody.appendChild(fpDiv);
+        try{ rowHtml = rowFn(item) || ''; }catch(err){ console.error('renderTable rowFn error for', tbodyId, err, item); rowHtml = `<td colspan="${colspan}">Error rendering row</td>`; }
+        const key = (typeof keyFn === 'function') ? (() => { try{ return keyFn(item); }catch(e){return null} })() : null;
+        const fpHtml = formatFlightPlan(item, fpOptions);
+        const onGroundClass = item && item._onGround ? ' on-ground' : '';
+        const fpShow = key && expandedSet.has(key) ? ' show' : '';
+        const dataAttr = key ? ` data-fp-key="${String(key).replace(/"/g,'') }"` : '';
+        parts.push(`<tr class="expandable${onGroundClass}"${dataAttr}>${rowHtml}</tr>`);
+        parts.push(`<tr class="flight-plan${fpShow}"${dataAttr}><td class="flight-plan-cell" colspan="${colspan}">${fpHtml}</td></tr>`);
+        if(key) try{ presentKeys.add(key); }catch(e){}
       });
 
-      // after rendering tables and events we'll prune expandedSet entries not present
+      // set innerHTML in one shot
+      tbody.innerHTML = parts.join('');
+
+      // attach delegated click handler once per tbody
+      if(!tbody._delegationAttached){
+        tbody._delegationAttached = true;
+        tbody.addEventListener('click', async (ev)=>{
+          try{
+            const tr = ev.target.closest('tr.expandable');
+            if(!tr) return;
+            const key = tr.dataset.fpKey;
+            if(!key) return;
+            const tbodyIdLocal = tbody.id;
+            const fpRow = tbody.querySelector(`tr.flight-plan[data-fp-key="${key}"]`);
+            if(!fpRow) return;
+            const opening = !fpRow.classList.contains('show');
+            fpRow.classList.toggle('show');
+            if(opening){ expandedSet.add(key); saveExpandedSet(expandedSet); }
+            else { expandedSet.delete(key); saveExpandedSet(expandedSet); }
+
+            // Sync flight-path display similar to prior per-row handlers
+            try{
+              // p56 event rows: key is '<cid>:<recorded_at>' and we draw pre/post positions
+              if(tbodyIdLocal === 'p56-events-tbody'){
+                const evts = tableDataCache?.events || [];
+                const evt = evts.find(e => `${String(e.cid||'')}:${String(e.recorded_at||'')}` === key);
+                if(opening){
+                  p56PathLayer.clearLayers(); sfraPathLayer.clearLayers();
+                  const positions = (evt?.pre_positions || []).concat(evt?.post_positions || []);
+                  if(positions && positions.length > 1){
+                    const latlngs = positions.map(p => [p.lat, p.lon]);
+                    const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+                    const polylineSFRA = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+                    p56PathLayer.addLayer(polylineP56);
+                    sfraPathLayer.addLayer(polylineSFRA);
+                  }
+                }else{ p56PathLayer.clearLayers(); sfraPathLayer.clearLayers(); }
+              } else {
+                // other tables: keys like 'sfra:<cid>' or 'frz:<cid>' or 'p56-current:<cid>'
+                const parts = String(key).split(':');
+                const prefix = parts[0];
+                const cidVal = parts.slice(1).join(':');
+                let mapType = null;
+                if(prefix === 'sfra') mapType = 'sfra';
+                else if(prefix === 'frz') mapType = 'p56';
+                else if(prefix === 'p56-current') mapType = 'p56';
+                else if(prefix === 'vso') mapType = 'sfra';
+                if(mapType && cidVal){
+                  // call toggleFlightPath to show/hide the path (it will be idempotent)
+                  try{ toggleFlightPath(cidVal, mapType).catch(e=>console.error('toggleFlightPath error', e)); }catch(e){}
+                }
+              }
+            }catch(e){ console.error('Failed to sync flight-path for delegated click', e); }
+
+          }catch(e){ console.error('tbody click handler error', e); }
+        });
+      }
     };
 
     const formatFlightPlan = (item, opts) => {
