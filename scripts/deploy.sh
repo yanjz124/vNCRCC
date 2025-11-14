@@ -4,9 +4,12 @@
 
 set -euo pipefail
 
-REPO_DIR="/home/pi/vNCRCC"
-LOGFILE="/var/log/vncrcc-deploy.log"
+REPO_DIR="$HOME/vNCRCC"
+# Write logs into a repo-local logs directory by default so root isn't required
+LOGFILE="$REPO_DIR/logs/vncrcc-deploy.log"
 
+# Ensure the log directory exists so tee can create the logfile without root
+mkdir -p "$(dirname "$LOGFILE")"
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Starting deploy" | tee -a "$LOGFILE"
 
 if [ ! -d "$REPO_DIR" ]; then
