@@ -1,9 +1,12 @@
 :root{--panel-bg:#071016;--panel-border:#152026;--accent:#0d2538}
+/* Make box-sizing predictable so padding/margins align elements reliably */
+*, *:before, *:after { box-sizing: border-box; }
 body{font-family:Segoe UI,Arial,sans-serif;margin:0;background:#0b0f14;color:#e6eef8}
 header{padding:12px 20px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:space-between}
 .header-left{display:flex;align-items:center;gap:12px}
 .header-right{min-width:0} /* placeholder for future dropdowns */
-#logo-placeholder{width:60px;height:60px;background:#fff;border-radius:6px;border:2px solid #ccc;display:flex;align-items:center;justify-content:center;color:#000;font-weight:bold}
+#logo-placeholder{width:60px;height:60px;background:transparent;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#000;font-weight:bold}
+#logo-placeholder img{max-width:100%;max-height:100%;display:block;border-radius:6px}
 h1{margin:0;font-size:1.5rem}
 .controls{display:flex;flex-direction:row;gap:12px;align-items:center}
 .controls label{margin-right:6px;color:#fff}
@@ -14,8 +17,8 @@ main{padding:12px}
 .controls-section{margin-bottom:12px;padding:8px;background:#0b0f14;border:1px solid #152026;border-radius:6px}
 .panels{display:block;gap:12px}
 .panel{background:var(--panel-bg);border:1px solid var(--panel-border);padding:8px;border-radius:6px}
-.panel-row{display:flex;gap:12px}
-.panel-row > .panel{flex:1;min-width:0}
+.panel-row{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.panel-row > .panel{min-width:0}
 .panel{min-width:0}
 .panel ul{max-width:100%;overflow-wrap:break-word}
 .vso-controls{display:flex;align-items:center;gap:12px;margin-bottom:8px}
@@ -53,22 +56,48 @@ main{padding:12px}
 .btn:hover{background:#11507a}
 .controls-actions .btn{padding:6px 12px}
 .panel h2{color:#cfe6ff}
-#maps-section{margin-top:12px;position:relative;}
-/* make the maps side by side */
-/* Make the two maps span the available window width with small side padding.
-	Slightly reduce height so the maps are a bit shorter. */
-/* Exact half-width maps and larger display */
-#maps-container{display:flex;gap:12px;height:55vh;width:100%;max-width:none;margin:0;padding:0;box-sizing:border-box;align-items:stretch}
-#p56-map-container{flex:0 0 50%;min-width:0;height:100%;position:relative}
-#sfra-map-container{flex:0 0 50%;min-width:0;height:100%;position:relative}
-#p56-map{height:100%;width:100%;border-radius:6px;background:#071016;border:1px solid rgba(255,255,255,0.04)}
-#sfra-map{height:100%;width:100%;border-radius:6px;background:#071016;border:1px solid rgba(255,255,255,0.04)}
+/* Give the maps section the same horizontal padding as <main> so the
+	outer edges of the maps align with the tables rendered inside <main>. */
+#maps-section{padding:12px 0 0;position:relative;}
+
+/* Center content and constrain width so maps and tables align exactly.
+	Pick a comfortable max-width that matches the desired layout; feel free
+	to adjust this value if you want a wider or narrower layout. */
+.container{max-width:1800px;margin:0 auto;padding:0 12px;width:100%;}
+
+/* On very wide displays keep the content from becoming absurdly wide.
+	 Prefer using a viewport-relative cap so large-but-not-huge monitors
+	 look good while still giving plenty of horizontal room. */
+@media (min-width:2200px){
+	.container{max-width:90vw}
+}
+/* Responsive: collapse to single column on narrow viewports */
+@media (max-width:960px){
+	#maps-container{grid-template-columns:1fr}
+	.panel-row{grid-template-columns:1fr}
+	#maps-container{height:45vh}
+}
+/* make the maps side by side using the same two-column grid as panels
+   so columns align exactly between the maps row and the subsequent panel rows */
+#maps-container{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;height:55vh;width:100%;max-width:none;margin:0;padding:0;align-items:stretch}
+/* Map divs are direct grid children with panel styling - they occupy exactly
+   the same grid column width as panels with identical padding/border */
+#p56-map, #sfra-map{
+	min-width:0;
+	height:100%;
+	position:relative;
+	background:var(--panel-bg);
+	border:1px solid var(--panel-border);
+	padding:8px;
+	border-radius:6px;
+	box-sizing:border-box;
+}
 ul{margin:6px 0;padding-left:18px}
 li{margin-bottom:6px}
 .legend{position:absolute;right:12px;top:12px;background:rgba(6,10,14,0.85);padding:10px;border-radius:6px;color:#dfefff;z-index:4000}
 .legend .swatch{display:inline-block;width:14px;height:14px;margin-right:8px;border-radius:3px;vertical-align:middle}
-.legend .frz{background:#d9534f}
-.legend .p56{background:#f0ad4e}
+.legend .frz{background:#f0ad4e}
+.legend .p56{background:#d9534f}
 .legend .sfra{background:#0275d8}
 .legend .ground{background:#6c757d}
 .legend .vicinity{background:#28a745}
@@ -94,7 +123,7 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
 .fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
 .traffic-table{width:100%;border-collapse:collapse;font-size:0.9rem}
-.traffic-table tbody{display:block;max-height:400px;overflow-y:auto}
+.traffic-table tbody{display:block;max-height:400px;overflow-y:auto;scrollbar-gutter:stable}
 .traffic-table thead, .traffic-table tbody tr{display:table;width:100%;table-layout:fixed}
 .traffic-table th, .traffic-table td{padding:4px 6px;border-bottom:1px solid #23303a;text-align:left}
 .traffic-table th{background:#0d2538;color:#cfe6ff;font-weight:600}
@@ -125,8 +154,8 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .traffic-table .squawk-vfr{color:#d1ecf1 !important} /* blue */
 
 /* Status text colors to match map colors */
-.status-frz{color:#d9534f;font-weight:700}
-.status-p56{color:#f0ad4e;font-weight:700}
+.status-frz{color:#f0ad4e;font-weight:700}
+.status-p56{color:#d9534f;font-weight:700}
 .status-sfra{color:#0275d8;font-weight:700}
 .status-ground{color:#6c757d;font-weight:700}
 .status-vicinity{color:#28a745;font-weight:700}
@@ -134,8 +163,8 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 
 /* small swatches next to status labels */
 .status-swatch{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:8px;vertical-align:middle;border:1px solid rgba(0,0,0,0.25)}
-.status-swatch-frz{background:#d9534f}
-.status-swatch-p56{background:#f0ad4e}
+.status-swatch-frz{background:#f0ad4e}
+.status-swatch-p56{background:#d9534f}
 .status-swatch-sfra{background:#0275d8}
 .status-swatch-ground{background:#6c757d}
 .status-swatch-vicinity{background:#28a745}
@@ -149,3 +178,9 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 
 /* Make squawk column wrappable */
 #sfra-table td:nth-child(9), #frz-table td:nth-child(9), #vso-table td:nth-child(10), #p56-table td:nth-child(9) { white-space: normal; word-break: break-word; }
+
+/* Highlight when a flight path is visible for an aircraft (subtle) */
+.row-path-highlight{background:rgba(240,173,78,0.03);box-shadow:inset 0 0 0 2px rgba(240,173,78,0.06);border-left:4px solid rgba(240,173,78,0.08)}
+
+/* Marker/plane halo when its path is visible */
+.path-highlight{transform:scale(1.06);filter:drop-shadow(0 0 8px rgba(240,173,78,0.45));transition:transform .12s ease,filter .12s ease}
