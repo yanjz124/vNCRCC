@@ -69,6 +69,15 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
         raise HTTPException(status_code=404, detail=f"No geo named like '{name}' found in geo directory")
     # For penetration calculation we require at least two snapshots
     snaps = storage.STORAGE.get_latest_snapshots(2) if storage.STORAGE else []
+    # If a precomputed classification exists, return it to avoid recompute
+    try:
+        cached = storage.STORAGE.get_latest_classification("p56") if storage.STORAGE else None
+        if cached:
+            # also include current p56 history
+            return {"breaches": cached.get("breaches", []), "history": get_history(), "fetched_at": cached.get("fetched_at")}
+    except Exception:
+        pass
+
     if len(snaps) < 2:
         return {"breaches": [], "note": "need 2 snapshots to calculate P56 penetration", "history": get_history()}
     latest = snaps[0]

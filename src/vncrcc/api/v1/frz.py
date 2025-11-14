@@ -44,6 +44,14 @@ router = APIRouter(prefix="/frz")
 
 @router.get("/")
 async def frz_aircraft(name: str = Query("frz", description="keyword to find the FRZ geojson file, default 'frz'")) -> Dict[str, Any]:
+    # If a precomputed classification is available, return it directly
+    try:
+        cached = storage.STORAGE.get_latest_classification("frz") if storage.STORAGE else None
+        if cached:
+            return cached
+    except Exception:
+        pass
+
     shapes = find_geo_by_keyword(name)
     if not shapes:
         raise HTTPException(status_code=404, detail=f"No geo named like '{name}' found in geo directory")

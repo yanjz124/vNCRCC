@@ -11,24 +11,28 @@ DEDUPE_WINDOW_SECONDS = 60
 
 
 def _ensure_parent():
-    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # Accept either a pathlib.Path or a string (tests set a string path).
+    p = HISTORY_PATH if isinstance(HISTORY_PATH, Path) else Path(HISTORY_PATH)
+    p.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _load() -> Dict[str, Any]:
     _ensure_parent()
-    if not HISTORY_PATH.exists():
+    p = HISTORY_PATH if isinstance(HISTORY_PATH, Path) else Path(HISTORY_PATH)
+    if not p.exists():
         return {"events": [], "current_inside": {}}
     try:
-        return json.loads(HISTORY_PATH.read_text())
+        return json.loads(p.read_text())
     except Exception:
         return {"events": [], "current_inside": {}}
 
 
 def _atomic_write(data: Dict[str, Any]):
     _ensure_parent()
-    tmp = HISTORY_PATH.with_suffix(".tmp")
+    p = HISTORY_PATH if isinstance(HISTORY_PATH, Path) else Path(HISTORY_PATH)
+    tmp = p.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2, sort_keys=True, default=str))
-    tmp.replace(HISTORY_PATH)
+    tmp.replace(p)
 
 
 def get_history() -> Dict[str, Any]:

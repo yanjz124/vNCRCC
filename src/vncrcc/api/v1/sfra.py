@@ -44,6 +44,14 @@ router = APIRouter(prefix="/sfra")
 @router.get("/")
 async def sfra_aircraft(name: str = Query("sfra", description="keyword to find the SFRA geojson file, default 'sfra'")) -> Dict[str, Any]:
     print("SFRA / endpoint called")
+    # If a precomputed classification is available, return it directly
+    try:
+        cached = storage.STORAGE.get_latest_classification("sfra") if storage.STORAGE else None
+        if cached:
+            return cached
+    except Exception:
+        pass
+
     shapes = find_geo_by_keyword(name)
     if not shapes:
         raise HTTPException(status_code=404, detail=f"No geo named like '{name}' found in geo directory")
