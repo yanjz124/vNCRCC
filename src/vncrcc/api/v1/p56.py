@@ -7,6 +7,8 @@ import time
 from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
 from ...p56_history import get_history, record_penetration, sync_snapshot
+from ...aircraft_history import get_history as get_ac_history
+from shapely.geometry import Point
 
 router = APIRouter(prefix="/p56")
 
@@ -122,7 +124,46 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
             # don't let storage failures stop detection; continue
             pass
 
-        # record penetration in history
+        # Build pre_positions from cached aircraft history up to the first
+        # position found outside the P56 zones (walk backwards from newest).
+        pre_positions = []
+        try:
+            ac_hist = get_ac_history().get("history", {})
+            # Prefer numeric CID key if available, otherwise use identifier
+            hist_key = None
+            if a.get("cid") is not None:
+                hist_key = str(a.get("cid"))
+            elif ident:
+                hist_key = str(ident)
+            positions = ac_hist.get(hist_key, []) if hist_key else []
+            # Ensure positions are sorted oldest->newest by ts
+            positions = sorted([p for p in positions if p.get("ts")], key=lambda x: x["ts"]) if positions else []
+            # Walk backwards from newest until we encounter a point outside all zones
+            for p in reversed(positions):
+                try:
+                    pt = Point(p.get("lon") or p.get("x") or 0, p.get("lat") or p.get("y") or 0)
+                    inside_any = False
+                    for shp, props in features:
+                        try:
+                            if getattr(shp, "contains", lambda x: False)(pt) or getattr(shp, "intersects", lambda x: False)(pt):
+                                inside_any = True
+                                break
+                        except Exception:
+                            continue
+                    if not inside_any:
+                        # stop at the first position outside
+                        break
+                    pre_positions.append({"lon": float(p.get("lon") or p.get("x")), "lat": float(p.get("lat") or p.get("y")), "ts": p.get("ts")})
+                    # cap to last 10 to limit payload
+                    if len(pre_positions) >= 10:
+                        break
+                except Exception:
+                    continue
+            # pre_positions currently collected newest->oldest, reverse to oldest->newest
+            pre_positions = list(reversed(pre_positions))
+        except Exception:
+            pre_positions = []
+
         record_penetration({
             "cid": a.get("cid"),
             "identifier": ident,
@@ -132,6 +173,7 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
             "latest_ts": latest_ts,
             "zones": matched_zones,
             "flight_plan": a.get("flight_plan", {}),
+            "pre_positions": pre_positions,
         })
 
         breaches.append(
@@ -148,6 +190,24 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
                 "flight_plan": a.get("flight_plan", {}),
             }
         )
+    # Build positions_by_cid mapping from aircraft_history to allow sync to
+    # populate post_positions for events when aircraft exit.
+    positions_by_cid = {}
+    try:
+        ac_hist = get_ac_history().get("history", {})
+        for k, v in ac_hist.items():
+            # normalize into list of {'lat','lon','ts'} sorted by ts
+            pts = []
+            for p in v:
+                try:
+                    pts.append({"lat": float(p.get("lat") or p.get("y")), "lon": float(p.get("lon") or p.get("x")), "ts": p.get("ts")})
+                except Exception:
+                    continue
+            pts = sorted([pt for pt in pts if pt.get("ts") is not None], key=lambda x: x["ts"]) if pts else []
+            positions_by_cid[str(k)] = pts
+    except Exception:
+        positions_by_cid = {}
+
     # sync history with current snapshot to mark exits
-    sync_snapshot(latest_ac, features, latest_ts)
+    sync_snapshot(latest_ac, features, latest_ts, positions_by_cid)
     return {"breaches": breaches, "history": get_history()}
