@@ -16,7 +16,7 @@ h1{margin:0;font-size:1.5rem}
 main{padding:12px}
 .controls-section{margin-bottom:12px;padding:8px;background:#0b0f14;border:1px solid #152026;border-radius:6px}
 .panels{display:block;gap:12px}
-.panel{background:var(--panel-bg);border:1px solid var(--panel-border);padding:8px;border-radius:6px}
+.panel{background:var(--panel-bg);border:1px solid var(--panel-border);padding:8px;border-radius:6px;overflow-x:auto}
 .panel-row{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .panel-row > .panel{min-width:0}
 .panel{min-width:0}
@@ -130,11 +130,16 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 /* flight plan tooltip styling */
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
 .fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
-.traffic-table{width:100%;border-collapse:collapse;font-size:0.9rem}
+.traffic-table{width:100%;border-collapse:collapse;font-size:0.9rem;min-width:1200px}
 .traffic-table tbody{display:block;max-height:400px;overflow-y:auto;scrollbar-gutter:stable}
 .traffic-table thead, .traffic-table tbody tr{display:table;width:100%;table-layout:fixed}
 .traffic-table th, .traffic-table td{padding:4px 6px;border-bottom:1px solid #23303a;text-align:center}
 .traffic-table th{background:#0d2538;color:#cfe6ff;font-weight:600}
+.traffic-table th:nth-child(1) { min-width: 100px; } /* Callsign */
+.traffic-table th:nth-child(8) { min-width: 80px; } /* Squawk */
+.traffic-table th:nth-child(9) { min-width: 80px; } /* Squawk or Flight Plan */
+.traffic-table th:nth-child(10) { min-width: 150px; } /* Flight Plan for VSO */
+.traffic-table th:last-child { min-width: 150px; } /* Flight Plan */
 .traffic-table tbody tr:hover{background:#152026}
 .traffic-table .expandable{cursor:pointer}
 .traffic-table .flight-plan{display:none}
