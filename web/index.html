@@ -6,6 +6,8 @@
   <title>vNCRCC Live Dashboard</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css?v=1763061480" />
+  <!-- Inline tiny favicon to avoid root /favicon.ico 404s from browsers -->
+  <link rel="icon" href="data:image/x-icon;base64,AAABAAEAEBAAAAEAIABoBAAAFgAAACgAAAAQAAAAIAAAAAEAGAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAD///8A" />
 </head>
 <body>
   <header>
@@ -26,7 +28,7 @@
       <div id="sfra-map-container">
         <div id="sfra-map"></div>
         <div id="legend" class="legend">
-          <div class="legend-header"><button id="legend-toggle" aria-expanded="true">Legend â–?/button></div>
+          <div class="legend-header"><button id="legend-toggle" aria-expanded="true">Legend ï¿½?/button></div>
           <div class="legend-body">
             <div><span class="swatch frz"></span> FRZ</div>
             <div><span class="swatch p56"></span> P-56</div>
@@ -113,11 +115,11 @@
         <div class="panel" id="vso-panel">
           <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
           <div class="vso-controls">
-            <label>VSO range (nm): <input id="vso-range" type="number" value="100" min="1"/></label>
+            <label>VSO range (nm): <input id="vso-range" type="number" value="10000" min="1"/></label>
             <div class="affiliations">
               <div class="aff-dropdown-container">
                 <input id="custom-aff" type="text" placeholder="add affiliation" />
-                <button id="aff-dropdown-btn" class="btn dropdown-btn">â–?/button>
+                <button id="aff-dropdown-btn" class="btn dropdown-btn">ï¿½?/button>
                 <div id="aff-dropdown" class="aff-dropdown">
                   <div id="aff-options"></div>
                 </div>

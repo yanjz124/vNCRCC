@@ -2,7 +2,7 @@
 (function(){
   const API_ROOT = window.location.origin + '/api/v1';
   const DCA = [38.8514403, -77.0377214];
-  const DEFAULT_RANGE_NM = 100;
+  const DEFAULT_RANGE_NM = 10000;
   const REFRESH = 15000;
 
   const el = id => document.getElementById(id);
@@ -45,20 +45,70 @@
     p56: { sfra: null, frz: null, p56: null },
     sfra: { sfra: null, frz: null, p56: null }
   };
-  // Per-category marker groups so we can toggle colored aircraft from the legend.
-  const categories = ['frz','p56','sfra','ground','vicinity'];
+  // Track visible flight paths per aircraft CID
+  const visiblePaths = new Set();
+
+  // Create path layers for flight path visualization
+  const p56PathLayer = L.layerGroup().addTo(p56Map);
+  const sfraPathLayer = L.layerGroup().addTo(sfraMap);
+
+  // Marker categories and per-category marker groups for each map
+  const categories = ['p56', 'frz', 'sfra', 'vicinity', 'ground'];
   const p56MarkerGroups = {};
   const sfraMarkerGroups = {};
   categories.forEach(cat => {
     p56MarkerGroups[cat] = L.layerGroup();
     sfraMarkerGroups[cat] = L.layerGroup();
-    p56Map.addLayer(p56MarkerGroups[cat]);
-    sfraMap.addLayer(sfraMarkerGroups[cat]);
   });
-  const p56PathLayer = L.layerGroup();
-  const sfraPathLayer = L.layerGroup();
-  p56Map.addLayer(p56PathLayer);
-  sfraMap.addLayer(sfraPathLayer);
+
+  // Function to toggle flight path for an aircraft
+  async function toggleFlightPath(cid, mapType) {
+    const pathLayer = mapType === 'p56' ? p56PathLayer : sfraPathLayer;
+    
+    if (visiblePaths.has(cid)) {
+      // Hide path - remove all polylines for this CID
+      pathLayer.eachLayer(layer => {
+        if (layer._flightPathCid === cid) {
+          pathLayer.removeLayer(layer);
+        }
+      });
+      visiblePaths.delete(cid);
+      console.log(`Hidden flight path for ${cid}`);
+    } else {
+      // Show path - fetch history and draw polyline
+      try {
+        const response = await fetch(`${API_ROOT}/aircraft/list/history`);
+        const data = await response.json();
+        const history = data.history?.[cid];
+        
+        if (history && history.length > 1) {
+          // Create lat/lng points from history
+          const points = history.map(pos => [pos.lat, pos.lon]);
+          
+          // Create polyline with aircraft color
+          const polyline = L.polyline(points, {
+            color: '#00ff00', // Bright green for visibility
+            weight: 2,
+            opacity: 0.8,
+            dashArray: '5, 5' // Dashed line
+          });
+          
+          // Mark this polyline with the CID for later removal
+          polyline._flightPathCid = cid;
+          
+          // Add to path layer
+          pathLayer.addLayer(polyline);
+          visiblePaths.add(cid);
+          
+          console.log(`Shown flight path for ${cid} with ${points.length} points`);
+        } else {
+          console.log(`No history data available for ${cid}`);
+        }
+      } catch (error) {
+        console.error(`Failed to fetch history for ${cid}:`, error);
+      }
+    }
+  }
 
   // icon sizing
   const ICON_SIZE = 32; // px, slightly larger than before
@@ -861,11 +911,13 @@
       if(expandedSet.has(evtKey)){
         fpDiv.classList.add('show');
         p56PathLayer.clearLayers();
+        sfraPathLayer.clearLayers();
         const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
         if (positions.length > 1) {
           const latlngs = positions.map(p => [p.lat, p.lon]);
           const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
           p56PathLayer.addLayer(polyline);
+          sfraPathLayer.addLayer(polyline);
         }
       }
       tr.addEventListener('click', () => {
@@ -875,16 +927,19 @@
         if(opening){
           // Draw path when opening
           p56PathLayer.clearLayers();
+          sfraPathLayer.clearLayers();
           const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
           if (positions.length > 1) {
             const latlngs = positions.map(p => [p.lat, p.lon]);
             const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
             p56PathLayer.addLayer(polyline);
+            sfraPathLayer.addLayer(polyline);
           }
           expandedSet.add(evtKey); saveExpandedSet(expandedSet);
         }else{
           // If collapsing, remove the displayed path
           p56PathLayer.clearLayers();
+          sfraPathLayer.clearLayers();
           expandedSet.delete(evtKey); saveExpandedSet(expandedSet);
         }
       });
@@ -1039,10 +1094,15 @@
   const sgrp = sfraMarkerGroups[statusClass] || sfraMarkerGroups['vicinity'];
   grp.addLayer(markerP56);
   sgrp.addLayer(markerSFRA);
+  
+  // Add click handlers to toggle flight paths
+  markerP56.on('click', () => toggleFlightPath(cid, 'p56'));
+  markerSFRA.on('click', () => toggleFlightPath(cid, 'sfra'));
+  
   // Attach marker references and current status to the aircraft object so
   // background elevation checks can update markers in-place without a full refresh.
   try{ ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass; }catch(e){}
-      console.log('Added marker for', ac.callsign, 'to', status, 'group');
+  console.log('Added marker for', ac.callsign, 'to', statusClass, 'group');
       // Populate client-side lists so UI tables/counts match the map classification
       try{
         if(area === 'sfra') sfraList.push(ac);
