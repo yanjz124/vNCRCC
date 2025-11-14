@@ -372,7 +372,7 @@
       img.crossOrigin = 'Anonymous';
       img.onload = ()=>{ planePngImage = img; resolve(img); };
       img.onerror = (e)=>{ reject(e); };
-      img.src = '/web/static/plane_icon.png?v=1';
+      img.src = '/static/plane_icon.png?v=1';
     });
   }
 
@@ -406,7 +406,7 @@
       return L.divIcon({ className: 'plane-divicon', html: html, iconSize: [size,size], iconAnchor: [Math.round(size/2),Math.round(size/2)], popupAnchor: [0,-Math.round(size/2)] });
     }catch(e){
       // fallback to static PNG icon (no rotation)
-      return L.icon({ iconUrl: '/web/static/plane_icon.png?v=1', iconSize:[size,size], iconAnchor:[Math.round(size/2),Math.round(size/2)], popupAnchor:[0,-Math.round(size/2)] });
+      return L.icon({ iconUrl: '/static/plane_icon.png?v=1', iconSize:[size,size], iconAnchor:[Math.round(size/2),Math.round(size/2)], popupAnchor:[0,-Math.round(size/2)] });
     }
   }
 
