@@ -35,6 +35,15 @@ def get_history() -> Dict[str, Any]:
     return _load()
 
 
+def clear_history() -> None:
+    """Clear all recorded P-56 events and current_inside state.
+
+    This overwrites the history file with an empty structure. Use with
+    caution — this is irreversible.
+    """
+    _atomic_write({"events": [], "current_inside": {}})
+
+
 def record_penetration(event: Dict[str, Any]) -> None:
     """Record a new penetration event. Event should include at least 'cid' or 'identifier'."""
     data = _load()

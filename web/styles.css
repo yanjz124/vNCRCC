@@ -197,3 +197,26 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 
 /* Marker/plane halo when its path is visible */
 .path-highlight{transform:scale(1.06);filter:drop-shadow(0 0 8px rgba(240,173,78,0.45));transition:transform .12s ease,filter .12s ease}
+
+/* Admin clear button: intentionally subtle. Visibility is cosmetic only;
+	 actual security is enforced by the server-side password. */
+.admin-clear-btn{
+	position:fixed;
+	right:12px;
+	bottom:12px;
+	width:28px;
+	height:28px;
+	border-radius:6px;
+	border:1px solid rgba(255,255,255,0.04);
+	background:rgba(255,255,255,0.02);
+	color:#cfe6ff;
+	font-size:14px;
+	line-height:26px;
+	text-align:center;
+	cursor:pointer;
+	opacity:0.06; /* nearly invisible by default */
+	transition:opacity .12s ease, transform .12s ease;
+	z-index:6000;
+}
+.admin-clear-btn:hover{ opacity:0.9; transform:scale(1.05); }
+.admin-clear-btn:focus{ outline:2px solid rgba(127,179,255,0.18); opacity:0.9 }

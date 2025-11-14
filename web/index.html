@@ -206,6 +206,10 @@
       <p>Not affiliated with the actual National Capital Region Coordination Center or any government entity.</p>
     </div>
   <p>Auto-refresh every <span id="interval">15</span>s. Open <a id="permalink" href="#">permalink</a> to save settings.</p>
+  <!-- Hidden admin control: small, unobtrusive button that prompts for password and calls the server-side clear API.
+       The button is intentionally visually subtle; security relies on server-side password verification
+       (do NOT embed any secret in client-side code). Set VNCRCC_ADMIN_PASSWORD on the server. -->
+  <button id="admin-clear-p56" class="admin-clear-btn" title="admin">⚙</button>
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

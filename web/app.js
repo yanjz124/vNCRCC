@@ -1598,6 +1598,44 @@
 
   // Keep permalink updated whenever inputs that affect it change.
   try{
+
+  // Admin clear handler: prompt for password and call server endpoint.
+  // The admin password must be configured on the server via VNCRCC_ADMIN_PASSWORD.
+  try{
+    const adminBtn = el('admin-clear-p56');
+    if(adminBtn && !adminBtn._adminAttached){
+      adminBtn._adminAttached = true;
+      adminBtn.addEventListener('click', async (ev)=>{
+        ev.preventDefault();
+        try{
+          // Step 1: prompt for password (do not store it anywhere in client)
+          const pwd = prompt('Enter admin password to clear P-56 history:');
+          if(!pwd) return;
+          // Step 2: double-confirm to avoid accidental clears
+          const ok = confirm('Are you sure you want to clear P-56 history and leaderboard? This cannot be undone.');
+          if(!ok) return;
+          adminBtn.disabled = true;
+          const resp = await fetch(`${API_ROOT}/p56/clear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
+          if(!resp.ok){
+            const j = await resp.json().catch(()=>({detail:resp.statusText}));
+            alert('Failed to clear P-56 history: ' + (j.detail || JSON.stringify(j)));
+            return;
+          }
+          const j = await resp.json().catch(()=>({}));
+          if(j && j.cleared){
+            alert('P-56 history cleared. Refreshing data...');
+            // refresh client state
+            try{ await pollAircraftThenRefresh(); }catch(e){}
+          } else {
+            alert('P-56 clear returned unexpected response: ' + JSON.stringify(j));
+          }
+        }catch(err){
+          console.error('Admin clear failed', err);
+          alert('Admin clear failed: ' + (err && err.message ? err.message : err));
+        }finally{ adminBtn.disabled = false; }
+      });
+    }
+  }catch(e){ console.error('Failed to attach admin clear handler', e); }
     // update when overlay toggles change
     ['toggle-sfra','toggle-frz','toggle-p56','toggle-ac-p56','toggle-ac-frz','toggle-ac-sfra','toggle-ac-vicinity','toggle-ac-ground'].forEach(id => {
       const elc = document.getElementById(id);

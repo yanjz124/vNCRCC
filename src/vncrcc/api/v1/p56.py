@@ -1,5 +1,43 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any, Optional
+import os
+from fastapi import Body
+from pathlib import Path
+
+
+def _load_dotenv_if_present(max_levels: int = 6):
+    """Lightweight .env loader: walk up from this file and, if a .env
+    file is found, read key=value lines and set os.environ for keys that
+    are not already set. This avoids adding a dependency like python-dotenv.
+    """
+    try:
+        p = Path(__file__).resolve()
+        for _ in range(max_levels):
+            env_path = p / '.env'
+            if env_path.exists():
+                try:
+                    for line in env_path.read_text(encoding='utf8').splitlines():
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+                        if '=' not in line:
+                            continue
+                        k, v = line.split('=', 1)
+                        k = k.strip()
+                        v = v.strip().strip('"').strip("'")
+                        if k and os.environ.get(k) is None:
+                            os.environ[k] = v
+                except Exception:
+                    # best-effort only
+                    pass
+                return
+            p = p.parent
+    except Exception:
+        pass
+
+
+# Attempt to load a .env file (if present in the repo root or higher)
+_load_dotenv_if_present()
 from shapely.geometry import LineString
 import json
 import time
@@ -247,3 +285,27 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
     # sync history with current snapshot to mark exits
     sync_snapshot(latest_ac, features, latest_ts, positions_by_cid)
     return {"breaches": breaches, "history": get_history()}
+
+
+
+@router.post("/clear")
+async def p56_clear(payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
+    """Clear P-56 history (events and current_inside).
+
+    This endpoint requires the server admin password to be set in the
+    VNCRCC_ADMIN_PASSWORD environment variable and provided in the POST
+    body as JSON {"password": "..."}.
+    """
+    admin_pwd = os.getenv("VNCRCC_ADMIN_PASSWORD")
+    if not admin_pwd:
+        raise HTTPException(status_code=403, detail="Server admin password not configured")
+    provided = payload.get("password")
+    if not provided or provided != admin_pwd:
+        raise HTTPException(status_code=403, detail="Invalid password")
+    # perform clear
+    try:
+        from ...p56_history import clear_history
+        clear_history()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear P56 history: {e}")
+    return {"status": "ok", "cleared": True}
