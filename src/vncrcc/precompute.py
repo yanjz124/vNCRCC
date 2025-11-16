@@ -12,6 +12,7 @@ Design:
 """
 
 import logging
+import os
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 import math
@@ -26,6 +27,13 @@ _CACHE: Dict[str, Any] = {}
 
 # DCA bullseye (lat, lon) for radial/range calculations
 DCA_BULL = (38.8514403, -77.0377214)
+
+# Optional server-side radius trim around DCA to reduce processing load.
+# Set env VNCRCC_TRIM_RADIUS_NM to a number (e.g., 300) to enable.
+try:
+    _TRIM_RADIUS_NM = float(os.environ.get("VNCRCC_TRIM_RADIUS_NM", "300"))
+except Exception:
+    _TRIM_RADIUS_NM = 300.0
 
 
 def _dca_radial_range(lat: float, lon: float) -> dict:
@@ -114,6 +122,21 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
     try:
         start = datetime.now()
         aircraft = data.get("pilots") or data.get("aircraft") or []
+        # Trim dataset to within configured radius of DCA to minimize processing
+        if aircraft and _TRIM_RADIUS_NM and _TRIM_RADIUS_NM > 0:
+            trimmed: List[Dict[str, Any]] = []
+            for a in aircraft:
+                try:
+                    lat = a.get("latitude") or a.get("lat") or a.get("y")
+                    lon = a.get("longitude") or a.get("lon") or a.get("x")
+                    if lat is None or lon is None:
+                        continue
+                    d = _dca_radial_range(float(lat), float(lon))
+                    if d.get("range_nm", 1e9) <= _TRIM_RADIUS_NM:
+                        trimmed.append(a)
+                except Exception:
+                    continue
+            aircraft = trimmed
         count = len(aircraft)
 
         # Compute SFRA violations (altitude <= 17999 ft)
@@ -144,7 +167,7 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
         logger.info(
             f"Pre-computed geofences in {elapsed:.3f}s: "
             f"SFRA={len(sfra_results)} FRZ={len(frz_results)} P56={len(p56_results)} "
-            f"(total aircraft={count})"
+            f"(processed aircraft={count}, radius_nm={_TRIM_RADIUS_NM})"
         )
 
     except Exception as e:
