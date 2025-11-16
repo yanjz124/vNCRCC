@@ -10,6 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .storage import STORAGE
+from .aircraft_history import update_history_batch
 from .vatsim_client import VatsimClient
 from .api import router as api_router
 from .precompute import precompute_all
@@ -58,15 +59,30 @@ FETCHER = VatsimClient(CFG.get("vatsim_url", "https://data.vatsim.net/v3/vatsim-
 def _on_fetch(data: dict, ts: float) -> None:
     try:
         sid = STORAGE.save_snapshot(data, ts)
-        # Log a small debug line so devs can see fetches in the server logs
-        count = len((data.get("pilots") or data.get("aircraft") or []))
+        aircraft = (data.get("pilots") or data.get("aircraft") or [])
+        count = len(aircraft)
         timestamp_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
         logger.info("Saved snapshot %s with %d aircraft at %s", sid, count, timestamp_str)
+
+        # Batch update aircraft history (lightweight: keeps last 10 positions per CID)
+        history_updates = {}
+        for ac in aircraft:
+            cid = str(ac.get("cid") or ac.get("callsign") or "").strip()
+            if not cid:
+                continue
+            lat = ac.get("latitude") or ac.get("lat") or ac.get("y")
+            lon = ac.get("longitude") or ac.get("lon") or ac.get("x")
+            alt = ac.get("altitude") or ac.get("alt")
+            if lat is None or lon is None:
+                continue
+            history_updates[cid] = {"lat": lat, "lon": lon, "alt": alt, "callsign": ac.get("callsign", "")}
+        if history_updates:
+            update_history_batch(history_updates)
         
         # Pre-compute all geofence checks and analytics so user requests are instant
         precompute_all(data, ts)
-    except Exception as e:
-        logger.exception("Error saving snapshot or pre-computing")
+    except Exception:
+        logger.exception("Error during fetch callback (_on_fetch)")
 
 
 @app.on_event("startup")

@@ -6,10 +6,13 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import aiohttp
 import ssl
 import os
+import logging
 try:
     import certifi
 except Exception:  # pragma: no cover - optional dependency
     certifi = None
+
+logger = logging.getLogger("vncrcc.vatsim")
 
 
 class VatsimClient:
@@ -89,8 +92,7 @@ class VatsimClient:
             try:
                 await self._fetch_once()
             except Exception as exc:  # keep loop alive on errors
-                # In production replace prints with structured logging
-                print("VATSIM fetch error:", exc)
+                logger.error("VATSIM fetch error: %s", exc)
             await asyncio.sleep(self.interval)
 
     async def _fetch_once(self) -> None:
@@ -102,15 +104,18 @@ class VatsimClient:
                 raise RuntimeError(f"VATSIM fetch returned status {resp.status}")
             data = await resp.json()
             ts = time.time()
+            # Count aircraft/pilots for log visibility
+            count = len((data.get("pilots") or data.get("aircraft") or []))
             async with self._lock:
                 self.latest = data
                 self.latest_ts = ts
+            logger.info("VATSIM fetch success: %d aircraft at %.0f", count, ts)
             # call registered callbacks (run them sync to keep ordering)
             for cb in list(self._callbacks):
                 try:
                     cb(data, ts)
                 except Exception as e:
-                    print("VATSIM callback error:", e)
+                    logger.exception("VATSIM callback error: %s", e)
 
     async def fetch_url(self, url: str) -> Tuple[Optional[Dict[str, Any]], Optional[float]]:
         """Fetch an arbitrary URL once and return (data, ts).
