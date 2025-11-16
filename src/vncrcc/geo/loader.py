@@ -16,55 +16,75 @@ def _load_geojson(path: Path) -> List[Tuple[base.BaseGeometry, Dict]]:
     try:
         raw = json.loads(path.read_text())
     except Exception:
+        logger.exception("Failed to read/parse %s", path)
         return []
-    features = raw.get("features") if isinstance(raw, dict) else None
-    shapes: List[Tuple[base.BaseGeometry, Dict]] = []
-    if features:
-        global _GEO_CACHE
-        if _GEO_CACHE is not None:
-            return _GEO_CACHE
+
+    shapes_out: List[Tuple[base.BaseGeometry, Dict]] = []
+
+    if isinstance(raw, dict) and raw.get("type") == "FeatureCollection":
+        features = raw.get("features") or []
         for f in features:
-            geom = f.get("geometry")
-            props = f.get("properties") or {}
-            if geom:
-                try:
-                    shp = shape(geom)
-        _GEO_CACHE = out
-        logger.info(f"Loaded {len(out)} GeoJSON files into cache")
-                    # Try to repair invalid geometries (self-intersections) using buffer(0)
-                    if not getattr(shp, "is_valid", True):
-                        try:
-                            repaired = shp.buffer(0)
-                            if getattr(repaired, "is_valid", False):
-                                logger.warning("Repaired invalid geometry in %s using buffer(0)", path.name)
-                                shp = repaired
-                        except Exception:
-                            logger.exception("Failed to repair geometry in %s", path.name)
-                    shapes.append((shp, props))
-                except Exception:
-                    continue
-    else:
-        # maybe the file itself is a geometry object
-        if isinstance(raw, dict) and raw.get("type") in ("Polygon", "MultiPolygon", "Point", "LineString"):
+            geom = f.get("geometry") if isinstance(f, dict) else None
+            props = f.get("properties") or {} if isinstance(f, dict) else {}
+            if not geom:
+                continue
             try:
-                shp = shape(raw)
-                shapes.append((shp, {}))
+                shp = shape(geom)
+                if not getattr(shp, "is_valid", True):
+                    try:
+                        repaired = shp.buffer(0)
+                        if getattr(repaired, "is_valid", False):
+                            logger.warning("Repaired invalid geometry in %s using buffer(0)", path.name)
+                            shp = repaired
+                    except Exception:
+                        logger.exception("Failed to repair geometry in %s", path.name)
+                shapes_out.append((shp, props))
             except Exception:
-                pass
-    return shapes
+                logger.exception("Failed to parse geometry in %s", path.name)
+
+    elif isinstance(raw, dict) and raw.get("type") == "Feature":
+        geom = raw.get("geometry")
+        props = raw.get("properties") or {}
+        if geom:
+            try:
+                shp = shape(geom)
+                shapes_out.append((shp, props))
+            except Exception:
+                logger.exception("Failed to parse feature in %s", path.name)
+
+    elif isinstance(raw, dict) and raw.get("type") in ("Polygon", "MultiPolygon", "Point", "LineString", "MultiLineString"):
+        try:
+            shp = shape(raw)
+            shapes_out.append((shp, {}))
+        except Exception:
+            logger.exception("Failed to parse geometry in %s", path.name)
+
+    return shapes_out
 
 
 def load_all_geojson() -> Dict[str, List[Tuple[base.BaseGeometry, Dict]]]:
     """Load all .geojson and .json files in the geo directory.
 
     Returns a dict mapping filename stem -> list of (shape, properties).
+    Uses a module-level cache to avoid repeated disk I/O.
     """
+    global _GEO_CACHE
+    if _GEO_CACHE is not None:
+        return _GEO_CACHE
+
     out: Dict[str, List[Tuple[base.BaseGeometry, Dict]]] = {}
     for ext in ("*.geojson", "*.json"):
         for p in GEO_DIR.glob(ext):
             key = p.stem.lower()
             out[key] = _load_geojson(p)
-    return out
+
+    _GEO_CACHE = out
+    try:
+        total_shapes = sum(len(v) for v in out.values())
+        logger.info("Loaded %d shapes from %d GeoJSON files into cache", total_shapes, len(out))
+    except Exception:
+        pass
+    return _GEO_CACHE
 
 
 def find_geo_by_keyword(keyword: str) -> Optional[List[Tuple[base.BaseGeometry, Dict]]]:
@@ -77,7 +97,6 @@ def find_geo_by_keyword(keyword: str) -> Optional[List[Tuple[base.BaseGeometry, 
     matched: List[Tuple[base.BaseGeometry, Dict]] = []
     for name, shapes in allg.items():
         if k in name:
-            # extend with shapes from each matching file so separate files are treated independently
             matched.extend(shapes)
     return matched if matched else None
 
