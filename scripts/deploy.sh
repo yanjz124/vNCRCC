@@ -4,8 +4,12 @@
 
 set -euo pipefail
 
-REPO_DIR="$HOME/vNCRCC"
-# Write logs into a repo-local logs directory by default so root isn't required
+###############################################################################
+# Resolve repository directory robustly even when invoked via sudo.
+# Using the script's location avoids $HOME changing to /root under sudo.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Write logs into a repo-local logs directory by default so root isn't required.
 LOGFILE="$REPO_DIR/logs/vncrcc-deploy.log"
 
 # Ensure the log directory exists so tee can create the logfile without root
@@ -23,15 +27,16 @@ echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Fetching latest from origin/main" | tee -
 git fetch --all --prune
 git reset --hard origin/main
 
-# Activate virtualenv if present
-if [ -x "venv/bin/activate" ] || [ -f "venv/bin/activate" ]; then
+VENV_DIR=".venv"
+# Activate virtualenv if present, else create it (use .venv for consistency)
+if [ -f "$VENV_DIR/bin/activate" ]; then
   # shellcheck disable=SC1091
-  source venv/bin/activate
+  source "$VENV_DIR/bin/activate"
 else
-  echo "venv not found; creating a virtualenv" | tee -a "$LOGFILE"
-  python3 -m venv venv
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Creating virtualenv at $VENV_DIR" | tee -a "$LOGFILE"
+  python3 -m venv "$VENV_DIR"
   # shellcheck disable=SC1091
-  source venv/bin/activate
+  source "$VENV_DIR/bin/activate"
 fi
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Installing requirements" | tee -a "$LOGFILE"
