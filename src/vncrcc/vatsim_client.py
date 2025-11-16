@@ -92,7 +92,8 @@ class VatsimClient:
             try:
                 await self._fetch_once()
             except Exception as exc:  # keep loop alive on errors
-                logger.error("VATSIM fetch error: %s", exc)
+                # include traceback for better diagnostics
+                logger.exception("VATSIM fetch error")
             await asyncio.sleep(self.interval)
 
     async def _fetch_once(self) -> None:

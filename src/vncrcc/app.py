@@ -14,6 +14,7 @@ from .aircraft_history import update_history_batch
 from .vatsim_client import VatsimClient
 from .api import router as api_router
 from .precompute import precompute_all
+import asyncio
 
 
 def _load_config(path: str) -> Any:
@@ -56,6 +57,9 @@ logger = logging.getLogger("vncrcc")
 FETCHER = VatsimClient(CFG.get("vatsim_url", "https://data.vatsim.net/v3/vatsim-data.json"), CFG.get("poll_interval", 15))
 
 
+_WRITE_JSON_HISTORY = os.getenv("VNCRCC_WRITE_JSON_HISTORY", "0").strip() == "1"
+
+
 def _on_fetch(data: dict, ts: float) -> None:
     try:
         sid = STORAGE.save_snapshot(data, ts)
@@ -64,23 +68,42 @@ def _on_fetch(data: dict, ts: float) -> None:
         timestamp_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
         logger.info("Saved snapshot %s with %d aircraft at %s", sid, count, timestamp_str)
 
-        # Batch update aircraft history (lightweight: keeps last 10 positions per CID)
-        history_updates = {}
-        for ac in aircraft:
-            cid = str(ac.get("cid") or ac.get("callsign") or "").strip()
-            if not cid:
-                continue
-            lat = ac.get("latitude") or ac.get("lat") or ac.get("y")
-            lon = ac.get("longitude") or ac.get("lon") or ac.get("x")
-            alt = ac.get("altitude") or ac.get("alt")
-            if lat is None or lon is None:
-                continue
-            history_updates[cid] = {"lat": lat, "lon": lon, "alt": alt, "callsign": ac.get("callsign", "")}
-        if history_updates:
-            update_history_batch(history_updates)
-        
-        # Pre-compute all geofence checks and analytics so user requests are instant
-        precompute_all(data, ts)
+        # Offload heavy work to background threads to avoid blocking the event loop
+        async def _bg():
+            loop = asyncio.get_running_loop()
+            tasks = []
+            if _WRITE_JSON_HISTORY:
+                history_updates = {}
+                for ac in aircraft:
+                    try:
+                        cid = str(ac.get("cid") or ac.get("callsign") or "").strip()
+                        if not cid:
+                            continue
+                        lat = ac.get("latitude") or ac.get("lat") or ac.get("y")
+                        lon = ac.get("longitude") or ac.get("lon") or ac.get("x")
+                        alt = ac.get("altitude") or ac.get("alt")
+                        if lat is None or lon is None:
+                            continue
+                        history_updates[cid] = {"lat": lat, "lon": lon, "alt": alt, "callsign": ac.get("callsign", "")}
+                    except Exception:
+                        continue
+                if history_updates:
+                    tasks.append(loop.run_in_executor(None, update_history_batch, history_updates))
+            # Precompute in thread
+            tasks.append(loop.run_in_executor(None, precompute_all, data, ts))
+            try:
+                await asyncio.gather(*tasks)
+            except Exception:
+                logger.exception("Background tasks failed")
+
+        try:
+            asyncio.get_running_loop().create_task(_bg())
+        except Exception:
+            # if not in an event loop (unlikely), run synchronously as last resort
+            try:
+                precompute_all(data, ts)
+            except Exception:
+                logger.exception("Precompute failed (sync fallback)")
     except Exception:
         logger.exception("Error during fetch callback (_on_fetch)")
 
