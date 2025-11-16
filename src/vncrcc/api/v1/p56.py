@@ -64,19 +64,19 @@ def _identifier(a: dict) -> Optional[str]:
 
 @router.get("/")
 async def p56_breaches(name: str = Query("p56", description="keyword to find the P56 geojson file, default 'p56'")) -> Dict[str, Any]:
+    # Return pre-computed result if available (instant response for all users)
+    from ...precompute import get_cached
+    cached = get_cached("p56")
+    if cached:
+        # also include current p56 history
+        return {"breaches": cached.get("aircraft", []), "history": get_history(), "fetched_at": cached.get("computed_at")}
+    
+    # Fallback to on-demand computation if cache not available
     shapes = find_geo_by_keyword(name)
     if not shapes:
         raise HTTPException(status_code=404, detail=f"No geo named like '{name}' found in geo directory")
     # For penetration calculation we require at least two snapshots
     snaps = storage.STORAGE.get_latest_snapshots(2) if storage.STORAGE else []
-    # If a precomputed classification exists, return it to avoid recompute
-    try:
-        cached = storage.STORAGE.get_latest_classification("p56") if storage.STORAGE else None
-        if cached:
-            # also include current p56 history
-            return {"breaches": cached.get("breaches", []), "history": get_history(), "fetched_at": cached.get("fetched_at")}
-    except Exception:
-        pass
 
     if len(snaps) < 2:
         return {"breaches": [], "note": "need 2 snapshots to calculate P56 penetration", "history": get_history()}

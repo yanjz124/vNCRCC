@@ -1,3 +1,4 @@
 vatsim_url: "https://data.vatsim.net/v3/vatsim-data.json"
-poll_interval: 15
+# Poll interval in seconds (10-15 recommended for multi-user; lower = fresher data)
+poll_interval: 10
 db_path: "vncrcc.db"

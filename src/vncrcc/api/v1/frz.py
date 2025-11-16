@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 
 from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
+from ...precompute import get_cached
 import math
 
 # DCA bullseye (lat, lon)
@@ -44,13 +45,10 @@ router = APIRouter(prefix="/frz")
 
 @router.get("/")
 async def frz_aircraft(name: str = Query("frz", description="keyword to find the FRZ geojson file, default 'frz'")) -> Dict[str, Any]:
-    # If a precomputed classification is available, return it directly
-    try:
-        cached = storage.STORAGE.get_latest_classification("frz") if storage.STORAGE else None
-        if cached:
-            return cached
-    except Exception:
-        pass
+    # Return pre-computed result if available (instant response for all users)
+    cached = get_cached("frz")
+    if cached:
+        return cached
 
     shapes = find_geo_by_keyword(name)
     if not shapes:

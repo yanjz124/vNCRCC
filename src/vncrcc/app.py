@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from .storage import STORAGE
 from .vatsim_client import VatsimClient
 from .api import router as api_router
+from .precompute import precompute_all
 
 
 def _load_config(path: str) -> Any:
@@ -61,8 +62,11 @@ def _on_fetch(data: dict, ts: float) -> None:
         count = len((data.get("pilots") or data.get("aircraft") or []))
         timestamp_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
         logger.info("Saved snapshot %s with %d aircraft at %s", sid, count, timestamp_str)
+        
+        # Pre-compute all geofence checks and analytics so user requests are instant
+        precompute_all(data, ts)
     except Exception as e:
-        logger.exception("Error saving snapshot")
+        logger.exception("Error saving snapshot or pre-computing")
 
 
 @app.on_event("startup")

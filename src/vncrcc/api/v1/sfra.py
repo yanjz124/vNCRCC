@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 
 from ... import storage
 from ...geo.loader import load_all_geojson, find_geo_by_keyword, point_from_aircraft
+from ...precompute import get_cached
 import math
 
 # DCA bullseye (lat, lon)
@@ -44,13 +45,10 @@ router = APIRouter(prefix="/sfra")
 @router.get("/")
 async def sfra_aircraft(name: str = Query("sfra", description="keyword to find the SFRA geojson file, default 'sfra'")) -> Dict[str, Any]:
     print("SFRA / endpoint called")
-    # If a precomputed classification is available, return it directly
-    try:
-        cached = storage.STORAGE.get_latest_classification("sfra") if storage.STORAGE else None
-        if cached:
-            return cached
-    except Exception:
-        pass
+    # Return pre-computed result if available (instant response for all users)
+    cached = get_cached("sfra")
+    if cached:
+        return cached
 
     shapes = find_geo_by_keyword(name)
     if not shapes:
