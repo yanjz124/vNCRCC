@@ -235,6 +235,12 @@ else:
             return out
 
         def list_aircraft(self) -> List[Dict[str, Any]]:
+            """Return latest aircraft snapshot without per-CID history lookups.
+
+            Per-request N+1 history queries are very expensive on sqlite and not
+            needed for the main UI. The dedicated endpoint `/api/v1/aircraft/list/history`
+            serves history when required.
+            """
             snap = self.get_latest_snapshot()
             if not snap:
                 return []
@@ -242,12 +248,6 @@ else:
             if not data:
                 return []
             aircraft = data.get("pilots") or data.get("aircraft") or []
-            for ac in aircraft:
-                cid = ac.get("cid")
-                if cid is not None:
-                    ac["position_history"] = self.get_aircraft_position_history(cid, 10)
-                else:
-                    ac["position_history"] = []
             return aircraft
 
         def save_classification(self, snapshot_id: int, typ: str, summary: Any) -> None:
@@ -432,6 +432,11 @@ else:
         return out
 
     def list_aircraft(self) -> List[Dict[str, Any]]:
+        """Return latest aircraft snapshot without embedding per-CID histories.
+
+        This avoids N+1 queries and keeps the endpoint fast. Use
+        `/api/v1/aircraft/list/history` for histories.
+        """
         snap = self.get_latest_snapshot()
         if not snap:
             return []
@@ -439,12 +444,6 @@ else:
         if not data:
             return []
         aircraft = data.get("pilots") or data.get("aircraft") or []
-        for ac in aircraft:
-            cid = ac.get("cid")
-            if cid is not None:
-                ac["position_history"] = self.get_aircraft_position_history(cid, 10)
-            else:
-                ac["position_history"] = []
         return aircraft
 
     # classifications helpers
