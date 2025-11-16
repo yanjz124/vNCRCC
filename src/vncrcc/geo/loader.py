@@ -8,6 +8,7 @@ import logging
 logger = logging.getLogger("vncrcc.geo.loader")
 
 GEO_DIR = Path(__file__).parent
+_GEO_CACHE: Optional[Dict[str, List[Tuple[base.BaseGeometry, Dict]]]] = None
 
 
 def _load_geojson(path: Path) -> List[Tuple[base.BaseGeometry, Dict]]:
@@ -19,12 +20,17 @@ def _load_geojson(path: Path) -> List[Tuple[base.BaseGeometry, Dict]]:
     features = raw.get("features") if isinstance(raw, dict) else None
     shapes: List[Tuple[base.BaseGeometry, Dict]] = []
     if features:
+        global _GEO_CACHE
+        if _GEO_CACHE is not None:
+            return _GEO_CACHE
         for f in features:
             geom = f.get("geometry")
             props = f.get("properties") or {}
             if geom:
                 try:
                     shp = shape(geom)
+        _GEO_CACHE = out
+        logger.info(f"Loaded {len(out)} GeoJSON files into cache")
                     # Try to repair invalid geometries (self-intersections) using buffer(0)
                     if not getattr(shp, "is_valid", True):
                         try:
