@@ -70,11 +70,13 @@ class VatsimClient:
                 ssl_ctx = ssl.create_default_context(cafile=certifi.where())
             else:
                 ssl_ctx = ssl.create_default_context()
-            connector = aiohttp.TCPConnector(ssl=ssl_ctx)
+            # Force IPv4 to avoid IPv6 routing issues; increase timeout
+            connector = aiohttp.TCPConnector(ssl=ssl_ctx, family=2)  # AF_INET = IPv4
         except Exception:
             connector = None
         # create session with connector (if connector is None, ClientSession will pick defaults)
-        self._session = aiohttp.ClientSession(connector=connector)
+        timeout = aiohttp.ClientTimeout(total=60, connect=30)
+        self._session = aiohttp.ClientSession(connector=connector, timeout=timeout)
         self._task = asyncio.create_task(self._poll_loop())
 
     async def stop(self) -> None:
@@ -91,16 +93,20 @@ class VatsimClient:
         while True:
             try:
                 await self._fetch_once()
-            except Exception as exc:  # keep loop alive on errors
-                # include traceback for better diagnostics
-                logger.exception("VATSIM fetch error")
+            except asyncio.TimeoutError:
+                logger.error("VATSIM fetch timeout after 60s connecting to %s", self.base_url)
+            except aiohttp.ClientError as exc:
+                logger.error("VATSIM fetch client error: %s: %s", type(exc).__name__, exc)
+            except Exception as exc:
+                logger.exception("VATSIM fetch error: %s", exc)
             await asyncio.sleep(self.interval)
 
     async def _fetch_once(self) -> None:
         if not self._session:
-            self._session = aiohttp.ClientSession()
+            timeout = aiohttp.ClientTimeout(total=60, connect=30)
+            self._session = aiohttp.ClientSession(timeout=timeout)
         # use base_url as the default fetch target
-        async with self._session.get(self.base_url, timeout=30) as resp:
+        async with self._session.get(self.base_url) as resp:
             if resp.status != 200:
                 raise RuntimeError(f"VATSIM fetch returned status {resp.status}")
             data = await resp.json()

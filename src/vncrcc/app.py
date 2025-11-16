@@ -112,6 +112,7 @@ def _on_fetch(data: dict, ts: float) -> None:
 async def startup() -> None:
     # configure basic logging for development
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
+    logger.info("VNCRCC_WRITE_JSON_HISTORY=%s", _WRITE_JSON_HISTORY)
     FETCHER.register_callback(_on_fetch)
     await FETCHER.start()
 
