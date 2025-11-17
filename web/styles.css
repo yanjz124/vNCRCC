@@ -226,3 +226,9 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 }
 .admin-clear-btn:hover{ opacity:0.9; transform:scale(1.05); }
 .admin-clear-btn:focus{ outline:2px solid rgba(127,179,255,0.18); opacity:0.9 }
+
+/* P56 leaderboard headers should not be clickable (no user sorting) */
+#p56-leaderboard-tbody thead th,
+table:has(#p56-leaderboard-tbody) th {
+  cursor: default;
+}

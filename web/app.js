@@ -639,39 +639,8 @@
         tbodyEvents.appendChild(fpDiv);
       });
     } else if (tbodyId === 'p56-leaderboard-tbody') {
-      const lbTb = el('p56-leaderboard-tbody');
-      if(lbTb){
-        const conf = sortConfig['p56-leaderboard-tbody'];
-        if(conf && conf.key && conf.key._col){
-          const col = conf.key._col;
-          lb = lb.slice();
-          lb.sort((A,B)=>{
-            let va, vb;
-            if(col==='rank'){ va = A._rank; vb = B._rank; }
-            else if(col==='cid'){ va = A.cid; vb = B.cid; }
-            else if(col==='callsign'){ va = (latest_ac.find(a=>String(a.cid)===String(A.cid))?.callsign) || A.callsign || A.name || '' ; vb = (latest_ac.find(a=>String(a.cid)===String(B.cid))?.callsign) || B.callsign || B.name || '' ; }
-            else if(col==='count'){ va = A.count; vb = B.count; }
-            else if(col==='first'){ va = A.first || 0; vb = B.first || 0; }
-            else if(col==='last'){ va = A.last || 0; vb = B.last || 0; }
-            if(typeof va === 'number' && typeof vb === 'number') return conf.order==='asc'? va-vb : vb-va;
-            const sa = String(va).toLowerCase(); const sb = String(vb).toLowerCase();
-            if(sa < sb) return conf.order==='asc'? -1: 1;
-            if(sa > sb) return conf.order==='asc'? 1: -1;
-            return 0;
-          });
-        }
-        lbTb.innerHTML = '';
-        lb.forEach((r, idx) => {
-          r._rank = idx+1;
-          const ac = latest_ac.find(a => String(a.cid) === String(r.cid)) || {};
-          const callsign = ac.callsign || r.callsign || r.name || '';
-          const first = r.first ? formatZuluEpoch(r.first, true) : '-';
-          const last = r.last ? formatZuluEpoch(r.last, true) : '-';
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${idx+1}</td><td>${r.cid}</td><td>${callsign}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
-          lbTb.appendChild(tr);
-        });
-      }
+      // Leaderboard is not sortable - this rerender should not be called
+      console.warn('P56 leaderboard does not support sorting');
     } else if (tbodyId === 'sfra-tbody') {
       renderTable('sfra-tbody', sfraList, it => {
         const ac = it.aircraft || it;
@@ -713,6 +682,42 @@
         const statusHtmlRow = `<td><span class="status-${statusSwatch} status-label">${statusText}</span></td>`;
         return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>${statusHtmlRow}`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+    } else if (tbodyId === 'vso-tbody') {
+      // Re-render VSO table using cached filtered aircraft
+      const filtered = latest_ac || [];
+      const selectedAff = (el('custom-aff')?.dataset?.selected || '').split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.toLowerCase());
+      const vsoMatches = [];
+      for(const ac of filtered){
+        const rmk = ((ac.flight_plan||{}).remarks||'').toLowerCase();
+        if(selectedAff.length===0){ vsoMatches.push({aircraft:ac, dca:ac.dca||null, matched_affiliations:[]}); }
+        else{
+          const matched = selectedAff.filter(p=> rmk.includes(p));
+          if(matched.length) vsoMatches.push({aircraft:ac, dca:ac.dca||null, matched_affiliations: matched});
+        }
+      }
+      el('vso-count').textContent = vsoMatches.length;
+      renderTable('vso-tbody', vsoMatches, it => {
+        const ac = it.aircraft || {};
+        const lat = ac.latitude || ac.lat || ac.y;
+        const lon = ac.longitude || ac.lon || ac.x;
+        const dca = it.dca || (lat!=null && lon!=null ? computeDca(lat, lon) : { bearing: '-', range_nm: 0 });
+        const aff = (it.matched_affiliations || []).map(a => a.toUpperCase()).join(', ');
+        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+        const squawk = ac.transponder || '';
+        let squawkClass = '';
+        if (squawk === '1200') squawkClass = 'squawk-1200';
+        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+        else if (squawk === '7777') squawkClass = 'squawk-7777';
+        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
+        let isGround = ac._onGround;
+        let statusText = isGround ? 'Ground' : 'Airborne';
+        return `<td>${aff || '-'}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${ac.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td><td>${statusText}</td>`;
+      }, it => `vso:${(it.aircraft||{}).cid || (it.aircraft||{}).callsign || ''}`);
+    } else {
+      console.log('No rerender logic for table:', tbodyId);
     }
   }
 
@@ -733,8 +738,8 @@
   const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
   console.log('VSO range setting:', range_nm, 'nm from DCA');
     const filtered = aircraft.filter(a=>{
-      const lat = a.latitude || a.lat || a.y;
-      const lon = a.longitude || a.lon || a.x;
+      const lat = a.latitude || a.lat || ac.y;
+      const lon = a.longitude || a.lon || ac.x;
       if(lat==null||lon==null) return false;
       const nm = haversineNm(DCA[0], DCA[1], lat, lon);
       return nm <= range_nm;
@@ -1158,8 +1163,6 @@
           const tr = document.createElement('tr');
           // Show rank only if not a tied entry (first person in tie shows rank, rest show blank)
           const rankDisplay = r._isTied ? '' : r._rank;
-          // Debug: log tie info
-          if(idx < 5) console.log(`LB row ${idx}: CID=${r.cid}, count=${r.count}, rank=${r._rank}, isTied=${r._isTied}, display="${rankDisplay}"`);
           tr.innerHTML = `<td>${rankDisplay}</td><td>${r.cid}</td><td>${pilotName}</td><td class="lb-callsigns">${callsignHtml}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
           lbTb.appendChild(tr);
         });
@@ -1338,8 +1341,8 @@
         const ac = it.aircraft || it;
         const dca = it.dca || computeDca(ac.latitude, ac.longitude);
         const cid = ac.cid || '';
-  const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-  const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
         const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
         const squawk = ac.transponder || '';
         let squawkClass = '';
@@ -1357,7 +1360,6 @@
         const statusHtmlRow = `<td><span class="status-${statusSwatch} status-label">${statusText}</span></td>`;
         return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>${statusHtmlRow}`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
-
     }catch(e){ console.error('Error rendering lists after markers', e); }
 
     // prune expandedSet entries for keys that are no longer present in any table
@@ -1528,7 +1530,6 @@
       const lon = ac.longitude || ac.lon || ac.x;
       const dca = it.dca || (lat!=null && lon!=null ? computeDca(lat, lon) : { bearing: '-', range_nm: 0 });
       const aff = (it.matched_affiliations || []).map(a => a.toUpperCase()).join(', ');
-      const cid = ac.cid || '';
       const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
       const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
       const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
@@ -1539,13 +1540,10 @@
       else if (squawk === '7777') squawkClass = 'squawk-7777';
       else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
       const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-      let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
       let isGround = ac._onGround;
       let statusText = isGround ? 'Ground' : 'Airborne';
-      let statusClass = isGround ? 'ground' : 'airborne';
-      const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-      return `<td>${aff}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>${statusHtmlRow}`;
-    }, it => `vso:${(it.aircraft||{}).cid|| (it.aircraft||{}).callsign || ''}`);
+      return `<td>${aff || '-'}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${ac.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td><td>${statusText}</td>`;
+    }, it => `vso:${(it.aircraft||{}).cid || (it.aircraft||{}).callsign || ''}`);
     // Default sort for VSO table: affiliation (alpha) then range (numeric asc)
     if(!sortConfig['vso-tbody']){
       sortConfig['vso-tbody'] = { key: (it)=>{
@@ -1566,13 +1564,13 @@
 
     // Cache the processed data for fast table re-rendering during sorting
     tableDataCache = {
-      currentInside,
-      events,
-      lb,
-      sfraList,
-      frzList,
-      latest_ac,
-      p56json
+      currentInside: currentInside || [],
+      events: events || [],
+      lb: lb || [],
+      sfraList: sfraList || [],
+      frzList: frzList || [],
+      latest_ac: filtered || [],
+      p56json: p56json || {}
     };
     console.log('Cached table data for fast sorting');
 
