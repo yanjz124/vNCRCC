@@ -1110,8 +1110,12 @@
         const t = evt.recorded_at || null;
         if(t){ if(!lbMap[cid].first || t < lbMap[cid].first) lbMap[cid].first = t; if(!lbMap[cid].last || t > lbMap[cid].last) lbMap[cid].last = t; }
       });
-      // Convert to array for sorting and limit
-      let lb = Object.values(lbMap).sort((a,b)=>b.count - a.count).slice(0,50);
+      // Convert to array: sort by count desc, then by most recent bust (last) desc
+      let lb = Object.values(lbMap).sort((a,b)=>{
+        if(b.count !== a.count) return b.count - a.count;
+        // Tie on count: sort by most recent bust first
+        return (b.last || 0) - (a.last || 0);
+      }).slice(0,50);
       // default leaderboard sort: rank ascending (1..n) based on count desc above
       if(!sortConfig['p56-leaderboard-tbody']) {
         const keyFn = function(r, idx){ return idx+1; };
@@ -1143,9 +1147,19 @@
           });
         }
         lbTb.innerHTML = '';
+        // Assign ranks with tie handling: same count = same rank, blank for subsequent ties
+        let currentRank = 1;
+        let prevCount = null;
+        let tieStart = 0;
         lb.forEach((r, idx) => {
-          // assign rank after sorting (rank = index+1)
-          r._rank = idx+1;
+          if(r.count !== prevCount){
+            // New rank: account for any previous ties
+            currentRank = idx + 1;
+            tieStart = idx;
+          }
+          r._rank = currentRank;
+          r._isTied = (idx > tieStart && r.count === prevCount);
+          prevCount = r.count;
           const ac = latest_ac.find(a => String(a.cid) === String(r.cid)) || {};
           // prefer collected callsigns (may be multiple); render each on its own line for wrapping
           let callsignHtml = '';
@@ -1169,7 +1183,9 @@
           const first = r.first ? formatZuluEpoch(r.first, true) : '-';
           const last = r.last ? formatZuluEpoch(r.last, true) : '-';
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${idx+1}</td><td>${r.cid}</td><td>${pilotName}</td><td class="lb-callsigns">${callsignHtml}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
+          // Show rank only if not a tied entry (first person in tie shows rank, rest show blank)
+          const rankDisplay = r._isTied ? '' : r._rank;
+          tr.innerHTML = `<td>${rankDisplay}</td><td>${r.cid}</td><td>${pilotName}</td><td class="lb-callsigns">${callsignHtml}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
           lbTb.appendChild(tr);
         });
       }
