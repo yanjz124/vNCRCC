@@ -4,7 +4,7 @@ from typing import Any
 from datetime import datetime
 
 import yaml
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -107,6 +107,21 @@ def _on_fetch(data: dict, ts: float) -> None:
                 logger.exception("Precompute failed (sync fallback)")
     except Exception:
         logger.exception("Error during fetch callback (_on_fetch)")
+
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    """Prevent caching of HTML files to ensure fresh deploys are immediately visible."""
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        # Don't cache HTML files or root path to ensure users always get latest UI
+        if request.url.path == "/" or request.url.path.endswith(".html"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
+
+app.add_middleware(NoCacheMiddleware)
 
 
 @app.on_event("startup")
