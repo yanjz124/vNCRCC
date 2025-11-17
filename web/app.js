@@ -639,174 +639,116 @@
         tbodyEvents.appendChild(fpDiv);
       });
     } else if (tbodyId === 'p56-leaderboard-tbody') {
-      // Leaderboard is not sortable - this rerender should not be called
-      console.warn('P56 leaderboard does not support sorting');
-    } else if (tbodyId === 'sfra-tbody') {
-      renderTable('sfra-tbody', sfraList, it => {
-        const ac = it.aircraft || it;
-        const dca = it.dca || computeDca(ac.latitude, ac.longitude);
-        const cid = ac.cid || '';
-        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
-        const squawk = ac.transponder || '';
-        let squawkClass = '';
-        if (squawk === '1200') squawkClass = 'squawk-1200';
-        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
-        else if (squawk === '7777') squawkClass = 'squawk-7777';
-        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>`;
-      }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
-    } else if (tbodyId === 'frz-tbody') {
-      renderTable('frz-tbody', frzList, it => {
-        const ac = it.aircraft || it;
-        const dca = it.dca || computeDca(ac.latitude, ac.longitude);
-        const cid = ac.cid || '';
-        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
-        const squawk = ac.transponder || '';
-        let squawkClass = '';
-        if (squawk === '1200') squawkClass = 'squawk-1200';
-        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
-        else if (squawk === '7777') squawkClass = 'squawk-7777';
-        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-        const assigned = ac.flight_plan?.assigned_transponder || '';
-        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
-        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-        let isGround = ac._onGround;
-        let statusText = isGround ? 'Ground' : 'Airborne';
-        // If this CID is currently inside P-56, show the P56 swatch (red) but keep status text
-        const statusSwatch = (typeof currentP56Cids !== 'undefined' && currentP56Cids.has && currentP56Cids.has(String(cid))) ? 'p56' : (isGround ? 'ground' : 'airborne');
-        const statusHtmlRow = `<td><span class="status-${statusSwatch} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>${statusHtmlRow}`;
-      }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
-    } else if (tbodyId === 'vso-tbody') {
-      // Re-render VSO table using cached filtered aircraft
-      const filtered = latest_ac || [];
-      const selectedAff = (el('custom-aff')?.dataset?.selected || '').split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.toLowerCase());
-      const vsoMatches = [];
-      for(const ac of filtered){
-        const rmk = ((ac.flight_plan||{}).remarks||'').toLowerCase();
-        if(selectedAff.length===0){ vsoMatches.push({aircraft:ac, dca:ac.dca||null, matched_affiliations:[]}); }
-        else{
-          const matched = selectedAff.filter(p=> rmk.includes(p));
-          if(matched.length) vsoMatches.push({aircraft:ac, dca:ac.dca||null, matched_affiliations: matched});
-        }
+      if (!tableDataCache) {
+        console.log('No cached data, falling back to full refresh');
+        refresh();
+        return;
       }
-      el('vso-count').textContent = vsoMatches.length;
-      renderTable('vso-tbody', vsoMatches, it => {
-        const ac = it.aircraft || {};
-        const lat = ac.latitude || ac.lat || ac.y;
-        const lon = ac.longitude || ac.lon || ac.x;
-        const dca = it.dca || (lat!=null && lon!=null ? computeDca(lat, lon) : { bearing: '-', range_nm: 0 });
-        const aff = (it.matched_affiliations || []).map(a => a.toUpperCase()).join(', ');
-        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
-        const squawk = ac.transponder || '';
-        let squawkClass = '';
-        if (squawk === '1200') squawkClass = 'squawk-1200';
-        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
-        else if (squawk === '7777') squawkClass = 'squawk-7777';
-        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        let isGround = ac._onGround;
-        let statusText = isGround ? 'Ground' : 'Airborne';
-        return `<td>${aff || '-'}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${ac.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td><td>${statusText}</td>`;
-      }, it => `vso:${(it.aircraft||{}).cid || (it.aircraft||{}).callsign || ''}`);
-    } else {
-      console.log('No rerender logic for table:', tbodyId);
-    }
-  }
 
-  async function refresh(aircraftSnapshot){
-    try{
-    setPermalink();
-    // track keys present in this refresh so we can prune persisted expanded keys
-    const presentKeys = new Set();
-    // Declare variables that need function-level scope for caching
-    let lb = [];
-    // load overlays if not yet
-    if(!overlays.p56.sfra && !overlays.p56.frz && !overlays.p56.p56) await loadOverlays();
+      console.log('Fast re-rendering table:', tbodyId);
 
-  // fetch aircraft (use provided snapshot if caller already fetched it)
-  const aircraft = aircraftSnapshot || await fetchAllAircraft();
-  console.log('Fetched aircraft count:', aircraft.length);
-  // Read VSO range as a floating value so fractional nautical miles are respected
-  const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
-  console.log('VSO range setting:', range_nm, 'nm from DCA');
-    const filtered = aircraft.filter(a=>{
-      const lat = a.latitude || a.lat || ac.y;
-      const lon = a.longitude || a.lon || ac.x;
-      if(lat==null||lon==null) return false;
-      const nm = haversineNm(DCA[0], DCA[1], lat, lon);
-      return nm <= range_nm;
-    });
-    console.log('Filtered aircraft count:', filtered.length);
+      const { currentInside, events, lb, sfraList, frzList, latest_ac, p56json } = tableDataCache;
 
-    // Precompute on-ground detection for suspicious aircraft this refresh.
-    // This ensures the 'On Ground' logic runs every time data is pulled when
-    // an aircraft meets the suspicion trigger (low GS or low alt + low GS).
-    // TEMPORARILY DISABLED - elevation lookups are blocking rendering
-    /*
-    try{
-      await Promise.all(filtered.map(async ac => {
-        try{
+      // Unified rerender for all supported tables using renderTable (delegated click handler)
+      if (tbodyId === 'p56-tbody') {
+        renderTable('p56-tbody', currentInside, ci => {
+          const lat = ci.latitude || ci.last_position?.lat;
+          const lon = ci.longitude || ci.last_position?.lon;
+          const dca = computeDca(lat, lon);
+          const dep = (ci.flight_plan && (ci.flight_plan.departure || ci.flight_plan.depart)) || '';
+          const arr = (ci.flight_plan && (ci.flight_plan.arrival || ci.flight_plan.arr)) || '';
+          const acType = (ci.flight_plan && ci.flight_plan.aircraft_faa) || (ci.flight_plan && ci.flight_plan.aircraft_short) || '';
+          const squawk = ci.transponder || '';
+          let squawkClass = '';
+          if (squawk === '1200') squawkClass = 'squawk-1200';
+          else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+          else if (squawk === '7777') squawkClass = 'squawk-7777';
+          else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+          const squawkHtml = squawkClass ? `<span class=\"${squawkClass}\">${squawk}</span>` : squawk;
+          return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}\u00b0</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${ci.flight_plan?.assigned_transponder || ''}</td><td>${dep} - ${arr}</td>`;
+        }, ci => `p56-current:${ci.cid||ci.callsign||''}`);
+      } else if (tbodyId === 'p56-events-tbody') {
+        renderTable('p56-events-tbody', events, evt => {
+          const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
+          const dep = (evt.flight_plan && (evt.flight_plan.departure || evt.flight_plan.depart)) || '';
+          const arr = (evt.flight_plan && (evt.flight_plan.arrival || evt.flight_plan.arr)) || '';
+          return `<td>${evt.callsign || ''}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${evt.name || ''}</td><td>${evt.cid || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
+        }, evt => `${evt.cid||''}:${evt.recorded_at||''}`);
+      } else if (tbodyId === 'sfra-tbody') {
+        renderTable('sfra-tbody', sfraList, it => {
+          const ac = it.aircraft || it;
+          const dca = it.dca || computeDca(ac.latitude, ac.longitude);
+          const cid = ac.cid || '';
+          const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+          const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+          const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+          const squawk = ac.transponder || '';
+          let squawkClass = '';
+          if (squawk === '1200') squawkClass = 'squawk-1200';
+          else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+          else if (squawk === '7777') squawkClass = 'squawk-7777';
+          else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+          const squawkHtml = squawkClass ? `<span class=\"${squawkClass}\">${squawk}</span>` : squawk;
+          return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td>`;
+        }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+      } else if (tbodyId === 'frz-tbody') {
+        renderTable('frz-tbody', frzList, it => {
+          const ac = it.aircraft || it;
+          const dca = it.dca || computeDca(ac.latitude, ac.longitude);
+          const cid = ac.cid || '';
+          const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+          const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+          const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+          const squawk = ac.transponder || '';
+          let squawkClass = '';
+          if (squawk === '1200') squawkClass = 'squawk-1200';
+          else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+          else if (squawk === '7777') squawkClass = 'squawk-7777';
+          else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+          const assigned = ac.flight_plan?.assigned_transponder || '';
+          const squawkHtml = squawkClass ? `<span class=\"${squawkClass}\">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
+          let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
+          let isGround = ac._onGround;
+          let statusText = isGround ? 'Ground' : 'Airborne';
+          return `<td>${area}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td><td>${statusText}</td>`;
+        }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+      } else if (tbodyId === 'vso-tbody') {
+        // Re-render VSO table using cached filtered aircraft
+        const filtered = latest_ac || [];
+        const selectedAff = (el('custom-aff')?.dataset?.selected || '').split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.toLowerCase());
+        const vsoMatches = [];
+        for(const ac of filtered){
+          const rmk = ((ac.flight_plan||{}).remarks||'').toLowerCase();
+          if(selectedAff.length===0){ vsoMatches.push({aircraft:ac, dca:ac.dca||null, matched_affiliations:[]}); }
+          else{
+            const matched = selectedAff.filter(p=> rmk.includes(p));
+            if(matched.length) vsoMatches.push({aircraft:ac, dca:ac.dca||null, matched_affiliations: matched});
+          }
+        }
+        el('vso-count').textContent = vsoMatches.length;
+        renderTable('vso-tbody', vsoMatches, it => {
+          const ac = it.aircraft || {};
           const lat = ac.latitude || ac.lat || ac.y;
           const lon = ac.longitude || ac.lon || ac.x;
-          const gs = Number(ac.groundspeed || ac.gs || 0);
-          const alt = Number(ac.altitude || ac.alt || 0);
-          let onGround = false;
-          // suspicion trigger: either very low groundspeed OR moderately low GS with low altitude
-          if((gs <= 5) || (gs < 100 && alt < 1000)){
-            const elev_m = await maybeElevation(lat, lon);
-            if(elev_m != null){
-              const elev_ft = elev_m * 3.28084;
-              const agl = alt - elev_ft;
-              if(agl <= 5 || gs <= 5) onGround = true; // +5ft tolerance as requested
-            }else{
-              // fallback: if elevation lookup failed, rely on groundspeed+alt heuristic
-              // treat as on-ground when very low GS OR moderately low GS with low altitude
-              // (gs <= 5) OR (gs < 20 && alt < 1000)
-              if(gs <= 5 || (gs < 20 && alt < 1000)) onGround = true;
-            }
-          }
-          ac._onGround = onGround;
-        }catch(e){ ac._onGround = false; }
-      }));
-    }catch(e){ }
-    */
-    // Simple on-ground heuristic without elevation lookup
-    // Use a conservative fallback: treat aircraft as on-ground when
-    // very low GS, or when GS is low and altitude is below 1000 ft.
-    // New rule: (gs <= 5) OR (gs < 20 && alt < 1000)
-    filtered.forEach(ac => {
-      const gs = Number(ac.groundspeed || ac.gs || 0);
-      const alt = Number(ac.altitude || ac.alt || 0);
-      ac._onGround = (gs <= 5) || (gs < 20 && alt < 1000);
-    });
-    console.log('On-ground detection complete (simple heuristic)');
-
-  // Instead of calling SFRA/FRZ endpoints for counts/lists, compute them from
-  // the same client-side overlays used to render the map so the UI and map
-  // always match. We still fetch P56 history for the details panel but the
-  // count/listing will be driven by client-side classification below.
-    console.log('Fetching P56 history for details...');
-    const p56json = await fetch(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}});
-    // Build a quick lookup set of CIDs currently inside P-56 so we can
-    // force their marker color to the P-56 color regardless of on-ground state.
-    const currentP56Cids = new Set();
-    try{
-      const cis = p56json.history?.current_inside || {};
-      Object.keys(cis).forEach(k => { try{ if(cis[k] && cis[k].inside) currentP56Cids.add(String(k)); }catch(e){} });
-    }catch(e){ /* ignore */ }
-
-  // keep a local copy of the latest aircraft snapshot for lookups
-  const latest_ac = aircraft || [];
-
-    // prepare empty lists which will be populated while creating markers
+          const dca = it.dca || (lat!=null && lon!=null ? computeDca(lat, lon) : { bearing: '-', range_nm: 0 });
+          const aff = (it.matched_affiliations || []).map(a => a.toUpperCase()).join(', ');
+          const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+          const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+          const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+          const squawk = ac.transponder || '';
+          let squawkClass = '';
+          if (squawk === '1200') squawkClass = 'squawk-1200';
+          else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+          else if (squawk === '7777') squawkClass = 'squawk-7777';
+          else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+          const squawkHtml = squawkClass ? `<span class=\"${squawkClass}\">${squawk}</span>` : squawk;
+          let isGround = ac._onGround;
+          let statusText = isGround ? 'Ground' : 'Airborne';
+          return `<td>${aff || '-'}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${ac.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep} - ${arr}</td><td>${statusText}</td>`;
+        }, it => `vso:${(it.aircraft||{}).cid || (it.aircraft||{}).callsign || ''}`);
+      } else {
+        console.log('No rerender logic for table:', tbodyId);
+      }
     el('sfra-count').textContent = '0';
     el('frz-count').textContent = '0';
     el('p56-count').textContent = '0';
