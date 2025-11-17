@@ -54,6 +54,11 @@
       <div class="panel-row">
         <div class="panel" id="p56-panel">
           <h2>P56 Current Intrusion (<span id="p56-count">0</span>)</h2>
+          <div class="p56-alert-controls">
+            <label><input type="checkbox" id="toggle-p56-banner" checked/> Show Alert Banner</label>
+            <label><input type="checkbox" id="toggle-p56-sound" checked/> Play Alert Sound</label>
+            <button id="test-p56-alert" class="btn">Test Alert</button>
+          </div>
           <table id="p56-table" class="traffic-table">
             <thead>
               <tr>
@@ -213,6 +218,12 @@
        (do NOT embed any secret in client-side code). Set VNCRCC_ADMIN_PASSWORD on the server. -->
   <button id="admin-clear-p56" class="admin-clear-btn" title="admin">⚙</button>
   </footer>
+
+  <!-- P56 Alert Banner -->
+  <div id="p56-alert-banner" class="p56-alert-banner">
+    <button class="p56-alert-close" id="p56-alert-close">×</button>
+    <img src="static/p56_alert_banner.jpg" alt="P56 Intrusion Alert" />
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />

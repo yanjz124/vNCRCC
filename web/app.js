@@ -97,19 +97,21 @@
       currentKeys.add(key);
     });
 
-    // Check if there are new keys not in previous set
+    // Check if there are new keys not in previous set (skip if this is first load)
     let hasNewEvents = false;
-    currentKeys.forEach(key => {
-      if (!previousP56EventKeys.has(key)) {
-        hasNewEvents = true;
-      }
-    });
+    if (previousP56EventKeys.size > 0) {
+      currentKeys.forEach(key => {
+        if (!previousP56EventKeys.has(key)) {
+          hasNewEvents = true;
+        }
+      });
+    }
 
     // Update previous set
     previousP56EventKeys = currentKeys;
 
     // Trigger alert if new events detected
-    if (hasNewEvents && previousP56EventKeys.size > 0) {
+    if (hasNewEvents) {
       showP56Alert();
     }
   }
