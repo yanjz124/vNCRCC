@@ -114,37 +114,36 @@ def _compute_geofence(aircraft: List[Dict[str, Any]], geo_keyword: str, max_alti
 
 
 def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, Any]]:
-    """Detect P56 intrusions and log incidents to database.
-    
+    """Detect P56 intrusions and record them using p56_history semantics.
+
+    - Point-inside OR line-crossing between two consecutive snapshots
+    - 60s dedupe window per CID
+    - Continuous stay counts as one; re-entry within 60s merges
+
     Returns list of breach dicts for caching.
     """
     from .storage import STORAGE
     from shapely.geometry import LineString, Point
-    import json
-    import time
-    
-    if not STORAGE:
-        return []
-    
+    from .p56_history import record_penetration, sync_snapshot
+
     shapes = find_geo_by_keyword("p56")
-    if not shapes:
+    if not shapes or not STORAGE:
         return []
-    
-    # Need 2 snapshots to detect line crossing
+
     snaps = STORAGE.get_latest_snapshots(2)
     if len(snaps) < 2:
         return []
-    
+
     latest = snaps[0]
     prev = snaps[1]
     latest_ts = latest.get("fetched_at")
     prev_ts = prev.get("fetched_at")
-    
+
     latest_ac = (latest.get("data") or {}).get("pilots") or (latest.get("data") or {}).get("aircraft") or []
     prev_ac = (prev.get("data") or {}).get("pilots") or (prev.get("data") or {}).get("aircraft") or []
-    
-    # Build previous position map
-    prev_map = {}
+
+    # previous position map (only <= FL180)
+    prev_map: Dict[str, Any] = {}
     for a in prev_ac:
         ident = str(a.get("cid") or a.get("callsign") or "")
         if not ident:
@@ -159,9 +158,9 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
             alt_val = None
         if alt_val is None or alt_val > 17999:
             continue
-        prev_map[ident] = {"pos": (pt.x, pt.y), "raw": a}
-    
-    breaches = []
+        prev_map[ident] = {"pos": (pt.x, pt.y)}
+
+    breaches: List[Dict[str, Any]] = []
     for a in latest_ac:
         ident = str(a.get("cid") or a.get("callsign") or "")
         if not ident:
@@ -176,12 +175,13 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
             alt_val = None
         if alt_val is None or alt_val > 17999:
             continue
-        
-        matched_zones = []
+
+        matched_zones: List[str] = []
         line = None
+        # line crossing between prev and latest
         if ident in prev_map:
-            prev_pos = prev_map[ident]["pos"]
-            line = LineString([(prev_pos[0], prev_pos[1]), (latest_pt.x, latest_pt.y)])
+            px, py = prev_map[ident]["pos"]
+            line = LineString([(px, py), (latest_pt.x, latest_pt.y)])
             for shp, props in shapes:
                 zone_name = props.get("name") or props.get("id") or "P-56"
                 try:
@@ -189,65 +189,68 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
                         matched_zones.append(zone_name)
                 except Exception:
                     continue
-        
+
+        # if not crossed, check connect-inside
         if not matched_zones:
-            # Check if newly appeared inside
-            latest_inside_zones = []
+            latest_inside = []
             for shp, props in shapes:
                 zone_name = props.get("name") or props.get("id") or "P-56"
                 try:
                     if shp.contains(latest_pt) or shp.intersects(latest_pt):
-                        latest_inside_zones.append(zone_name)
+                        latest_inside.append(zone_name)
                 except Exception:
                     continue
-            
-            if latest_inside_zones and ident in prev_map:
-                # Check if was already inside previously
-                px, py = prev_map[ident]["pos"]
-                prev_inside = False
-                for shp, _ in shapes:
-                    try:
-                        if shp.contains(Point(px, py)):
-                            prev_inside = True
-                            break
-                    except Exception:
-                        continue
-                if not prev_inside:
-                    matched_zones = latest_inside_zones
-        
+            if latest_inside:
+                if ident in prev_map:
+                    # verify not already inside previously
+                    px, py = prev_map[ident]["pos"]
+                    prev_inside = False
+                    for shp, _ in shapes:
+                        try:
+                            if shp.contains(Point(px, py)):
+                                prev_inside = True
+                                break
+                        except Exception:
+                            continue
+                    if not prev_inside:
+                        matched_zones = latest_inside
+                else:
+                    # no previous point — treat as connect-inside
+                    matched_zones = latest_inside
+
         if matched_zones:
-            # Log incident to database
-            try:
-                evidence = {
-                    "zones": matched_zones,
-                    "line": list(line.coords) if line else None,
-                    "prev_ts": prev_ts,
-                    "latest_ts": latest_ts,
-                    "callsign": a.get("callsign"),
-                }
-                STORAGE.save_incident(
-                    detected_at=latest_ts or time.time(),
-                    callsign=a.get("callsign") or "",
-                    cid=a.get("cid"),
-                    lat=float(latest_pt.y),
-                    lon=float(latest_pt.x),
-                    altitude=alt_val,
-                    zone=",".join(matched_zones),
-                    evidence=json.dumps(evidence),
-                )
-                logger.info(f"P56 intrusion logged: {a.get('callsign')} into {matched_zones}")
-            except Exception as e:
-                logger.warning(f"Failed to log P56 incident: {e}")
-            
-            breaches.append({
+            event = {
+                "cid": a.get("cid"),
                 "identifier": ident,
                 "callsign": a.get("callsign"),
-                "cid": a.get("cid"),
+                "name": a.get("name"),
                 "latest_position": {"lon": latest_pt.x, "lat": latest_pt.y},
                 "latest_ts": latest_ts,
                 "zones": matched_zones,
-            })
-    
+                "flight_plan": a.get("flight_plan", {}),
+            }
+            try:
+                record_penetration(event)
+            except Exception:
+                pass
+
+            breaches.append(
+                {
+                    "identifier": ident,
+                    "callsign": a.get("callsign"),
+                    "cid": a.get("cid"),
+                    "latest_position": {"lon": latest_pt.x, "lat": latest_pt.y},
+                    "latest_ts": latest_ts,
+                    "zones": matched_zones,
+                }
+            )
+
+    # Update current_inside vs exits
+    try:
+        sync_snapshot(latest_ac, shapes, latest_ts, positions_by_cid=None)
+    except Exception:
+        pass
+
     return breaches
 
 
