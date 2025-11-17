@@ -44,7 +44,6 @@ router = APIRouter(prefix="/sfra")
 
 @router.get("/")
 async def sfra_aircraft(name: str = Query("sfra", description="keyword to find the SFRA geojson file, default 'sfra'")) -> Dict[str, Any]:
-    print("SFRA / endpoint called")
     # Return pre-computed result if available (instant response for all users)
     cached = get_cached("sfra")
     if cached:
@@ -64,7 +63,6 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
         cid = a.get("cid") or a.get("callsign") or '<no-cid>'
         pt = point_from_aircraft(a)
         if not pt:
-            print(f"SFRA: skipping {cid} - no point_from_aircraft result")
             continue
         # altitude: require present and <= 18000 ft
         alt = a.get("altitude") or a.get("alt")
@@ -74,7 +72,6 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
             alt_val = None
         # SFRA applies up to 17,999 ft; skip unknown altitude or above 17,999
         if alt_val is None or alt_val > 17999:
-            print(f"SFRA: skipping {cid} - altitude filtered (alt={alt_val})")
             continue
         for shp, props in shapes:
             # treat points on the polygon boundary as inside as well
@@ -82,7 +79,6 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
                 inside_match = shp.contains(pt) or shp.touches(pt)
             except Exception:
                 inside_match = False
-            print(f"SFRA: processed {cid} - inside_match={inside_match}")
             if inside_match:
                 # return the original aircraft dict plus matched geo properties and DCA radial/range
                 dca = _dca_radial_range(pt.y, pt.x)
@@ -104,7 +100,7 @@ async def sfra_aircraft(name: str = Query("sfra", description="keyword to find t
                 try:
                     if dist_deg is not None and dist_deg <= tol_deg:
                         # Record as vicinity (do not include in 'inside' list)
-                        print(f"SFRA: vicinity aircraft {cid} at distance {dist_deg} deg (~{dist_deg*60:.2f} nm)")
-                except Exception as e:
-                    print(f"SFRA: vicinity check error for {cid}: {e}")
+                        pass
+                except Exception:
+                    pass
     return {"aircraft": inside}
