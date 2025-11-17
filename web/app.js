@@ -155,7 +155,8 @@
     } else {
       // Show path - fetch history and draw polyline
       try {
-        const response = await fetch(`${API_ROOT}/aircraft/list/history`);
+        const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
+        const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
         const data = await response.json();
         const history = data.history?.[cid];
 
@@ -1213,21 +1214,27 @@
       let markerP56, markerSFRA;
       
       try{
-        const icon = await createPlaneIcon(color, heading).catch(()=>null);
+        const icon = await createPlaneIcon(color, heading).catch((err)=>{
+          console.warn('Icon creation failed for', ac.callsign, err);
+          return null;
+        });
         if(icon){
           markerP56 = L.marker([lat, lon], {icon: icon});
           markerSFRA = L.marker([lat, lon], {icon: icon});
+          console.log('Created icon marker for', ac.callsign);
         }else{
           // fallback to small circle marker
           markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
           markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
+          console.log('Created circle marker fallback for', ac.callsign);
         }
         // tag markers with CID so we can find them later for highlighting
         try{ const _cid = String(ac.cid||''); markerP56._flightPathCid = _cid; markerSFRA._flightPathCid = _cid; }catch(e){}
       }catch(err){
-        console.error('Marker creation failed for aircraft', ac, err);
+        console.error('Marker creation failed for aircraft', ac.callsign, err);
         markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
+        console.log('Created circle marker after error for', ac.callsign);
         try{ const _cid = String(ac.cid||''); markerP56._flightPathCid = _cid; markerSFRA._flightPathCid = _cid; }catch(e){}
       }
   const dca = ac.dca || computeDca(lat, lon);
@@ -1418,6 +1425,16 @@
     toggleGroup('toggle-ac-sfra','sfra');
     toggleGroup('toggle-ac-vicinity','vicinity');
     toggleGroup('toggle-ac-ground','ground');
+
+    // Debug: log marker counts per category
+    console.log('Marker counts after toggle:');
+    categories.forEach(cat => {
+      let count = 0;
+      p56MarkerGroups[cat].eachLayer(() => count++);
+      const onP56Map = p56Map.hasLayer(p56MarkerGroups[cat]);
+      const onSFRAMap = sfraMap.hasLayer(sfraMarkerGroups[cat]);
+      console.log(`  ${cat}: ${count} markers, on p56Map: ${onP56Map}, on sfraMap: ${onSFRAMap}`);
+    });
 
     // Make legend collapsible
     try{

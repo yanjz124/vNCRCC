@@ -74,12 +74,20 @@ def _on_fetch(data: dict, ts: float) -> None:
             loop = asyncio.get_running_loop()
             tasks = []
             if _WRITE_JSON_HISTORY:
+                # Only track history for aircraft in the filtered/cached list (within range)
+                from .precompute import get_cached
+                cached = get_cached("aircraft_list")
+                filtered_aircraft = cached.get("aircraft", []) if cached else []
+                
+                # Build set of CIDs that are in the filtered list
+                filtered_cids = set()
                 history_updates = {}
-                for ac in aircraft:
+                for ac in filtered_aircraft:
                     try:
                         cid = str(ac.get("cid") or ac.get("callsign") or "").strip()
                         if not cid:
                             continue
+                        filtered_cids.add(cid)
                         lat = ac.get("latitude") or ac.get("lat") or ac.get("y")
                         lon = ac.get("longitude") or ac.get("lon") or ac.get("x")
                         alt = ac.get("altitude") or ac.get("alt")
@@ -89,7 +97,7 @@ def _on_fetch(data: dict, ts: float) -> None:
                     except Exception:
                         continue
                 if history_updates:
-                    tasks.append(loop.run_in_executor(None, update_history_batch, history_updates))
+                    tasks.append(loop.run_in_executor(None, update_history_batch, history_updates, filtered_cids))
             # Precompute in thread
             tasks.append(loop.run_in_executor(None, precompute_all, data, ts))
             try:

@@ -52,10 +52,24 @@ def update_history(cid: str, position: Dict[str, Any]) -> None:
     _atomic_write(data)
 
 
-def update_history_batch(updates: Dict[str, Dict[str, Any]]) -> None:
-    """Update history for multiple CIDs in a single batch operation."""
+def update_history_batch(updates: Dict[str, Dict[str, Any]], filtered_cids: set = None) -> None:
+    """Update history for multiple CIDs in a single batch operation.
+    
+    Args:
+        updates: Dictionary of CID -> position data to update
+        filtered_cids: Set of CIDs that are currently in the filtered list (within range).
+                      If provided, CIDs not in this set will be removed from history.
+    """
     data = _load()
     history: Dict[str, List[Dict[str, Any]]] = data.setdefault("history", {})
+
+    # Remove CIDs that are no longer in the filtered set
+    if filtered_cids is not None:
+        cids_to_remove = [cid for cid in history.keys() if cid not in filtered_cids]
+        for cid in cids_to_remove:
+            del history[cid]
+        if cids_to_remove:
+            print(f"Removed {len(cids_to_remove)} aircraft from history (out of range)")
 
     for cid, position in updates.items():
         if cid not in history:
@@ -70,4 +84,4 @@ def update_history_batch(updates: Dict[str, Dict[str, Any]]) -> None:
         history[cid] = history[cid][-10:]
 
     _atomic_write(data)
-    print(f"Updated aircraft history for {len(updates)} aircraft")
+    print(f"Updated aircraft history for {len(updates)} aircraft (total tracked: {len(history)})")

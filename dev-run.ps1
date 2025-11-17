@@ -25,6 +25,10 @@ $env:PYTHONPATH = (Join-Path (Get-Location) "src") + ";" + ($env:PYTHONPATH)
 # Export config env var
 $env:VNCRCC_CONFIG = (Resolve-Path $ConfigPath).Path
 
+# Enable history tracking for development
+$env:VNCRCC_WRITE_JSON_HISTORY = "1"
+$env:VNCRCC_TRACK_POSITIONS = "1"
+
 if ($Mode -eq 'api') {
     Write-Host "Running API (uvicorn) on port $Port..."
     # Import the app as vncrcc.app:app -- reload is supported when using
