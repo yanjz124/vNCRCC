@@ -150,7 +150,7 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
         if cid:
             ac_map[str(cid)] = a
 
-    # For each currently inside CID, check if still inside
+    # For each currently inside CID, check if still inside and update positions
     for cid, state in list(current.items()):
         if not state.get("inside"):
             continue
@@ -166,23 +166,40 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                             break
                     except Exception:
                         continue
-        if not still_inside:
-            # mark exit
+        
+        # Find the last event for this CID
+        last_event = None
+        for e in reversed(events):
+            if str(e.get("cid")) == cid:
+                last_event = e
+                break
+        
+        if still_inside:
+            # Still inside - update post_positions with all positions after entry
+            if last_event and positions_by_cid:
+                entry_ts = last_event.get("latest_ts", 0)
+                if entry_ts:
+                    positions = positions_by_cid.get(cid, [])
+                    # Get all positions after entry (while inside P56)
+                    inside_positions = [p for p in positions if p["ts"] > entry_ts]
+                    inside_positions.sort(key=lambda x: x["ts"])  # oldest first
+                    # Update post_positions with current inside positions
+                    # Don't limit to 5 yet - we want all positions while inside
+                    last_event["post_positions"] = inside_positions
+        else:
+            # Exited - mark exit and finalize post_positions with exit + 5 more
             current[cid]["inside"] = False
             current[cid]["last_seen"] = ts or time.time()
-            # add post_positions to the last event for this cid
-            last_event = None
-            for e in reversed(events):
-                if str(e.get("cid")) == cid:
-                    last_event = e
-                    break
             if last_event and positions_by_cid:
-                latest_ts = last_event.get("latest_ts")
-                if latest_ts:
+                entry_ts = last_event.get("latest_ts", 0)
+                if entry_ts:
                     positions = positions_by_cid.get(cid, [])
-                    post_positions = [p for p in positions if p["ts"] > latest_ts]
-                    post_positions.sort(key=lambda x: x["ts"])  # oldest first
-                    post_positions = post_positions[:5]
-                    last_event.setdefault("post_positions", post_positions)
+                    # Get all positions after entry
+                    post_entry = [p for p in positions if p["ts"] > entry_ts]
+                    post_entry.sort(key=lambda x: x["ts"])  # oldest first
+                    # Find the exit point (first position after current timestamp where aircraft is outside)
+                    # Since we're at exit detection, just take all available positions
+                    # Limit to reasonable number to avoid huge arrays
+                    last_event["post_positions"] = post_entry[:20]  # Up to 20 positions (inside + after exit)
 
     _atomic_write(data)
