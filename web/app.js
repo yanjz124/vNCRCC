@@ -2,7 +2,7 @@
 (function(){
   const API_ROOT = window.location.origin + '/api/v1';
   const DCA = [38.8514403, -77.0377214];
-  const DEFAULT_RANGE_NM = 10000;
+  const DEFAULT_RANGE_NM = 300;
   const REFRESH = 15000;
 
   const el = id => document.getElementById(id);
@@ -102,12 +102,13 @@
   async function toggleFlightPath(cid, mapType) {
     const pathLayer = mapType === 'p56' ? p56PathLayer : sfraPathLayer;
 
-    // Helper: find and toggle table row highlight/expansion for sfra/frz rows
+    // Helper: find and toggle table row highlight/expansion for sfra/frz/p56-current rows
     function setRowHighlight(cidVal, show){
       try{
         const sfraRow = document.querySelector(`tr[data-fp-key="sfra:${cidVal}"]`);
         const frzRow = document.querySelector(`tr[data-fp-key="frz:${cidVal}"]`);
-        [sfraRow, frzRow].forEach(r => {
+        const p56Row = document.querySelector(`tr[data-fp-key="p56-current:${cidVal}"]`);
+        [sfraRow, frzRow, p56Row].forEach(r => {
           if(!r) return;
           const fp = document.querySelector(`tr.flight-plan[data-fp-key="${r.dataset.fpKey}"]`);
           if(show){ r.classList.add('row-path-highlight'); if(fp && !fp.classList.contains('show')) fp.classList.add('show'); expandedSet.add(r.dataset.fpKey); saveExpandedSet(expandedSet); }
@@ -579,17 +580,27 @@
     } else if (tbodyId === 'p56-events-tbody') {
       const tbodyEvents = el('p56-events-tbody');
       tbodyEvents.innerHTML = '';
-      // apply sorting here as we already do for renderTable
+      // apply robust sorting (numeric or string) similar to renderTable
+      let evtsLocal = Array.isArray(events) ? events.slice() : [];
       try{
         const conf = sortConfig['p56-events-tbody'];
-        if(conf){
-          events.sort((a,b)=>{
-            const va = conf.key(a); const vb = conf.key(b);
-            return conf.order==='asc' ? (va - vb) : (vb - va);
+        if(conf && typeof conf.key === 'function'){
+          evtsLocal.sort((a,b)=>{
+            try{
+              const va = conf.key(a); const vb = conf.key(b);
+              if(va==null && vb==null) return 0;
+              if(va==null) return conf.order==='asc'? -1: 1;
+              if(vb==null) return conf.order==='asc'? 1: -1;
+              if(typeof va === 'number' && typeof vb === 'number') return conf.order==='asc'? va-vb : vb-va;
+              const sa = String(va).toLowerCase(); const sb = String(vb).toLowerCase();
+              if(sa < sb) return conf.order==='asc'? -1: 1;
+              if(sa > sb) return conf.order==='asc'? 1: -1;
+            }catch(e){ /* fallback to equal on error */ }
+            return 0;
           });
         }
       }catch(e){/* ignore */}
-      events.forEach(evt => {
+      evtsLocal.forEach(evt => {
         const tr = document.createElement('tr');
         tr.className = 'expandable';
         const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
@@ -738,8 +749,8 @@
   const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
   console.log('VSO range setting:', range_nm, 'nm from DCA');
     const filtered = aircraft.filter(a=>{
-      const lat = a.latitude || a.lat || ac.y;
-      const lon = a.longitude || a.lon || ac.x;
+      const lat = a.latitude || a.lat || a.y;
+      const lon = a.longitude || a.lon || a.x;
       if(lat==null||lon==null) return false;
       const nm = haversineNm(DCA[0], DCA[1], lat, lon);
       return nm <= range_nm;
@@ -1212,12 +1223,12 @@
           markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         }
         // tag markers with CID so we can find them later for highlighting
-        try{ markerP56._flightPathCid = cid; markerSFRA._flightPathCid = cid; }catch(e){}
+        try{ const _cid = String(ac.cid||''); markerP56._flightPathCid = _cid; markerSFRA._flightPathCid = _cid; }catch(e){}
       }catch(err){
         console.error('Marker creation failed for aircraft', ac, err);
         markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
-        try{ markerP56._flightPathCid = cid; markerSFRA._flightPathCid = cid; }catch(e){}
+        try{ const _cid = String(ac.cid||''); markerP56._flightPathCid = _cid; markerSFRA._flightPathCid = _cid; }catch(e){}
       }
   const dca = ac.dca || computeDca(lat, lon);
   const cid = ac.cid || '';
