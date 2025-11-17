@@ -297,6 +297,22 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
 
 
 
+@router.get("/incidents")
+async def p56_incidents(limit: int = Query(100, description="Max incidents to return")) -> Dict[str, Any]:
+    """Return logged P-56 incidents from the database.
+    
+    These are automatically logged every ~10s when the service runs,
+    even if nobody is viewing the webpage.
+    """
+    try:
+        incidents = storage.STORAGE.list_incidents(limit=limit) if storage.STORAGE else []
+        # Filter to only P-56 incidents (zone contains "p" or "P-56")
+        p56_incidents = [inc for inc in incidents if inc.get("zone") and ("p-56" in inc["zone"].lower() or "p56" in inc["zone"].lower())]
+        return {"incidents": p56_incidents, "count": len(p56_incidents)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve incidents: {e}")
+
+
 @router.post("/clear")
 async def p56_clear(payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
     """Clear P-56 history (events and current_inside).

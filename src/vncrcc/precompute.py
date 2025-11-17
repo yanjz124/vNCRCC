@@ -113,6 +113,144 @@ def _compute_geofence(aircraft: List[Dict[str, Any]], geo_keyword: str, max_alti
     return inside
 
 
+def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, Any]]:
+    """Detect P56 intrusions and log incidents to database.
+    
+    Returns list of breach dicts for caching.
+    """
+    from .storage import STORAGE
+    from shapely.geometry import LineString, Point
+    import json
+    import time
+    
+    if not STORAGE:
+        return []
+    
+    shapes = find_geo_by_keyword("p56")
+    if not shapes:
+        return []
+    
+    # Need 2 snapshots to detect line crossing
+    snaps = STORAGE.get_latest_snapshots(2)
+    if len(snaps) < 2:
+        return []
+    
+    latest = snaps[0]
+    prev = snaps[1]
+    latest_ts = latest.get("fetched_at")
+    prev_ts = prev.get("fetched_at")
+    
+    latest_ac = (latest.get("data") or {}).get("pilots") or (latest.get("data") or {}).get("aircraft") or []
+    prev_ac = (prev.get("data") or {}).get("pilots") or (prev.get("data") or {}).get("aircraft") or []
+    
+    # Build previous position map
+    prev_map = {}
+    for a in prev_ac:
+        ident = str(a.get("cid") or a.get("callsign") or "")
+        if not ident:
+            continue
+        pt = point_from_aircraft(a)
+        if not pt:
+            continue
+        alt = a.get("altitude") or a.get("alt")
+        try:
+            alt_val = float(alt) if alt is not None else None
+        except Exception:
+            alt_val = None
+        if alt_val is None or alt_val > 17999:
+            continue
+        prev_map[ident] = {"pos": (pt.x, pt.y), "raw": a}
+    
+    breaches = []
+    for a in latest_ac:
+        ident = str(a.get("cid") or a.get("callsign") or "")
+        if not ident:
+            continue
+        latest_pt = point_from_aircraft(a)
+        if not latest_pt:
+            continue
+        alt = a.get("altitude") or a.get("alt")
+        try:
+            alt_val = float(alt) if alt is not None else None
+        except Exception:
+            alt_val = None
+        if alt_val is None or alt_val > 17999:
+            continue
+        
+        matched_zones = []
+        line = None
+        if ident in prev_map:
+            prev_pos = prev_map[ident]["pos"]
+            line = LineString([(prev_pos[0], prev_pos[1]), (latest_pt.x, latest_pt.y)])
+            for shp, props in shapes:
+                zone_name = props.get("name") or props.get("id") or "P-56"
+                try:
+                    if shp.intersects(line):
+                        matched_zones.append(zone_name)
+                except Exception:
+                    continue
+        
+        if not matched_zones:
+            # Check if newly appeared inside
+            latest_inside_zones = []
+            for shp, props in shapes:
+                zone_name = props.get("name") or props.get("id") or "P-56"
+                try:
+                    if shp.contains(latest_pt) or shp.intersects(latest_pt):
+                        latest_inside_zones.append(zone_name)
+                except Exception:
+                    continue
+            
+            if latest_inside_zones and ident in prev_map:
+                # Check if was already inside previously
+                px, py = prev_map[ident]["pos"]
+                prev_inside = False
+                for shp, _ in shapes:
+                    try:
+                        if shp.contains(Point(px, py)):
+                            prev_inside = True
+                            break
+                    except Exception:
+                        continue
+                if not prev_inside:
+                    matched_zones = latest_inside_zones
+        
+        if matched_zones:
+            # Log incident to database
+            try:
+                evidence = {
+                    "zones": matched_zones,
+                    "line": list(line.coords) if line else None,
+                    "prev_ts": prev_ts,
+                    "latest_ts": latest_ts,
+                    "callsign": a.get("callsign"),
+                }
+                STORAGE.save_incident(
+                    detected_at=latest_ts or time.time(),
+                    callsign=a.get("callsign") or "",
+                    cid=a.get("cid"),
+                    lat=float(latest_pt.y),
+                    lon=float(latest_pt.x),
+                    altitude=alt_val,
+                    zone=",".join(matched_zones),
+                    evidence=json.dumps(evidence),
+                )
+                logger.info(f"P56 intrusion logged: {a.get('callsign')} into {matched_zones}")
+            except Exception as e:
+                logger.warning(f"Failed to log P56 incident: {e}")
+            
+            breaches.append({
+                "identifier": ident,
+                "callsign": a.get("callsign"),
+                "cid": a.get("cid"),
+                "latest_position": {"lon": latest_pt.x, "lat": latest_pt.y},
+                "latest_ts": latest_ts,
+                "zones": matched_zones,
+            })
+    
+    return breaches
+
+
 def precompute_all(data: Dict[str, Any], ts: float) -> None:
     """Pre-compute all expensive operations after a VATSIM fetch.
 
@@ -155,8 +293,9 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
             "aircraft_count": count
         }
 
-        # Compute P-56 violations (no altitude limit for P-56)
-        p56_results = _compute_geofence(aircraft, "p56", max_altitude=None)
+        # Compute P-56 violations with intrusion detection and database logging
+        # This uses line-crossing detection (requires 2 snapshots) and logs to incidents table
+        p56_results = _detect_p56_intrusions(data, ts)
         _CACHE["p56"] = {
             "aircraft": p56_results,
             "computed_at": ts,
