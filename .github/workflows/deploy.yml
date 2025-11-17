@@ -26,17 +26,24 @@ jobs:
     env:
       DEPLOY_KEY_ENV: ${{ secrets.DEPLOY_KEY }}
       PI_PASSWORD_ENV: ${{ secrets.PI_PASSWORD }}
+      PI_HOST_ENV: ${{ secrets.PI_HOST }}
+      PI_USER_ENV: ${{ secrets.PI_USER }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate secrets
+      - name: Validate secrets (warn only)
         if: ${{ env.DEPLOY_KEY_ENV == '' && env.PI_PASSWORD_ENV == '' }}
         run: |
-          echo "::error::Missing SSH credentials. Set repository secret DEPLOY_KEY (private key) or PI_PASSWORD." && exit 1
+          echo "::warning::No SSH credentials set. SSH deploy will be skipped. Configure DEPLOY_KEY or PI_PASSWORD to enable SSH-based deploy."
+
+      - name: Validate target host/user (warn only)
+        if: ${{ env.PI_HOST_ENV == '' || env.PI_USER_ENV == '' }}
+        run: |
+          echo "::warning::Missing PI_HOST/PI_USER. SSH deploy will be skipped unless both are set."
 
       - name: Deploy to Pi via SSH key
-        if: ${{ env.DEPLOY_KEY_ENV != '' }}
+        if: ${{ env.DEPLOY_KEY_ENV != '' && env.PI_HOST_ENV != '' && env.PI_USER_ENV != '' }}
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.PI_HOST }}
@@ -48,7 +55,7 @@ jobs:
             /bin/bash /home/${{ secrets.PI_USER }}/vNCRCC/scripts/deploy.sh
 
       - name: Deploy to Pi via password
-        if: ${{ env.DEPLOY_KEY_ENV == '' && env.PI_PASSWORD_ENV != '' }}
+        if: ${{ env.DEPLOY_KEY_ENV == '' && env.PI_PASSWORD_ENV != '' && env.PI_HOST_ENV != '' && env.PI_USER_ENV != '' }}
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.PI_HOST }}
@@ -61,3 +68,26 @@ jobs:
 
       - name: Done
         run: echo "Deploy job finished"
+
+  deploy-selfhosted:
+    name: Deploy (self-hosted on Pi)
+    runs-on: self-hosted
+    timeout-minutes: 15
+    concurrency:
+      group: deploy-pi
+      cancel-in-progress: true
+    steps:
+      - name: Verify local script exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -x "$HOME/vNCRCC/scripts/deploy.sh" ] && [ ! -f "$HOME/vNCRCC/scripts/deploy.sh" ]; then
+            echo "::error::Expected deploy script at $HOME/vNCRCC/scripts/deploy.sh. Clone repo to ~/vNCRCC on the Pi."; exit 1;
+          fi
+          echo "Found deploy script at $HOME/vNCRCC/scripts/deploy.sh"
+
+      - name: Run local deploy script
+        shell: bash
+        run: |
+          set -euo pipefail
+          /bin/bash "$HOME/vNCRCC/scripts/deploy.sh"
