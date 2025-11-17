@@ -1185,6 +1185,8 @@
           const tr = document.createElement('tr');
           // Show rank only if not a tied entry (first person in tie shows rank, rest show blank)
           const rankDisplay = r._isTied ? '' : r._rank;
+          // Debug: log tie info
+          if(idx < 5) console.log(`LB row ${idx}: CID=${r.cid}, count=${r.count}, rank=${r._rank}, isTied=${r._isTied}, display="${rankDisplay}"`);
           tr.innerHTML = `<td>${rankDisplay}</td><td>${r.cid}</td><td>${pilotName}</td><td class="lb-callsigns">${callsignHtml}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
           lbTb.appendChild(tr);
         });
