@@ -232,3 +232,13 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 table:has(#p56-leaderboard-tbody) th {
   cursor: default;
 }
+
+/* Ensure VSO, SFRA, and FRZ tables have minimum widths to trigger horizontal scroll on small screens (same behavior as P56 tables) */
+#vso-table, #sfra-table, #frz-table {
+  min-width: 1200px;
+}
+
+/* P56 tables also get the same min-width for consistency */
+#p56-table, #p56-events-table, #p56-leaderboard-table {
+  min-width: 1200px;
+}
