@@ -1456,8 +1456,8 @@
         const tbody = table.querySelector('tbody');
         const tbodyId = tbody?.id;
         if(!tbodyId) return;
-        // Skip P56 leaderboard - it should always show default rank order
-        if(tbodyId === 'p56-leaderboard-tbody') return;
+        // Skip P56 leaderboard and P56 events - they should always show default order
+        if(tbodyId === 'p56-leaderboard-tbody' || tbodyId === 'p56-events-tbody') return;
         // attach click handlers to header cells
         Array.from(table.querySelectorAll('thead th')).forEach((th, idx) => {
           // prevent duplicate listeners
