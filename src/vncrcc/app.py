@@ -145,13 +145,15 @@ async def health() -> dict:
 
 @app.get("/api/version")
 async def version() -> dict:
-    """Return the current git commit to verify deployment."""
+    """Return the current git commit and timestamp to verify deployment."""
     import subprocess
     try:
         commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=BASE_DIR).decode().strip()
-        return {"version": commit, "status": "deployed"}
+        timestamp_str = subprocess.check_output(["git", "log", "-1", "--format=%ct"], cwd=BASE_DIR).decode().strip()
+        timestamp = int(timestamp_str) if timestamp_str else None
+        return {"version": commit, "timestamp": timestamp, "status": "deployed"}
     except Exception:
-        return {"version": "unknown", "status": "error"}
+        return {"version": "unknown", "timestamp": None, "status": "error"}
 
 
 @app.get("/api/debug/last_snapshot")

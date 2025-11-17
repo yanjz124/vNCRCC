@@ -1884,8 +1884,27 @@
     }catch(e){ console.error('pollAircraftThenRefresh error', e); }
   }
 
+  // Fetch and display build version/timestamp
+  async function fetchBuildInfo(){
+    try{
+      const resp = await fetch('/api/version');
+      const data = await resp.json();
+      if(data.version){
+        el('build-version').textContent = data.version;
+      }
+      if(data.timestamp){
+        el('build-timestamp').textContent = new Date(data.timestamp * 1000).toLocaleString();
+      }
+    }catch(e){
+      console.warn('Failed to fetch build info', e);
+      el('build-version').textContent = 'unknown';
+      el('build-timestamp').textContent = 'unknown';
+    }
+  }
+
   // initial load
   setPermalink();
+  fetchBuildInfo();
   loadOverlays().then(()=>pollAircraftThenRefresh()).then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
   // ensure maps reflow on window resize
   window.addEventListener('resize', ()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });

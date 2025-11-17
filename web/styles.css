@@ -127,6 +127,7 @@ li{margin-bottom:6px}
 footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .disclaimers{margin-bottom:8px}
 .disclaimers p{margin:4px 0;font-size:0.9rem;color:#cfe6ff}
+.build-info{margin-top:8px;font-size:0.85rem;color:#8b9db8;font-family:monospace}
 /* flight plan tooltip styling */
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
 .fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
