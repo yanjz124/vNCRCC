@@ -45,6 +45,9 @@ echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Installing requirements" | tee -a "$LOGFI
 pip install --upgrade pip
 pip install -r requirements.txt
 
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Copying web files to nginx document root" | tee -a "$LOGFILE"
+sudo cp -r "$REPO_DIR/web"/* /var/www/html/web/ 2>&1 | tee -a "$LOGFILE" || true
+
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Restarting systemd service vncrcc" | tee -a "$LOGFILE"
 sudo systemctl restart vncrcc.service
 
