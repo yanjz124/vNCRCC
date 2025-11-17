@@ -27,17 +27,19 @@ echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Fetching latest from origin/main" | tee -
 git fetch --all --prune
 git reset --hard origin/main
 
-VENV_DIR=".venv"
-# Activate virtualenv if present, else create it (use .venv for consistency)
-if [ -f "$VENV_DIR/bin/activate" ]; then
-  # shellcheck disable=SC1091
-  source "$VENV_DIR/bin/activate"
+# Prefer the service venv at ./venv to match systemd ExecStart; fallback to .venv
+if [ -f "venv/bin/activate" ]; then
+  VENV_DIR="venv"
+elif [ -f ".venv/bin/activate" ]; then
+  VENV_DIR=".venv"
 else
+  VENV_DIR="venv"
   echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Creating virtualenv at $VENV_DIR" | tee -a "$LOGFILE"
   python3 -m venv "$VENV_DIR"
-  # shellcheck disable=SC1091
-  source "$VENV_DIR/bin/activate"
 fi
+
+# shellcheck disable=SC1091
+source "$VENV_DIR/bin/activate"
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Installing requirements" | tee -a "$LOGFILE"
 pip install --upgrade pip
