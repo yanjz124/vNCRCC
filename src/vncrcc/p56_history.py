@@ -150,10 +150,15 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
         if cid:
             ac_map[str(cid)] = a
 
-    # For each currently inside CID, check if still inside and update positions
+    # For each tracked CID (inside or recently exited), check status and update positions
     for cid, state in list(current.items()):
-        if not state.get("inside"):
+        is_inside = state.get("inside", False)
+        last_seen = state.get("last_seen", 0)
+        
+        # Skip if exited more than 2 minutes ago (enough time for 5+ positions after exit)
+        if not is_inside and ts and (ts - last_seen > 120):
             continue
+            
         a = ac_map.get(str(cid))
         still_inside = False
         if a:
@@ -177,7 +182,6 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
         # Get the last event for this CID to update positions (whether inside or recently exited)
         if last_event and positions_by_cid:
             entry_ts = last_event.get("latest_ts", 0)
-            exit_ts = current[cid].get("last_seen") if not still_inside else None
             
             if entry_ts:
                 positions = positions_by_cid.get(cid, [])
@@ -185,19 +189,18 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                 post_entry = [p for p in positions if p["ts"] > entry_ts]
                 post_entry.sort(key=lambda x: x["ts"])  # oldest first
                 
-                if still_inside:
+                if still_inside and is_inside:
                     # Still inside - update with all inside positions (cap at 100 for safety)
                     last_event["post_positions"] = post_entry[:100]
-                else:
-                    # Recently exited - mark exit and continue tracking for 5 more positions
-                    current[cid]["inside"] = False
-                    current[cid]["last_seen"] = ts or time.time()
+                elif not still_inside:
+                    # Exited or still tracking after exit
+                    if is_inside:
+                        # First detection of exit - mark it
+                        current[cid]["inside"] = False
+                        current[cid]["last_seen"] = ts or time.time()
+                        last_event["exit_detected_at"] = ts or time.time()
                     
-                    # Split positions: all inside + up to 5 after exit
-                    # Use the first exit detection time as the split point
-                    if exit_ts and "exit_detected_at" not in last_event:
-                        last_event["exit_detected_at"] = exit_ts
-                    
+                    # Continue tracking positions after exit
                     split_ts = last_event.get("exit_detected_at", ts or time.time())
                     inside_positions = [p for p in post_entry if p["ts"] <= split_ts]
                     after_exit = [p for p in post_entry if p["ts"] > split_ts]
