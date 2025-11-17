@@ -23,36 +23,37 @@ jobs:
     concurrency:
       group: deploy-pi
       cancel-in-progress: true
+    env:
+      DEPLOY_KEY_ENV: ${{ secrets.DEPLOY_KEY }}
+      PI_PASSWORD_ENV: ${{ secrets.PI_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Validate secrets
-        if: ${{ secrets.DEPLOY_KEY == '' && secrets.PI_PASSWORD == '' }}
+        if: ${{ env.DEPLOY_KEY_ENV == '' && env.PI_PASSWORD_ENV == '' }}
         run: |
           echo "::error::Missing SSH credentials. Set repository secret DEPLOY_KEY (private key) or PI_PASSWORD." && exit 1
 
       - name: Deploy to Pi via SSH key
-        if: ${{ secrets.DEPLOY_KEY != '' }}
+        if: ${{ env.DEPLOY_KEY_ENV != '' }}
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          port: ${{ secrets.PI_PORT != '' && secrets.PI_PORT || '22' }}
           script: |
             set -euo pipefail
             cd /home/${{ secrets.PI_USER }} || exit 1
             /bin/bash /home/${{ secrets.PI_USER }}/vNCRCC/scripts/deploy.sh
 
       - name: Deploy to Pi via password
-        if: ${{ secrets.DEPLOY_KEY == '' && secrets.PI_PASSWORD != '' }}
+        if: ${{ env.DEPLOY_KEY_ENV == '' && env.PI_PASSWORD_ENV != '' }}
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.PI_HOST }}
           username: ${{ secrets.PI_USER }}
           password: ${{ secrets.PI_PASSWORD }}
-          port: ${{ secrets.PI_PORT != '' && secrets.PI_PORT || '22' }}
           script: |
             set -euo pipefail
             cd /home/${{ secrets.PI_USER }} || exit 1
