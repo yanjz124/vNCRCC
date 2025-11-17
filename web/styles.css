@@ -242,3 +242,90 @@ table:has(#p56-leaderboard-tbody) th {
 #p56-table, #p56-events-table, #p56-leaderboard-table {
   min-width: 1200px;
 }
+
+/* P56 Alert Controls */
+.p56-alert-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.p56-alert-controls label {
+  color: #dfefff;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.p56-alert-controls input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* P56 Alert Banner Overlay */
+.p56-alert-banner {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: rgba(6, 10, 14, 0.95);
+  border: 2px solid #d9534f;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(217, 83, 79, 0.4);
+  display: none;
+}
+.p56-alert-banner.show {
+  display: block;
+  animation: fadeIn 0.5s ease-in;
+}
+.p56-alert-banner.fadeout {
+  animation: fadeOut 5s ease-out forwards;
+}
+.p56-alert-banner img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+.p56-alert-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #d9534f;
+  border: none;
+  color: #fff;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1;
+  transition: background 0.2s ease;
+}
+.p56-alert-close:hover {
+  background: #c9302c;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}

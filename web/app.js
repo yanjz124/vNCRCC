@@ -6,6 +6,113 @@
   const REFRESH = 15000;
 
   const el = id => document.getElementById(id);
+  
+  // P56 Alert System
+  let previousP56EventKeys = new Set();
+  let p56AlertAudio = null;
+  let p56AlertTimeout = null;
+  let p56AlertFadeTimeout = null;
+
+  function loadP56AlertPreferences() {
+    try {
+      const banner = localStorage.getItem('p56-alert-banner');
+      const sound = localStorage.getItem('p56-alert-sound');
+      if (banner !== null) el('toggle-p56-banner').checked = banner === 'true';
+      if (sound !== null) el('toggle-p56-sound').checked = sound === 'true';
+    } catch (e) { /* ignore */ }
+  }
+
+  function saveP56AlertPreferences() {
+    try {
+      localStorage.setItem('p56-alert-banner', el('toggle-p56-banner').checked);
+      localStorage.setItem('p56-alert-sound', el('toggle-p56-sound').checked);
+    } catch (e) { /* ignore */ }
+  }
+
+  function showP56Alert() {
+    const bannerEl = el('p56-alert-banner');
+    const showBanner = el('toggle-p56-banner').checked;
+    const playSound = el('toggle-p56-sound').checked;
+
+    // Clear any existing timers
+    if (p56AlertTimeout) clearTimeout(p56AlertTimeout);
+    if (p56AlertFadeTimeout) clearTimeout(p56AlertFadeTimeout);
+
+    // Show banner if enabled
+    if (showBanner) {
+      bannerEl.classList.remove('fadeout');
+      bannerEl.classList.add('show');
+      
+      // Start 5s visible timer, then 5s fade
+      p56AlertTimeout = setTimeout(() => {
+        bannerEl.classList.add('fadeout');
+        p56AlertFadeTimeout = setTimeout(() => {
+          hideP56Alert();
+        }, 5000);
+      }, 5000);
+    }
+
+    // Play sound if enabled
+    if (playSound) {
+      try {
+        if (!p56AlertAudio) {
+          p56AlertAudio = new Audio('static/p56_alert.mp3');
+        }
+        p56AlertAudio.currentTime = 0;
+        p56AlertAudio.play().catch(e => console.warn('P56 alert audio play failed:', e));
+      } catch (e) {
+        console.warn('P56 alert audio error:', e);
+      }
+    }
+  }
+
+  function hideP56Alert() {
+    const bannerEl = el('p56-alert-banner');
+    bannerEl.classList.remove('show', 'fadeout');
+    
+    // Stop audio if playing
+    if (p56AlertAudio) {
+      try {
+        p56AlertAudio.pause();
+        p56AlertAudio.currentTime = 0;
+      } catch (e) { /* ignore */ }
+    }
+    
+    // Clear timers
+    if (p56AlertTimeout) {
+      clearTimeout(p56AlertTimeout);
+      p56AlertTimeout = null;
+    }
+    if (p56AlertFadeTimeout) {
+      clearTimeout(p56AlertFadeTimeout);
+      p56AlertFadeTimeout = null;
+    }
+  }
+
+  function detectNewP56Events(events) {
+    // Build set of current event keys (cid:timestamp)
+    const currentKeys = new Set();
+    events.forEach(evt => {
+      const key = `${evt.cid || ''}:${evt.recorded_at || ''}`;
+      currentKeys.add(key);
+    });
+
+    // Check if there are new keys not in previous set
+    let hasNewEvents = false;
+    currentKeys.forEach(key => {
+      if (!previousP56EventKeys.has(key)) {
+        hasNewEvents = true;
+      }
+    });
+
+    // Update previous set
+    previousP56EventKeys = currentKeys;
+
+    // Trigger alert if new events detected
+    if (hasNewEvents && previousP56EventKeys.size > 0) {
+      showP56Alert();
+    }
+  }
   const params = new URLSearchParams(window.location.search);
   // The plane PNG default orientation points straight up (north). If you need to tweak
   // how the nose aligns with `heading`, adjust this offset. Positive rotates clockwise.
@@ -1031,6 +1138,10 @@
 
     // P56 events (intrusion log) - default sort: most recent on top
     const events = p56json.history?.events || [];
+    
+    // Detect new P56 events and trigger alert
+    detectNewP56Events(events);
+    
     if(!sortConfig['p56-events-tbody']) {
       sortConfig['p56-events-tbody'] = { key: (e)=> e.recorded_at || 0, order: 'desc' };
       sortConfig['p56-events-tbody'].key._col = 'date / time';
@@ -1904,6 +2015,13 @@
       el('build-timestamp').textContent = 'unknown';
     }
   }
+
+  // P56 Alert Controls
+  loadP56AlertPreferences();
+  el('toggle-p56-banner').addEventListener('change', saveP56AlertPreferences);
+  el('toggle-p56-sound').addEventListener('change', saveP56AlertPreferences);
+  el('test-p56-alert').addEventListener('click', showP56Alert);
+  el('p56-alert-close').addEventListener('click', hideP56Alert);
 
   // initial load
   setPermalink();
