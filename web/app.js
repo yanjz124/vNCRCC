@@ -2,7 +2,7 @@
 (function(){
   const API_ROOT = window.location.origin + '/api/v1';
   const DCA = [38.8514403, -77.0377214];
-  const DEFAULT_RANGE_NM = 10000;
+  const DEFAULT_RANGE_NM = 300;
   const REFRESH = 15000;
 
   const el = id => document.getElementById(id);
@@ -1154,12 +1154,12 @@
           markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         }
         // tag markers with CID so we can find them later for highlighting
-        try{ markerP56._flightPathCid = cid; markerSFRA._flightPathCid = cid; }catch(e){}
+        try{ markerP56._flightPathCid = String(ac.cid||''); markerSFRA._flightPathCid = String(ac.cid||''); }catch(e){}
       }catch(err){
         console.error('Marker creation failed for aircraft', ac, err);
         markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
-        try{ markerP56._flightPathCid = cid; markerSFRA._flightPathCid = cid; }catch(e){}
+        try{ markerP56._flightPathCid = String(ac.cid||''); markerSFRA._flightPathCid = String(ac.cid||''); }catch(e){}
       }
   const dca = ac.dca || computeDca(lat, lon);
   const cid = ac.cid || '';
