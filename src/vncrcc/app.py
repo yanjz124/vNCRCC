@@ -104,11 +104,11 @@ def _on_fetch(data: dict, ts: float) -> None:
                     except Exception:
                         continue
                 if history_updates:
-                    tasks.append(loop.run_in_executor(None, update_history_batch, history_updates, filtered_cids))
-            # Precompute in thread
-            tasks.append(loop.run_in_executor(None, precompute_all, data, ts))
+                    # Update history FIRST, then precompute can read from it
+                    await loop.run_in_executor(None, update_history_batch, history_updates, filtered_cids)
+            # Precompute in thread (runs after history is updated)
             try:
-                await asyncio.gather(*tasks)
+                await loop.run_in_executor(None, precompute_all, data, ts)
             except Exception:
                 logger.exception("Background tasks failed")
 

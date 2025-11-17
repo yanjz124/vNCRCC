@@ -292,7 +292,7 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
 
     # Update current_inside vs exits, passing position history for post_positions
     try:
-        sync_snapshot(latest_ac, shapes, latest_ts, positions_by_cid=positions_by_cid if track_positions else None)
+        sync_snapshot(latest_ac, shapes, latest_ts, positions_by_cid=positions_by_cid if write_json_history else None)
     except Exception:
         pass
 
