@@ -163,6 +163,14 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
             "aircraft_count": count
         }
 
+        # Cache the trimmed aircraft list for fast /aircraft/list endpoint
+        _CACHE["aircraft_list"] = {
+            "aircraft": aircraft,
+            "computed_at": ts,
+            "total_count": count,
+            "trim_radius_nm": _TRIM_RADIUS_NM
+        }
+
         elapsed = (datetime.now() - start).total_seconds()
         logger.info(
             f"Pre-computed geofences in {elapsed:.3f}s: "

@@ -17,8 +17,13 @@ async def latest_aircraft() -> Dict[str, Any]:
 
 @router.get("/list")
 async def list_aircraft() -> Dict[str, Any]:
+    # Return pre-computed trimmed aircraft list from cache for instant response
+    from ...precompute import get_cached
+    cached = get_cached("aircraft_list")
+    if cached:
+        return {"aircraft": cached.get("aircraft", [])}
+    # Fallback to full snapshot if cache not available
     aircraft_list = storage.STORAGE.list_aircraft() if storage.STORAGE else []
-    # History updates moved to fetch callback for performance.
     return {"aircraft": aircraft_list}
 
 
