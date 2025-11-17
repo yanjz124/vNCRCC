@@ -1116,36 +1116,9 @@
         // Tie on count: sort by most recent bust first
         return (b.last || 0) - (a.last || 0);
       }).slice(0,50);
-      // default leaderboard sort: rank ascending (1..n) based on count desc above
-      if(!sortConfig['p56-leaderboard-tbody']) {
-        const keyFn = function(r, idx){ return idx+1; };
-        keyFn._col = 'rank';
-        sortConfig['p56-leaderboard-tbody'] = { key: keyFn, order: 'asc' };
-      }
+      // Leaderboard always shows default order: by bust count desc, then most recent bust first
       const lbTb = el('p56-leaderboard-tbody');
       if(lbTb){ 
-        // apply sorting if user clicked headers: support sorting by cid,name,callsign,count,first,last
-        const conf = sortConfig['p56-leaderboard-tbody'];
-        if(conf && conf.key && conf.key._col){
-          // comparator based on selected column
-          const col = conf.key._col;
-          lb = lb.slice();
-          lb.sort((A,B)=>{
-            let va, vb;
-            if(col==='rank'){ va = A._rank; vb = B._rank; }
-            else if(col==='cid'){ va = A.cid; vb = B.cid; }
-            else if(col==='name'){ va = (latest_ac.find(a=>String(a.cid)===String(A.cid))?.name) || (Array.from(A.names||[]).slice(-1)[0]) || ''; vb = (latest_ac.find(a=>String(a.cid)===String(B.cid))?.name) || (Array.from(B.names||[]).slice(-1)[0]) || ''; }
-            else if(col==='callsign'){ va = (latest_ac.find(a=>String(a.cid)===String(A.cid))?.callsign) || A.callsign || A.name || '' ; vb = (latest_ac.find(a=>String(a.cid)===String(B.cid))?.callsign) || B.callsign || B.name || '' ; }
-            else if(col==='count'){ va = A.count; vb = B.count; }
-            else if(col==='first'){ va = A.first || 0; vb = B.first || 0; }
-            else if(col==='last'){ va = A.last || 0; vb = B.last || 0; }
-            if(typeof va === 'number' && typeof vb === 'number') return conf.order==='asc'? va-vb : vb-va;
-            const sa = String(va).toLowerCase(); const sb = String(vb).toLowerCase();
-            if(sa < sb) return conf.order==='asc'? -1: 1;
-            if(sa > sb) return conf.order==='asc'? 1: -1;
-            return 0;
-          });
-        }
         lbTb.innerHTML = '';
         // Assign ranks with tie handling: same count = same rank, blank for subsequent ties
         let currentRank = 1;
@@ -1453,6 +1426,8 @@
         const tbody = table.querySelector('tbody');
         const tbodyId = tbody?.id;
         if(!tbodyId) return;
+        // Skip P56 leaderboard - it should always show default rank order
+        if(tbodyId === 'p56-leaderboard-tbody') return;
         // attach click handlers to header cells
         Array.from(table.querySelectorAll('thead th')).forEach((th, idx) => {
           // prevent duplicate listeners
