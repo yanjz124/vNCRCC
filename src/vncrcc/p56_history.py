@@ -177,6 +177,8 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
         # Get the last event for this CID to update positions (whether inside or recently exited)
         if last_event and positions_by_cid:
             entry_ts = last_event.get("latest_ts", 0)
+            exit_ts = current[cid].get("last_seen") if not still_inside else None
+            
             if entry_ts:
                 positions = positions_by_cid.get(cid, [])
                 # Get all positions after entry
@@ -184,16 +186,24 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                 post_entry.sort(key=lambda x: x["ts"])  # oldest first
                 
                 if still_inside:
-                    # Still inside - update with all inside positions (cap at 100)
+                    # Still inside - update with all inside positions (cap at 100 for safety)
                     last_event["post_positions"] = post_entry[:100]
                 else:
                     # Recently exited - mark exit and continue tracking for 5 more positions
                     current[cid]["inside"] = False
                     current[cid]["last_seen"] = ts or time.time()
                     
-                    # Keep updating post_positions with all positions after entry
-                    # This includes inside positions + positions after exit
-                    # Limit total to 105 (100 inside + 5 after exit)
-                    last_event["post_positions"] = post_entry[:105]
+                    # Split positions: all inside + up to 5 after exit
+                    # Use the first exit detection time as the split point
+                    if exit_ts and "exit_detected_at" not in last_event:
+                        last_event["exit_detected_at"] = exit_ts
+                    
+                    split_ts = last_event.get("exit_detected_at", ts or time.time())
+                    inside_positions = [p for p in post_entry if p["ts"] <= split_ts]
+                    after_exit = [p for p in post_entry if p["ts"] > split_ts]
+                    
+                    # Combine: all inside (cap at 100) + up to 5 after exit
+                    final_positions = inside_positions[:100] + after_exit[:5]
+                    last_event["post_positions"] = final_positions
 
     _atomic_write(data)
