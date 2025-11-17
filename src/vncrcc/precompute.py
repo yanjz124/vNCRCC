@@ -119,12 +119,14 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
     - Point-inside OR line-crossing between two consecutive snapshots
     - 60s dedupe window per CID
     - Continuous stay counts as one; re-entry within 60s merges
+    - Track up to 10 pre-positions and 1 post-position
 
     Returns list of breach dicts for caching.
     """
     from .storage import STORAGE
     from shapely.geometry import LineString, Point
     from .p56_history import record_penetration, sync_snapshot
+    import os
 
     shapes = find_geo_by_keyword("p56")
     if not shapes or not STORAGE:
@@ -141,6 +143,22 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
 
     latest_ac = (latest.get("data") or {}).get("pilots") or (latest.get("data") or {}).get("aircraft") or []
     prev_ac = (prev.get("data") or {}).get("pilots") or (prev.get("data") or {}).get("aircraft") or []
+
+    # Fetch position history for all aircraft if tracking is enabled
+    positions_by_cid: Dict[str, List] = {}
+    track_positions = os.getenv("VNCRCC_TRACK_POSITIONS", "0").strip() == "1"
+    if track_positions and hasattr(STORAGE, 'get_aircraft_positions'):
+        try:
+            # Get positions for the last 2 minutes (enough for 10+ datapoints at 10s intervals)
+            lookback_seconds = 120
+            for ac in latest_ac:
+                cid = str(ac.get("cid") or "")
+                if cid:
+                    positions = STORAGE.get_aircraft_positions(cid, since=latest_ts - lookback_seconds)
+                    if positions:
+                        positions_by_cid[cid] = positions
+        except Exception as e:
+            pass
 
     # previous position map (only <= FL180)
     prev_map: Dict[str, Any] = {}
@@ -229,6 +247,19 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
                 "zones": matched_zones,
                 "flight_plan": a.get("flight_plan", {}),
             }
+            
+            # Add pre_positions (up to 10 positions before the intrusion)
+            cid = str(a.get("cid") or "")
+            if cid and cid in positions_by_cid:
+                positions = positions_by_cid[cid]
+                # Get positions before the intrusion timestamp
+                pre_positions = [p for p in positions if p["ts"] < latest_ts]
+                pre_positions.sort(key=lambda x: x["ts"], reverse=True)  # newest first
+                pre_positions = pre_positions[:10]  # Keep last 10
+                pre_positions.reverse()  # oldest first for display
+                if pre_positions:
+                    event["pre_positions"] = pre_positions
+            
             try:
                 record_penetration(event)
             except Exception:
@@ -245,9 +276,9 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
                 }
             )
 
-    # Update current_inside vs exits
+    # Update current_inside vs exits, passing position history for post_positions
     try:
-        sync_snapshot(latest_ac, shapes, latest_ts, positions_by_cid=None)
+        sync_snapshot(latest_ac, shapes, latest_ts, positions_by_cid=positions_by_cid if track_positions else None)
     except Exception:
         pass
 

@@ -191,6 +191,42 @@ else:
                 except Exception:
                     pass
 
+        def get_aircraft_positions(self, cid: str, since: Optional[float] = None, limit: int = 10) -> List[Dict[str, Any]]:
+            """Get position history for a specific aircraft CID.
+            
+            Args:
+                cid: Aircraft CID
+                since: Optional timestamp to get positions after
+                limit: Maximum number of positions to return (default 10)
+            
+            Returns:
+                List of position dicts with keys: ts, lat, lon, alt, gs, heading, callsign
+            """
+            cur = self.conn.cursor()
+            if since is not None:
+                cur.execute(
+                    "SELECT timestamp, latitude, longitude, altitude, groundspeed, heading, callsign FROM aircraft_positions WHERE cid = ? AND timestamp >= ? ORDER BY timestamp ASC LIMIT ?",
+                    (cid, since, limit)
+                )
+            else:
+                cur.execute(
+                    "SELECT timestamp, latitude, longitude, altitude, groundspeed, heading, callsign FROM aircraft_positions WHERE cid = ? ORDER BY timestamp DESC LIMIT ?",
+                    (cid, limit)
+                )
+            rows = cur.fetchall()
+            positions = []
+            for row in rows:
+                positions.append({
+                    "ts": row[0],
+                    "lat": row[1],
+                    "lon": row[2],
+                    "alt": row[3],
+                    "gs": row[4],
+                    "heading": row[5],
+                    "callsign": row[6]
+                })
+            return positions
+
         def save_incident(self, detected_at: float, callsign: str, cid: Optional[int], lat: float, lon: float, altitude: Optional[float], zone: str, evidence: str, name: Optional[str] = None) -> int:
             cur = self.conn.cursor()
             cur.execute(
