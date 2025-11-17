@@ -200,7 +200,7 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                     post_entry.sort(key=lambda x: x["ts"])  # oldest first
                     # Split into inside P56 (before exit_ts) and after exit
                     inside_positions = [p for p in post_entry if p["ts"] <= exit_ts]
-                    after_exit = [p for p in post_entry if p["ts\"] > exit_ts]
+                    after_exit = [p for p in post_entry if p["ts"] > exit_ts]
                     # Combine: all inside positions + up to 5 after exit
                     final_positions = inside_positions[:100] + after_exit[:5]
                     last_event["post_positions"] = final_positions
