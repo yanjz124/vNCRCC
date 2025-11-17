@@ -143,6 +143,17 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/api/version")
+async def version() -> dict:
+    """Return the current git commit to verify deployment."""
+    import subprocess
+    try:
+        commit = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=BASE_DIR).decode().strip()
+        return {"version": commit, "status": "deployed"}
+    except Exception:
+        return {"version": "unknown", "status": "error"}
+
+
 @app.get("/api/debug/last_snapshot")
 async def last_snapshot() -> dict:
     """Return the timestamp and aircraft count of the latest saved snapshot.
