@@ -27,7 +27,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy to Pi via SSH
+      - name: Validate secrets
+        if: ${{ secrets.DEPLOY_KEY == '' && secrets.PI_PASSWORD == '' }}
+        run: |
+          echo "::error::Missing SSH credentials. Set repository secret DEPLOY_KEY (private key) or PI_PASSWORD." && exit 1
+
+      - name: Deploy to Pi via SSH key
+        if: ${{ secrets.DEPLOY_KEY != '' }}
         uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.PI_HOST }}
@@ -36,9 +42,20 @@ jobs:
           port: ${{ secrets.PI_PORT != '' && secrets.PI_PORT || '22' }}
           script: |
             set -euo pipefail
-            # ensure we use the correct user home
             cd /home/${{ secrets.PI_USER }} || exit 1
-            # run the repo deploy script (assumes repo already cloned at /home/pi/vNCRCC)
+            /bin/bash /home/${{ secrets.PI_USER }}/vNCRCC/scripts/deploy.sh
+
+      - name: Deploy to Pi via password
+        if: ${{ secrets.DEPLOY_KEY == '' && secrets.PI_PASSWORD != '' }}
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: ${{ secrets.PI_USER }}
+          password: ${{ secrets.PI_PASSWORD }}
+          port: ${{ secrets.PI_PORT != '' && secrets.PI_PORT || '22' }}
+          script: |
+            set -euo pipefail
+            cd /home/${{ secrets.PI_USER }} || exit 1
             /bin/bash /home/${{ secrets.PI_USER }}/vNCRCC/scripts/deploy.sh
 
       - name: Done
