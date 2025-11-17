@@ -262,14 +262,14 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
                 "flight_plan": a.get("flight_plan", {}),
             }
             
-            # Add pre_positions (up to 10 positions before the intrusion)
+            # Add pre_positions (up to 5 positions before the intrusion)
             cid = str(a.get("cid") or "")
             if cid and cid in positions_by_cid:
                 positions = positions_by_cid[cid]
                 # Get positions before the intrusion timestamp
                 pre_positions = [p for p in positions if p["ts"] < latest_ts]
                 pre_positions.sort(key=lambda x: x["ts"], reverse=True)  # newest first
-                pre_positions = pre_positions[:10]  # Keep last 10
+                pre_positions = pre_positions[:5]  # Keep last 5
                 pre_positions.reverse()  # oldest first for display
                 if pre_positions:
                     event["pre_positions"] = pre_positions
