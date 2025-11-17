@@ -365,3 +365,5 @@ pip install rasterio
 If you prefer not to install rasterio, no action is needed — the API continues to use the remote elevation provider as before.
 
 
+#   A u t o - d e p l o y   v i a   s e l f - h o s t e d   r u n n e r   i s   n o w   a c t i v e  
+ 
