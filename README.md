@@ -166,6 +166,58 @@ Troubleshooting checklist
   workers, ulimits, or tuning the cloudflared receive buffer and nginx proxy
   timeouts.
 
+Automatic P-56 Intrusion Logging
+--------------------------------
+The service automatically detects and logs P-56 intrusions **every ~10 seconds**
+in the background, even when nobody is viewing the webpage.
+
+**How it works:**
+- When the service fetches VATSIM data, it compares the current and previous
+  snapshots to detect aircraft crossing P-56 boundaries
+- Detected intrusions are automatically saved to the `incidents` table in the
+  database with full details (callsign, CID, position, timestamp, zones)
+- Uses line-crossing detection (requires 2 consecutive snapshots) to catch
+  penetrations accurately
+
+**View logged incidents:**
+```bash
+# API endpoint (returns last 100 incidents)
+curl https://api.vncrcc.org/api/v1/p56/incidents
+
+# Or specify a limit
+curl https://api.vncrcc.org/api/v1/p56/incidents?limit=50
+```
+
+**Database query (direct):**
+```bash
+ssh pi@<PI_HOST>
+sqlite3 ~/vNCRCC/vncrcc.db "SELECT * FROM incidents WHERE zone LIKE '%p%56%' ORDER BY detected_at DESC LIMIT 10;"
+```
+
+**Performance notes:**
+- P-56 detection adds ~0.1-0.2s to the precompute cycle (still fast)
+- Incidents are logged to sqlite asynchronously to avoid blocking the fetch loop
+- Only aircraft within 300nm of DCA and below 18,000ft are processed
+
+Environment Variables
+--------------------
+The following environment variables control service behavior:
+
+- `VNCRCC_CONFIG` — Path to config YAML (default: config/example_config.yaml)
+- `VNCRCC_TRIM_RADIUS_NM` — Radius in NM around DCA to process (default: 300)
+- `VNCRCC_WRITE_JSON_HISTORY` — Enable JSON history files (default: 0/disabled)
+- `VNCRCC_TRACK_POSITIONS` — Track aircraft positions in DB (default: 0/disabled)
+- `VNCRCC_ADMIN_PASSWORD` — Password for admin endpoints like `/api/v1/p56/clear`
+
+Set these in the systemd override file:
+```bash
+sudo systemctl edit vncrcc.service
+# Add:
+# [Service]
+# Environment=VNCRCC_TRIM_RADIUS_NM=300
+# Environment=VNCRCC_WRITE_JSON_HISTORY=0
+```
+
 Developer notes
 ---------------
 - The fetcher is a singleton: use `FETCHER.register_callback(cb)` or read
