@@ -93,7 +93,14 @@ def _on_fetch(data: dict, ts: float) -> None:
                         alt = ac.get("altitude") or ac.get("alt")
                         if lat is None or lon is None:
                             continue
-                        history_updates[cid] = {"lat": lat, "lon": lon, "alt": alt, "callsign": ac.get("callsign", "")}
+                        history_updates[cid] = {
+                            "lat": lat, 
+                            "lon": lon, 
+                            "alt": alt, 
+                            "callsign": ac.get("callsign", ""),
+                            "gs": ac.get("groundspeed"),
+                            "heading": ac.get("heading")
+                        }
                     except Exception:
                         continue
                 if history_updates:

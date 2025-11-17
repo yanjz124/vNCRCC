@@ -52,6 +52,20 @@ def update_history(cid: str, position: Dict[str, Any]) -> None:
     _atomic_write(data)
 
 
+def get_history_for_cid(cid: str) -> List[Dict[str, Any]]:
+    """Get position history for a specific CID.
+    
+    Args:
+        cid: Aircraft CID (as string)
+    
+    Returns:
+        List of position dictionaries with keys: lat, lon, alt, ts, callsign
+    """
+    data = _load()
+    history: Dict[str, List[Dict[str, Any]]] = data.get("history", {})
+    return history.get(cid, [])
+
+
 def update_history_batch(updates: Dict[str, Dict[str, Any]], filtered_cids: set = None) -> None:
     """Update history for multiple CIDs in a single batch operation.
     

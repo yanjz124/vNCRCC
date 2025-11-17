@@ -144,19 +144,33 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
     latest_ac = (latest.get("data") or {}).get("pilots") or (latest.get("data") or {}).get("aircraft") or []
     prev_ac = (prev.get("data") or {}).get("pilots") or (prev.get("data") or {}).get("aircraft") or []
 
-    # Fetch position history for all aircraft if tracking is enabled
+    # Fetch position history for all aircraft from aircraft_history.json
     positions_by_cid: Dict[str, List] = {}
-    track_positions = os.getenv("VNCRCC_TRACK_POSITIONS", "0").strip() == "1"
-    if track_positions and hasattr(STORAGE, 'get_aircraft_positions'):
+    write_json_history = os.getenv("VNCRCC_WRITE_JSON_HISTORY", "0").strip() == "1"
+    if write_json_history:
         try:
-            # Get positions for the last 2 minutes (enough for 10+ datapoints at 10s intervals)
-            lookback_seconds = 120
+            from .aircraft_history import get_history_for_cid
+            # Get position history for all aircraft in the current snapshot
             for ac in latest_ac:
                 cid = str(ac.get("cid") or "")
                 if cid:
-                    positions = STORAGE.get_aircraft_positions(cid, since=latest_ts - lookback_seconds)
+                    positions = get_history_for_cid(cid)
                     if positions:
-                        positions_by_cid[cid] = positions
+                        # Convert to the format expected by the rest of the code
+                        # aircraft_history format: {lat, lon, alt, ts, callsign}
+                        # Convert to: {ts, lat, lon, alt, gs, heading, callsign}
+                        converted_positions = []
+                        for p in positions:
+                            converted_positions.append({
+                                "ts": p.get("ts", 0),
+                                "lat": p.get("lat"),
+                                "lon": p.get("lon"),
+                                "alt": p.get("alt"),
+                                "gs": p.get("gs"),
+                                "heading": p.get("heading"),
+                                "callsign": p.get("callsign", "")
+                            })
+                        positions_by_cid[cid] = converted_positions
         except Exception as e:
             pass
 
