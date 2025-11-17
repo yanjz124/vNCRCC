@@ -103,7 +103,9 @@ else:
             cur.execute("INSERT INTO snapshots (fetched_at, raw_json) VALUES (?, ?)", (fetched_at, json.dumps(data)))
             self.conn.commit()
             sid = cur.lastrowid or 0
-            self._save_aircraft_positions(data, fetched_at)
+            # Only track positions if enabled (expensive on sqlite)
+            if os.getenv("VNCRCC_TRACK_POSITIONS", "0").strip() == "1":
+                self._save_aircraft_positions(data, fetched_at)
             self._cleanup_old_snapshots()
             return sid
 

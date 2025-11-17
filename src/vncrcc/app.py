@@ -58,6 +58,7 @@ FETCHER = VatsimClient(CFG.get("vatsim_url", "https://data.vatsim.net/v3/vatsim-
 
 
 _WRITE_JSON_HISTORY = os.getenv("VNCRCC_WRITE_JSON_HISTORY", "0").strip() == "1"
+_TRACK_POSITIONS = os.getenv("VNCRCC_TRACK_POSITIONS", "0").strip() == "1"
 
 
 def _on_fetch(data: dict, ts: float) -> None:
@@ -112,7 +113,7 @@ def _on_fetch(data: dict, ts: float) -> None:
 async def startup() -> None:
     # configure basic logging for development
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
-    logger.info("VNCRCC_WRITE_JSON_HISTORY=%s", _WRITE_JSON_HISTORY)
+    logger.info("VNCRCC_WRITE_JSON_HISTORY=%s VNCRCC_TRACK_POSITIONS=%s", _WRITE_JSON_HISTORY, _TRACK_POSITIONS)
     FETCHER.register_callback(_on_fetch)
     await FETCHER.start()
 
