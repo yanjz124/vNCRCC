@@ -1120,7 +1120,7 @@
       }
       const lbTb = el('p56-leaderboard-tbody');
       if(lbTb){ 
-        // apply sorting if user clicked headers: support sorting by cid,callsign,count,first,last
+        // apply sorting if user clicked headers: support sorting by cid,name,callsign,count,first,last
         const conf = sortConfig['p56-leaderboard-tbody'];
         if(conf && conf.key && conf.key._col){
           // comparator based on selected column
@@ -1130,6 +1130,7 @@
             let va, vb;
             if(col==='rank'){ va = A._rank; vb = B._rank; }
             else if(col==='cid'){ va = A.cid; vb = B.cid; }
+            else if(col==='name'){ va = (latest_ac.find(a=>String(a.cid)===String(A.cid))?.name) || (Array.from(A.names||[]).slice(-1)[0]) || ''; vb = (latest_ac.find(a=>String(a.cid)===String(B.cid))?.name) || (Array.from(B.names||[]).slice(-1)[0]) || ''; }
             else if(col==='callsign'){ va = (latest_ac.find(a=>String(a.cid)===String(A.cid))?.callsign) || A.callsign || A.name || '' ; vb = (latest_ac.find(a=>String(a.cid)===String(B.cid))?.callsign) || B.callsign || B.name || '' ; }
             else if(col==='count'){ va = A.count; vb = B.count; }
             else if(col==='first'){ va = A.first || 0; vb = B.first || 0; }
@@ -1160,10 +1161,15 @@
               callsignHtml = ac.callsign || (Array.from(r.names||[])[0]) || '';
             }
           }catch(e){ callsignHtml = ac.callsign || '' }
+          // Get the most recent pilot name: prefer from latest_ac, else last from collected names
+          let pilotName = '';
+          try{
+            pilotName = ac.name || (r.names && r.names.size ? Array.from(r.names).slice(-1)[0] : '');
+          }catch(e){ pilotName = ''; }
           const first = r.first ? formatZuluEpoch(r.first, true) : '-';
           const last = r.last ? formatZuluEpoch(r.last, true) : '-';
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${idx+1}</td><td>${r.cid}</td><td class="lb-callsigns">${callsignHtml}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
+          tr.innerHTML = `<td>${idx+1}</td><td>${r.cid}</td><td>${pilotName}</td><td class="lb-callsigns">${callsignHtml}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
           lbTb.appendChild(tr);
         });
       }

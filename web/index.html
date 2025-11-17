@@ -44,7 +44,8 @@
             <div><label><input type="checkbox" id="toggle-ac-vicinity" checked/> Show Vicinity (green)</label></div>
             <div><label><input type="checkbox" id="toggle-ac-ground" checked/> Show On Ground (gray)</label></div>
           </div>
-        </div>
+        </div>        ssh JY@JY1 "sudo grep -R 'VNCRCC_WRITE_JSON_HISTORY' /etc/systemd/system/vncrcc.service.d || echo 'No override found'"
+        ssh JY@JY1 "sudo bash -c 'printf \"[Service]\nEnvironment=VNCRCC_WRITE_JSON_HISTORY=0\n\" > /etc/systemd/system/vncrcc.service.d/override-history.conf; systemctl daemon-reload; systemctl restart vncrcc.service'"
       </div>
     </div>
   </section>
@@ -100,6 +101,7 @@
               <tr>
                 <th>Rank</th>
                 <th>CID</th>
+                <th>Name</th>
                 <th>Callsign</th>
                 <th>P56 Busts</th>
                 <th>First</th>

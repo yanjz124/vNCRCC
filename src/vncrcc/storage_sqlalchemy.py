@@ -100,6 +100,7 @@ class Storage:
             Column("detected_at", Float, nullable=False),
             Column("callsign", String),
             Column("cid", Integer),
+            Column("name", String),
             Column("lat", Float),
             Column("lon", Float),
             Column("altitude", Float),
@@ -252,11 +253,11 @@ class Storage:
             except Exception:
                 pass
 
-    def save_incident(self, detected_at: float, callsign: str, cid: Optional[int], lat: float, lon: float, altitude: Optional[float], zone: str, evidence: str) -> int:
+    def save_incident(self, detected_at: float, callsign: str, cid: Optional[int], lat: float, lon: float, altitude: Optional[float], zone: str, evidence: str, name: Optional[str] = None) -> int:
         try:
             with self._conn() as conn:
                 result = conn.execute(insert(self.incidents).values(
-                    detected_at=detected_at, callsign=callsign, cid=cid, lat=lat, lon=lon, altitude=altitude, zone=zone, evidence=evidence
+                    detected_at=detected_at, callsign=callsign, cid=cid, name=name, lat=lat, lon=lon, altitude=altitude, zone=zone, evidence=evidence
                 ))
                 conn.commit()
                 return int(result.inserted_primary_key[0]) if result.inserted_primary_key else 0
@@ -287,7 +288,7 @@ class Storage:
         out: List[Dict[str, Any]] = []
         try:
             with self._conn() as conn:
-                stmt = select(self.incidents.c.id, self.incidents.c.detected_at, self.incidents.c.callsign, self.incidents.c.cid, self.incidents.c.lat, self.incidents.c.lon, self.incidents.c.altitude, self.incidents.c.zone, self.incidents.c.evidence).order_by(self.incidents.c.detected_at.desc()).limit(limit)
+                stmt = select(self.incidents.c.id, self.incidents.c.detected_at, self.incidents.c.callsign, self.incidents.c.cid, self.incidents.c.name, self.incidents.c.lat, self.incidents.c.lon, self.incidents.c.altitude, self.incidents.c.zone, self.incidents.c.evidence).order_by(self.incidents.c.detected_at.desc()).limit(limit)
                 rows = conn.execute(stmt).fetchall()
                 for row in rows:
                     out.append({
@@ -295,11 +296,12 @@ class Storage:
                         "detected_at": row[1],
                         "callsign": row[2],
                         "cid": row[3],
-                        "lat": row[4],
-                        "lon": row[5],
-                        "altitude": row[6],
-                        "zone": row[7],
-                        "evidence": row[8],
+                        "name": row[4],
+                        "lat": row[5],
+                        "lon": row[6],
+                        "altitude": row[7],
+                        "zone": row[8],
+                        "evidence": row[9]
                     })
         except Exception:
             pass

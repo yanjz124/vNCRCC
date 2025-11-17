@@ -71,6 +71,7 @@ else:
                 detected_at REAL,
                 callsign TEXT,
                 cid INTEGER,
+                name TEXT,
                 lat REAL,
                 lon REAL,
                 altitude REAL,
@@ -79,6 +80,12 @@ else:
             )
             """
             )
+            # Migration: add name column if it doesn't exist
+            try:
+                cur.execute("ALTER TABLE incidents ADD COLUMN name TEXT")
+                self.conn.commit()
+            except Exception:
+                pass  # Column already exists
             cur.execute(
                 """
             CREATE TABLE IF NOT EXISTS aircraft_positions (
@@ -184,11 +191,11 @@ else:
                 except Exception:
                     pass
 
-        def save_incident(self, detected_at: float, callsign: str, cid: Optional[int], lat: float, lon: float, altitude: Optional[float], zone: str, evidence: str) -> int:
+        def save_incident(self, detected_at: float, callsign: str, cid: Optional[int], lat: float, lon: float, altitude: Optional[float], zone: str, evidence: str, name: Optional[str] = None) -> int:
             cur = self.conn.cursor()
             cur.execute(
-                "INSERT INTO incidents (detected_at, callsign, cid, lat, lon, altitude, zone, evidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (detected_at, callsign, cid, lat, lon, altitude, zone, evidence),
+                "INSERT INTO incidents (detected_at, callsign, cid, name, lat, lon, altitude, zone, evidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (detected_at, callsign, cid, name, lat, lon, altitude, zone, evidence),
             )
             self.conn.commit()
             return cur.lastrowid or 0
@@ -219,7 +226,7 @@ else:
 
         def list_incidents(self, limit: int = 100) -> List[Dict[str, Any]]:
             cur = self.conn.cursor()
-            cur.execute("SELECT id, detected_at, callsign, cid, lat, lon, altitude, zone, evidence FROM incidents ORDER BY detected_at DESC LIMIT ?", (limit,))
+            cur.execute("SELECT id, detected_at, callsign, cid, name, lat, lon, altitude, zone, evidence FROM incidents ORDER BY detected_at DESC LIMIT ?", (limit,))
             rows = cur.fetchall()
             out = []
             for r in rows:
@@ -228,11 +235,13 @@ else:
                     "detected_at": r[1],
                     "callsign": r[2],
                     "cid": r[3],
-                    "lat": r[4],
-                    "lon": r[5],
-                    "altitude": r[6],
-                    "zone": r[7],
-                    "evidence": r[8],
+                    "name": r[4],
+                    "name": r[4],
+                    "lat": r[5],
+                    "lon": r[6],
+                    "altitude": r[7],
+                    "zone": r[8],
+                    "evidence": r[9]
                 })
             return out
 
