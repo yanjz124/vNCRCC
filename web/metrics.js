@@ -267,6 +267,18 @@ async function updateMetrics() {
     errElem.textContent = errorRate;
     errElem.className = 'metric-value ' + (errorRate > 10 ? 'status-danger' : errorRate > 1 ? 'status-warning' : 'status-good');
     
+    // Disk usage
+    const diskFree = data.resources?.disk?.free_gb || 0;
+    const diskPct = data.resources?.disk?.percent || 0;
+    const diskElem = document.getElementById('disk-usage');
+    diskElem.textContent = diskFree.toFixed(1);
+    diskElem.className = 'metric-value ' + (diskPct > 90 ? 'status-danger' : diskPct > 80 ? 'status-warning' : 'status-good');
+    
+    // Network I/O
+    const bytesSent = (data.resources?.network?.bytes_sent || 0) / (1024 * 1024); // Convert to MB
+    const bytesRecv = (data.resources?.network?.bytes_recv || 0) / (1024 * 1024);
+    document.getElementById('network-io').textContent = `${bytesSent.toFixed(0)} / ${bytesRecv.toFixed(0)}`;
+    
     // Update history
     const now = new Date();
     const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
