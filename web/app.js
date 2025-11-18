@@ -208,15 +208,18 @@
   }
 
   // Function to update all visible flight paths (call after data refresh)
-  async function updateVisiblePaths() {
+  async function updateVisiblePaths(historyData) {
     if (visiblePaths.size === 0) return;
     
     console.log(`Updating ${visiblePaths.size} visible flight path(s):`, Array.from(visiblePaths));
     
     try {
-      const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
-      const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
-      const data = await response.json();
+      // Use pre-fetched history data if available, otherwise fetch it
+      const data = historyData || await (async () => {
+        const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
+        const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
+        return await response.json();
+      })();
       
       // Update each visible path
       for (const cid of visiblePaths) {
@@ -895,7 +898,7 @@
     }
   }
 
-  async function refresh(aircraftSnapshot){
+  async function refresh(aircraftSnapshot, historyData){
     try{
     setPermalink();
     // track keys present in this refresh so we can prune persisted expanded keys
@@ -1768,8 +1771,8 @@
     };
     console.log('Cached table data for fast sorting');
 
-    // Update visible flight paths with fresh data
-    await updateVisiblePaths();
+    // Update visible flight paths with fresh data (pass pre-fetched history if available)
+    await updateVisiblePaths(historyData);
 
     }catch(err){
       console.error('REFRESH ERROR:', err);
@@ -2051,9 +2054,25 @@
   // other API calls are executed immediately after the aircraft fetch.
   async function pollAircraftThenRefresh(){
     try{
-      const aircraft = await fetchAllAircraft();
-      await refresh(aircraft);
+      // Fetch aircraft and history in parallel for visible paths
+      const aircraftPromise = fetchAllAircraft();
+      const historyPromise = (visiblePaths.size > 0) ? fetchHistoryData() : Promise.resolve(null);
+      
+      const [aircraft, historyData] = await Promise.all([aircraftPromise, historyPromise]);
+      await refresh(aircraft, historyData);
     }catch(e){ console.error('pollAircraftThenRefresh error', e); }
+  }
+  
+  // Helper to fetch history data
+  async function fetchHistoryData() {
+    try {
+      const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
+      const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to fetch history data:', error);
+      return null;
+    }
   }
 
   // Fetch and display build version/timestamp
