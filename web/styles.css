@@ -364,3 +364,9 @@ table:has(#p56-leaderboard-tbody) th {
 .modal footer{padding:12px 16px;border-top:1px solid #23303a;display:flex;gap:8px;justify-content:flex-end;background:#071016}
 .btn-danger{background:#7a1621;border-color:#a53b47}
 .btn-danger:hover{background:#8f1b28}
+
+/* Compact variant for password dialog */
+.modal.small{max-width:480px}
+.pwd-row{display:flex;gap:8px;align-items:center}
+.pwd-field{flex:1;background:#081218;border:1px solid #23303a;color:#dfefff;padding:8px;border-radius:4px}
+.btn-icon{min-width:36px;padding:6px 8px;line-height:1}

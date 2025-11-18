@@ -1900,8 +1900,8 @@
       try{
         const checked = Array.from(list.querySelectorAll('.purge-item:checked')).map(cb => cb.value);
         if(checked.length === 0){ alert('No entries selected.'); return; }
-        const pwd = prompt('Enter admin password to purge selected entries:');
-        if(!pwd) return;
+        const pwd = await askPassword({ title: 'Admin verification', message: 'Enter admin password to purge selected entries.' });
+        if(!pwd) return; // cancelled
         const resp = await fetch(`${API_ROOT}/p56/purge`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd, keys: checked }) });
         if(!resp.ok){
           const j = await resp.json().catch(()=>({detail:resp.statusText}));
@@ -1921,6 +1921,87 @@
 
     // Show overlay
     overlay.classList.add('show');
+  }
+
+  // Password dialog with hidden entry and hold-to-show button
+  function askPassword(opts){
+    const { title = 'Admin verification', message = 'Enter admin password.' } = opts || {};
+    return new Promise(resolve => {
+      let overlay = document.getElementById('pwd-overlay');
+      if(!overlay){
+        overlay = document.createElement('div');
+        overlay.id = 'pwd-overlay';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal small" role="dialog" aria-modal="true" aria-labelledby="pwd-title">
+            <header>
+              <h3 id="pwd-title"></h3>
+              <button class="btn" id="pwd-close">✕</button>
+            </header>
+            <div class="modal-body">
+              <div style="margin-bottom:8px;color:#cfe6ff" id="pwd-msg"></div>
+              <div class="pwd-row">
+                <input id="pwd-input" class="pwd-field" type="password" autocomplete="current-password" placeholder="Password"/>
+                <button class="btn btn-icon" id="pwd-peek" aria-label="Hold to show password">👁</button>
+              </div>
+            </div>
+            <footer>
+              <button class="btn" id="pwd-cancel">Cancel</button>
+              <button class="btn btn-danger" id="pwd-ok">OK</button>
+            </footer>
+          </div>`;
+        document.body.appendChild(overlay);
+      }
+      overlay.querySelector('#pwd-title').textContent = title;
+      overlay.querySelector('#pwd-msg').textContent = message;
+      const input = overlay.querySelector('#pwd-input');
+      input.value = '';
+      const show = () => { input.type = 'text'; };
+      const hide = () => { input.type = 'password'; };
+      const peek = overlay.querySelector('#pwd-peek');
+      const okBtn = overlay.querySelector('#pwd-ok');
+      const cancelBtn = overlay.querySelector('#pwd-cancel');
+      const closeBtn = overlay.querySelector('#pwd-close');
+
+      const cleanup = () => {
+        // Remove transient listeners
+        peek.removeEventListener('mousedown', show);
+        peek.removeEventListener('mouseup', hide);
+        peek.removeEventListener('mouseleave', hide);
+        peek.removeEventListener('touchstart', show, { passive: true });
+        peek.removeEventListener('touchend', hide);
+        peek.removeEventListener('touchcancel', hide);
+        input.removeEventListener('keydown', onKey);
+        closeBtn.onclick = null;
+        cancelBtn.onclick = null;
+        okBtn.onclick = null;
+      };
+
+      const onKey = (ev) => {
+        if(ev.key === 'Enter') { ev.preventDefault(); submit(); }
+        if(ev.key === 'Escape') { ev.preventDefault(); cancel(); }
+      };
+
+      const submit = () => { const val = input.value || ''; overlay.classList.remove('show'); cleanup(); resolve(val || null); };
+      const cancel = () => { overlay.classList.remove('show'); cleanup(); resolve(null); };
+
+      peek.addEventListener('mousedown', show);
+      peek.addEventListener('mouseup', hide);
+      peek.addEventListener('mouseleave', hide);
+      peek.addEventListener('touchstart', show, { passive: true });
+      peek.addEventListener('touchend', hide);
+      peek.addEventListener('touchcancel', hide);
+      input.addEventListener('keydown', onKey);
+      closeBtn.onclick = cancel;
+      cancelBtn.onclick = cancel;
+      okBtn.onclick = submit;
+
+      // Do not close when clicking backdrop to avoid accidental dismissal
+      overlay.onclick = (e)=>{ if(e.target === overlay) {/* ignore backdrop clicks */} };
+
+      overlay.classList.add('show');
+      setTimeout(()=> input.focus(), 0);
+    });
   }
     // update when overlay toggles change
     ['toggle-sfra','toggle-frz','toggle-p56','toggle-ac-p56','toggle-ac-frz','toggle-ac-sfra','toggle-ac-vicinity','toggle-ac-ground'].forEach(id => {
