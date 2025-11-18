@@ -131,7 +131,7 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 /* flight plan tooltip styling */
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
 .fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
-.traffic-table{width:100%;border-collapse:collapse;font-size:0.85rem;table-layout:auto;min-width:900px}
+.traffic-table{width:100%;border-collapse:collapse;font-size:0.85rem;table-layout:auto;min-width:800px}
 .traffic-table thead{position:sticky;top:0;z-index:10}
 .traffic-table tbody{display:block;max-height:400px;overflow-y:auto;scrollbar-gutter:stable}
 .traffic-table thead, .traffic-table tbody{display:block;width:100%}
