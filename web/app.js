@@ -207,6 +207,46 @@
     try{ saveExpandedSet(expandedSet); }catch(e){}
   }
 
+  // Function to update all visible flight paths (call after data refresh)
+  async function updateVisiblePaths() {
+    if (visiblePaths.size === 0) return;
+    
+    try {
+      const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
+      const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
+      const data = await response.json();
+      
+      // Update each visible path
+      for (const cid of visiblePaths) {
+        const history = data.history?.[cid];
+        if (!history || history.length < 2) continue;
+        
+        // Update on both maps
+        [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
+          // Remove old polyline for this CID
+          pathLayer.eachLayer(layer => {
+            if (layer._flightPathCid === cid) {
+              pathLayer.removeLayer(layer);
+            }
+          });
+          
+          // Add updated polyline
+          const points = history.map(pos => [pos.lat, pos.lon]);
+          const polyline = L.polyline(points, {
+            color: '#00ff00',
+            weight: 2,
+            opacity: 0.8,
+            dashArray: '5, 5'
+          });
+          polyline._flightPathCid = cid;
+          pathLayer.addLayer(polyline);
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update visible paths:', error);
+    }
+  }
+
   // Function to toggle flight path for an aircraft
   async function toggleFlightPath(cid, mapType) {
     const pathLayer = mapType === 'p56' ? p56PathLayer : sfraPathLayer;
@@ -1714,6 +1754,9 @@
       p56json: p56json || {}
     };
     console.log('Cached table data for fast sorting');
+
+    // Update visible flight paths with fresh data
+    await updateVisiblePaths();
 
     }catch(err){
       console.error('REFRESH ERROR:', err);
