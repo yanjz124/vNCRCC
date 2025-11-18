@@ -33,7 +33,7 @@ def _haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 @router.get("/latest")
-@limiter.limit("6/minute")
+@limiter.limit("12/minute")
 async def latest_aircraft(request: Request) -> Dict[str, Any]:
     snap = storage.STORAGE.get_latest_snapshot() if storage.STORAGE else None
     if not snap:
@@ -42,7 +42,7 @@ async def latest_aircraft(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/list")
-@limiter.limit("6/minute")
+@limiter.limit("12/minute")
 async def list_aircraft(request: Request) -> Dict[str, Any]:
     # Return pre-computed trimmed aircraft list from cache for instant response
     from ...precompute import get_cached
@@ -55,7 +55,7 @@ async def list_aircraft(request: Request) -> Dict[str, Any]:
 
 
 @router.get("/list/history")
-@limiter.limit("6/minute")
+@limiter.limit("12/minute")
 async def aircraft_history(
     request: Request,
     range_nm: Optional[float] = Query(None, description="Filter by distance from DCA in nautical miles")

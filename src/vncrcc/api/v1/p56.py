@@ -65,7 +65,7 @@ def _identifier(a: dict) -> Optional[str]:
 
 
 @router.get("/")
-@limiter.limit("6/minute")
+@limiter.limit("12/minute")
 async def p56_breaches(request: Request, name: str = Query("p56", description="keyword to find the P56 geojson file, default 'p56'")) -> Dict[str, Any]:
     # Return pre-computed result if available (instant response for all users)
     from ...precompute import get_cached
@@ -301,7 +301,7 @@ async def p56_breaches(request: Request, name: str = Query("p56", description="k
 
 
 @router.get("/incidents")
-@limiter.limit("6/minute")
+@limiter.limit("12/minute")
 async def p56_incidents(request: Request, limit: int = Query(100, description="Max incidents to return")) -> Dict[str, Any]:
     """Return logged P-56 incidents from the database.
     

@@ -17,7 +17,7 @@ def _cache_key(lat: float, lon: float) -> str:
 
 
 @router.get("/")
-@limiter.limit("6/minute")
+@limiter.limit("60/minute")
 async def elevation(request: Request, lat: float = Query(...), lon: float = Query(...)) -> Dict[str, Any]:
     key = _cache_key(lat, lon)
     now = time.time()
