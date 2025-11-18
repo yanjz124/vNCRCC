@@ -17,6 +17,7 @@ from .vatsim_client import VatsimClient
 from .api import router as api_router
 from .precompute import precompute_all
 from .rate_limit import limiter
+from .metrics import METRICS
 import asyncio
 
 
@@ -40,6 +41,27 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Middleware to disable caching for all responses
+class MetricsMiddleware(BaseHTTPMiddleware):
+    """Track requests for metrics."""
+    async def dispatch(self, request: Request, call_next):
+        # Get client IP (handle proxy headers)
+        client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        if not client_ip:
+            client_ip = request.headers.get("X-Real-IP", "")
+        if not client_ip and request.client:
+            client_ip = request.client.host
+        
+        # Record request
+        endpoint = request.url.path
+        METRICS.record_request(endpoint, client_ip or "unknown")
+        
+        try:
+            response = await call_next(request)
+            return response
+        except Exception as e:
+            METRICS.record_error(endpoint, type(e).__name__)
+            raise
+
 class NoCacheMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -48,6 +70,7 @@ class NoCacheMiddleware(BaseHTTPMiddleware):
         response.headers["Expires"] = "0"
         return response
 
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(NoCacheMiddleware)
 
 # module logger
@@ -129,19 +152,7 @@ def _on_fetch(data: dict, ts: float) -> None:
         logger.exception("Error during fetch callback (_on_fetch)")
 
 
-class NoCacheMiddleware(BaseHTTPMiddleware):
-    """Prevent caching of HTML files to ensure fresh deploys are immediately visible."""
-    async def dispatch(self, request: Request, call_next):
-        response: Response = await call_next(request)
-        # Don't cache HTML files or root path to ensure users always get latest UI
-        if request.url.path == "/" or request.url.path.endswith(".html"):
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-        return response
-
-
-app.add_middleware(NoCacheMiddleware)
+# (NoCacheMiddleware is defined above - removed duplicate)
 
 
 @app.on_event("startup")
@@ -193,6 +204,16 @@ async def last_snapshot(request: Request) -> dict:
     ts = snap.get("fetched_at")
     count = len((data.get("pilots") or data.get("aircraft") or []))
     return {"fetched_at": ts, "aircraft_count": count}
+
+
+@app.get("/api/metrics")
+@limiter.limit("12/minute")
+async def metrics(request: Request) -> dict:
+    """Return server metrics including active users and resource usage.
+    
+    Useful for monitoring server load and determining if scaling is needed.
+    """
+    return METRICS.get_summary()
 
 
 # Mount API package (routes under /api/v1/...)
