@@ -27,10 +27,7 @@ vNCRCC is a real-time flight tracking and airspace monitoring system for the Nat
 - **Deployment**: Systemd service, nginx reverse proxy
 - **Rate Limiting**: SlowAPI (FastAPI) + nginx limit_req zones
 
-This README explains how to run locally, deploy to a server, and what the
-production runtime looks like (systemd, virtualenv, nginx).
-
-Quick start (virtualenv)
+## Quick Start
 
 ```bash
 python3 -m venv venv
@@ -40,27 +37,24 @@ pip install -r requirements.txt
 python -m src.vncrcc.worker
 ```
 
-Run the API (FastAPI + uvicorn)
+### Run the API (FastAPI + uvicorn)
 
 ```bash
 # Development: run the FastAPI app with uvicorn
 uvicorn vncrcc.app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Important: the app now mounts the `web/` directory at `/`, so the SPA
-(`web/index.html`, `web/app.js`, `web/static/*`) is served from the same
-process. API routes remain under `/api/...`.
+The app mounts the `web/` directory at `/`, so the SPA (`web/index.html`, `web/app.js`, `web/static/*`) is served from the same process. API routes remain under `/api/...`.
 
-Configuration
--------------
-- Default config: `config/example_config.yaml`.
-- Override by setting environment variable `VNCRCC_CONFIG=/path/to/config.yaml`.
-  Keys commonly used: `vatsim_url`, `poll_interval`, `db_path`.
+### Configuration
 
-Local development helper (Windows PowerShell)
--------------------------------------------
-Use the included PowerShell helper to create a virtualenv and run either the
-API or the worker on Windows.
+- Default config: `config/example_config.yaml`
+- Override by setting environment variable `VNCRCC_CONFIG=/path/to/config.yaml`
+- Keys commonly used: `vatsim_url`, `poll_interval`, `db_path`
+
+### Local Development Helper (Windows PowerShell)
+
+Use the included PowerShell helper to create a virtualenv and run either the API or the worker on Windows:
 
 ```powershell
 # Run the API (creates/uses .venv and sets PYTHONPATH)
@@ -70,28 +64,15 @@ API or the worker on Windows.
 .\dev-run.ps1 -Mode worker
 ```
 
-The helper will create `.venv` in the repo root and set `PYTHONPATH` to
-include `src` so imports like `python -m src.vncrcc.worker` work.
+The helper will create `.venv` in the repo root and set `PYTHONPATH` to include `src` so imports like `python -m src.vncrcc.worker` work.
 
-Run locally — quick reference (Unix / macOS / Linux)
---------------------------------------------------
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-# Run the API
-uvicorn vncrcc.app:app --host 0.0.0.0 --port 8000 --reload
-# Or run the worker
-python -m src.vncrcc.worker
-```
+## Deployment
 
-Deployment to Raspberry Pi (automatic helper)
---------------------------------------------
-The repo includes `scripts/deploy.sh` which the Pi (or GitHub Actions) can
-call to: pull the latest code, ensure a `venv` is present, install
-requirements, and restart the systemd service `vncrcc.service`.
+### Deployment to Raspberry Pi (automatic helper)
 
-Recommended manual deploy steps on the Pi
+The repo includes `scripts/deploy.sh` which the Pi (or GitHub Actions) can call to: pull the latest code, ensure a `venv` is present, install requirements, and restart the systemd service `vncrcc.service`.
+
+### Recommended manual deploy steps on the Pi
 
 ```bash
 ssh pi@<PI_HOST>
@@ -113,36 +94,29 @@ curl -I http://127.0.0.1:8000/        # expecting 200 and text/html
 curl -I http://127.0.0.1:8000/app.js   # expecting 200 and javascript
 ```
 
-GitHub Actions deploy
----------------------
-This repo includes a workflow `.github/workflows/deploy.yml` that SSHes to
-the Pi and runs `/home/<user>/vNCRCC/scripts/deploy.sh`. For it to succeed
-you must configure the repository secrets:
+### GitHub Actions deploy
+
+This repo includes a workflow `.github/workflows/deploy.yml` that SSHes to the Pi and runs `/home/<user>/vNCRCC/scripts/deploy.sh`. For it to succeed you must configure the repository secrets:
 
 - `PI_HOST` — Pi hostname/IP
 - `PI_USER` — user on the Pi (e.g. `pi`)
-- `DEPLOY_KEY` — private SSH key (PEM) whose public key is in
-  `/home/<PI_USER>/.ssh/authorized_keys` on the Pi
+- `DEPLOY_KEY` — private SSH key (PEM) whose public key is in `/home/<PI_USER>/.ssh/authorized_keys` on the Pi
 - (optional) `PI_PORT` — SSH port (defaults to 22)
 
-Common failure modes with Actions deploy
-- `Permission denied` / SSH auth: ensure `DEPLOY_KEY` is the private key
-  and the corresponding public key is installed in `authorized_keys`.
-- `deploy.sh` not found or not executable: make sure the repo exists at
-  `/home/<PI_USER>/vNCRCC` on the Pi and `scripts/deploy.sh` is executable.
-- `deploy.sh` itself failing: check `~/vNCRCC/logs/vncrcc-deploy.log` on the
-  Pi or run the script manually to see the error.
+**Common failure modes with Actions deploy:**
 
-Systemd unit (what runs on the Pi)
----------------------------------
-The Pi runs a systemd unit named `vncrcc.service` which starts uvicorn (the
-FastAPI process) from the repo venv. Typical lifecycle:
+- `Permission denied` / SSH auth: ensure `DEPLOY_KEY` is the private key and the corresponding public key is installed in `authorized_keys`
+- `deploy.sh` not found or not executable: make sure the repo exists at `/home/<PI_USER>/vNCRCC` on the Pi and `scripts/deploy.sh` is executable
+- `deploy.sh` itself failing: check `~/vNCRCC/logs/vncrcc-deploy.log` on the Pi or run the script manually to see the error
+
+### Systemd unit (what runs on the Pi)
+
+The Pi runs a systemd unit named `vncrcc.service` which starts uvicorn (the FastAPI process) from the repo venv. Typical lifecycle:
 
 - systemd starts the uvicorn process on boot
-- uvicorn loads `vncrcc.app:app`, which mounts `web/` and registers the
-  Vatsim fetcher
+- uvicorn loads `vncrcc.app:app`, which mounts `web/` and registers the Vatsim fetcher
 
-If you want a sample unit for comparison, a minimal example looks like:
+Sample systemd unit:
 
 ```ini
 [Unit]
@@ -161,40 +135,27 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Adjust `ExecStart` flags (workers, bind address) as appropriate for your
-hardware. If you're behind nginx or Cloudflare Tunnel, bind to 127.0.0.1 and
-let the external proxy forward requests.
+Adjust `ExecStart` flags (workers, bind address) as appropriate for your hardware. If you're behind nginx or Cloudflare Tunnel, bind to 127.0.0.1 and let the external proxy forward requests.
 
-Cloudflare Tunnel / nginx notes
-------------------------------
-- The Pi historically uses `cloudflared` to expose the origin via a Cloudflare
-  Tunnel. If you're using cloudflared, ensure the service is running and the
-  tunnel is connected: `sudo systemctl status cloudflared` and
-  `sudo journalctl -u cloudflared -f`.
-- If the browser shows a JSON response at `/` or `Unexpected token '<'` for
-  a JS file, check that the origin (curl 127.0.0.1:8000/) returns HTML and
-  that nginx or the tunnel is forwarding to the correct backend port.
+### Cloudflare Tunnel / nginx notes
 
-Troubleshooting checklist
--------------------------
-- If Actions deploy fails: inspect the workflow logs to see whether SSH
-  authentication failed or the remote script errored. Test SSH locally with
-  the same key you configured in `DEPLOY_KEY`.
-- If the web UI serves JSON or wrong content: `curl -i http://127.0.0.1:8000/app.js`
-  should return the JavaScript file; if it returns HTML, your static mount
-  or proxy mapping is wrong.
-- If the app times out after hours: monitor `journalctl -u cloudflared` and
-  system resources (`top`, `vmstat`) and consider increasing uvicorn
-  workers, ulimits, or tuning the cloudflared receive buffer and nginx proxy
-  timeouts.
+- The Pi historically uses `cloudflared` to expose the origin via a Cloudflare Tunnel. If you're using cloudflared, ensure the service is running and the tunnel is connected: `sudo systemctl status cloudflared` and `sudo journalctl -u cloudflared -f`
+- If the browser shows a JSON response at `/` or `Unexpected token '<'` for a JS file, check that the origin (curl 127.0.0.1:8000/) returns HTML and that nginx or the tunnel is forwarding to the correct backend port
+
+### Troubleshooting checklist
+
+- If Actions deploy fails: inspect the workflow logs to see whether SSH authentication failed or the remote script errored. Test SSH locally with the same key you configured in `DEPLOY_KEY`
+- If the web UI serves JSON or wrong content: `curl -i http://127.0.0.1:8000/app.js` should return the JavaScript file; if it returns HTML, your static mount or proxy mapping is wrong
+- If the app times out after hours: monitor `journalctl -u cloudflared` and system resources (`top`, `vmstat`) and consider increasing uvicorn workers, ulimits, or tuning the cloudflared receive buffer and nginx proxy timeouts
 
 ## Advanced Features
 
 ### Automatic P-56 Intrusion Logging
-The service automatically detects and logs P-56 intrusions **every ~12 seconds**
-in the background, even when nobody is viewing the webpage.
+
+The service automatically detects and logs P-56 intrusions **every ~12 seconds** in the background, even when nobody is viewing the webpage.
 
 **How it works:**
+
 - Compares current and previous VATSIM snapshots to detect aircraft crossing P-56 boundaries
 - Uses line-crossing detection (requires 2 consecutive snapshots) for accurate penetration detection
 - Automatically saves intrusions to the database with full details (callsign, CID, position, timestamp, zones)
@@ -202,12 +163,14 @@ in the background, even when nobody is viewing the webpage.
 - Captures position history: 5 datapoints before entry, unlimited inside (capped at 100), 5 after exit
 
 **Position History Tracking:**
+
 - Maintains `aircraft_history.json` with last 10 positions per aircraft within 300nm of DCA
 - Includes latitude, longitude, altitude, groundspeed, and heading
 - Pre-intrusion positions captured from history lookback
 - Post-exit positions tracked for 2 minutes after leaving P-56 to capture full departure path
 
 **View logged incidents:**
+
 ```bash
 # API endpoint (returns last 100 incidents)
 curl https://vncrcc.org/api/v1/p56/incidents
@@ -217,11 +180,13 @@ curl https://vncrcc.org/api/v1/p56/incidents?limit=50
 ```
 
 **Performance notes:**
+
 - P-56 detection adds ~0.1-0.2s to the precompute cycle
 - Only aircraft within 300nm of DCA are processed
 - Sequential execution ensures history updates before intrusion detection runs
 
 ### Flight Path Visualization
+
 - Click any aircraft marker or table row to show its flight history track
 - Green dashed polylines show historical path with up to 10 positions
 - Tracks update automatically every 15 seconds in sync with position data
@@ -229,13 +194,16 @@ curl https://vncrcc.org/api/v1/p56/incidents?limit=50
 - Click again to hide the track
 
 ### Rate Limiting & DDoS Protection
+
 **nginx Level:**
+
 - API endpoints: 6 requests/minute (1 every 10 seconds), burst of 3
 - Static files: 30 requests/minute, burst of 10
 - Page loads: 10 requests/minute, burst of 5
 - Localhost exempted for internal API calls
 
 **FastAPI Level (SlowAPI):**
+
 - All API v1 endpoints protected: 6 requests/minute
 - Returns 429 Too Many Requests when exceeded
 - Localhost (127.0.0.1, ::1) fully exempted
@@ -246,6 +214,7 @@ See `RATE_LIMITING_DEPLOY.md` for deployment details.
 ## Configuration
 
 ### Environment Variables
+
 The following environment variables control service behavior:
 
 - `VNCRCC_CONFIG` — Path to config YAML (default: config/example_config.yaml)
@@ -255,7 +224,9 @@ The following environment variables control service behavior:
 - `VNCRCC_ADMIN_PASSWORD` — Password for admin endpoints like `/api/v1/p56/clear`
 
 **Production Configuration:**
+
 Set these in the systemd override file:
+
 ```bash
 sudo systemctl edit vncrcc.service
 # Add:
@@ -268,11 +239,13 @@ sudo systemctl edit vncrcc.service
 ### API Endpoints
 
 **Aircraft Data:**
+
 - `GET /api/v1/aircraft/list` - Filtered aircraft within range
 - `GET /api/v1/aircraft/list/history?range_nm=300` - Position history for all aircraft
 - `GET /api/v1/aircraft/latest` - Full VATSIM snapshot
 
 **Airspace Zones:**
+
 - `GET /api/v1/p56/` - Current P-56 intrusions with position history
 - `GET /api/v1/p56/incidents?limit=100` - Logged P-56 intrusion events
 - `GET /api/v1/sfra/` - SFRA traffic
@@ -280,6 +253,7 @@ sudo systemctl edit vncrcc.service
 - `GET /api/v1/vso/` - Virtual Security Officer range aircraft
 
 **Utilities:**
+
 - `GET /api/v1/geo/` - GeoJSON for airspace boundaries
 - `GET /api/v1/elevation/?lat=38.85&lon=-77.04` - Elevation lookup
 - `POST /api/v1/p56/clear` - Clear P-56 history (requires admin password)
@@ -305,6 +279,7 @@ Frontend (15s refresh, Leaflet maps)
 ```
 
 **Key Design Decisions:**
+
 - **Sequential history updates**: History written before precompute runs to ensure position data availability
 - **In-memory caching**: Precomputed results cached for instant API responses
 - **Line-crossing detection**: Requires 2 consecutive snapshots for accurate boundary crossing
@@ -314,18 +289,21 @@ Frontend (15s refresh, Leaflet maps)
 ## Development Notes
 
 **Architecture:**
+
 - The fetcher is a singleton: use `FETCHER.register_callback(cb)` or read snapshots via `STORAGE`
 - All API modules use the shared `rate_limit.py` for consistent rate limiting
 - Frontend polling at 15 seconds (matches backend precompute cycle)
 - Tests: `pytest -q` from the repository root (activate venv first)
 
 **Frontend Structure:**
+
 - `web/index.html` - Main SPA with dual map layout
 - `web/app.js` - ~2100 lines of vanilla JavaScript
 - `web/styles.css` - Responsive design with sticky headers, scrollable tables
 - Maps use Leaflet 1.9.4 with custom markers and polyline overlays
 
 **Backend Modules:**
+
 - `app.py` - FastAPI application, mounts web/ and API routes
 - `vatsim_client.py` - Singleton fetcher with callback registration
 - `precompute.py` - Airspace detection and caching logic
@@ -338,12 +316,14 @@ Frontend (15s refresh, Leaflet maps)
 This project is primarily developed through AI-assisted coding sessions. Most features, bug fixes, and optimizations are generated through collaborative AI development.
 
 **Development Workflow:**
+
 1. Features discussed and designed through natural language
 2. Code generated and refined iteratively
 3. Testing and debugging via AI analysis of logs and errors
 4. Deployment automated via systemd and nginx
 
 **Recent AI-Assisted Improvements:**
+
 - Synchronized flight path updates across both maps
 - Parallel data fetching for reduced latency
 - Comprehensive rate limiting implementation
@@ -358,143 +338,3 @@ This project uses VATSIM data and is intended for flight simulation purposes onl
 **AI Development**: Most of this codebase is AI-generated and refined through collaborative development sessions.
 
 **Technologies**: FastAPI, Leaflet.js, Shapely, SlowAPI, SQLAlchemy, uvicorn
-# vNCRCC — virtual National Capitol Region Command Center (prototype)
-
-This small project polls the VATSIM data feed and records snapshots. It's
-designed to run on a Raspberry Pi or a small VM and act as the backbone for
-geofence/detection logic (SFRA/FRZ/P-56) and a small dashboard.
-
-Quick start (virtualenv)
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-# Run the worker which polls VATSIM and saves snapshots to sqlite
-python -m src.vncrcc.worker
-```
-
-Run the API (FastAPI + uvicorn)
-
-```bash
-# If you prefer to use the package import, run the app module we've added:
-uvicorn vncrcc.app:app --host 0.0.0.0 --port 8000 --reload
-```
-
-Config
-- Edit `config/example_config.yaml` or set `VNCRCC_CONFIG` to a custom YAML
-  path. Keys: `vatsim_url`, `poll_interval`, `db_path`.
-
-Notes
-- The `VatsimDataFetcher` is a single shared poller — other modules should
-  not fetch the JSON themselves. Register a callback with
-  `FETCHER.register_callback(cb)` or read the latest snapshot from
-  `STORAGE` in `src/vncrcc/storage.py`.
-
-Development (Windows)
----------------------
-
-This repository includes a helper script to set up a local development
-environment on Windows and run either the API or the worker.
-
-PowerShell helper (recommended):
-
-1. Open PowerShell in the project root.
-2. Run (first run will create a `.venv` and install requirements):
-
-```powershell
-.\dev-run.ps1 -Mode api -Port 8000
-```
-
-To run the poller/worker instead:
-
-```powershell
-.\dev-run.ps1 -Mode worker
-```
-
-Notes:
-- The script creates/uses `.venv` in the repository root.
-- `PYTHONPATH` is set to include the `src` folder so you can run modules
-  like `python -m src.vncrcc.worker` or start uvicorn the same way the
-  README examples show.
-- You can override the config path via the `VNCRCC_CONFIG` environment
-  variable or by passing a different `-ConfigPath` to `dev-run.ps1`.
-
-Run locally — quick reference
------------------------------
-
-These steps give a concise recipe to run the API and worker locally on either
-Windows (PowerShell) or Unix-like systems (macOS / Linux). Use whichever set of
-commands matches the machine you'll run on.
-
-PowerShell (Windows)
-
-1. Open PowerShell in the repository root.
-2. Create and activate the virtual environment (the helper script does this for you, but here are the manual steps if you want them):
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-3. Run the API (recommended helper):
-
-```powershell
-.\dev-run.ps1 -Mode api -Port 8000
-```
-
-4. Or run the worker (polls VATSIM and stores snapshots):
-
-```powershell
-.\dev-run.ps1 -Mode worker
-```
-
-5. Open the dashboard in a browser:
-
-Point your browser to http://localhost:8000/ (or the port you chose) to open the SPA and API docs.
-
-Unix / macOS (bash)
-
-1. From the project root:
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-# Run the API
-uvicorn vncrcc.app:app --host 0.0.0.0 --port 8000 --reload
-# Or run the worker
-python -m src.vncrcc.worker
-```
-
-Notes & tips
-- The project uses `config/example_config.yaml` by default. To use a different config file, set the `VNCRCC_CONFIG` environment variable to the YAML path before starting the API or worker.
-- If you use the PowerShell helper (`dev-run.ps1`) it creates/uses a local `.venv` and sets `PYTHONPATH` to include `src` so module imports resolve.
-- To run tests locally: `pytest -q` from the repository root (activate the virtualenv first).
-- If the SPA shows stale assets after an update, do a hard refresh (Ctrl+F5) or open DevTools → Network → Disable cache before reloading.
-
-Local raster elevation data
----------------------------
-
-If you have the `rasters_COP30.tar` archive included under `src/vncrcc/geo/` the API can sample elevations from the contained GeoTIFF(s) locally instead of calling the remote Open-Meteo elevation API. This is optional and uses `rasterio` when available.
-
-To enable local raster sampling:
-
-1. Install rasterio in your environment (note: rasterio requires GDAL and may need system packages):
-
-```powershell
-# Windows (using pip; make sure GDAL is available on the system)
-pip install rasterio
-```
-
-2. Ensure `src/vncrcc/geo/rasters_COP30.tar` is present. On first import the server will extract the archive into `src/vncrcc/geo/rasters/` and attempt to open the first TIFF file it finds.
-
-3. The elevation endpoint will prefer local raster values when available and fall back to the remote service when not.
-
-If you prefer not to install rasterio, no action is needed — the API continues to use the remote elevation provider as before.
-
-
-#   A u t o - d e p l o y   v i a   s e l f - h o s t e d   r u n n e r   i s   n o w   a c t i v e 
- 
- 
