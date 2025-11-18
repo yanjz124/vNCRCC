@@ -263,10 +263,8 @@
     }
   }
 
-  // Function to toggle flight path for an aircraft
+  // Function to toggle flight path for an aircraft (shows/hides on BOTH maps)
   async function toggleFlightPath(cid, mapType) {
-    const pathLayer = mapType === 'p56' ? p56PathLayer : sfraPathLayer;
-
     // Helper: find and toggle table row highlight/expansion for sfra/frz/p56-current rows
     function setRowHighlight(cidVal, show){
       try{
@@ -306,11 +304,13 @@
     }
 
     if (visiblePaths.has(cid)) {
-      // Hide path - remove all polylines for this CID
-      pathLayer.eachLayer(layer => {
-        if (layer._flightPathCid === cid) {
-          pathLayer.removeLayer(layer);
-        }
+      // Hide path - remove all polylines for this CID from BOTH maps
+      [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
+        pathLayer.eachLayer(layer => {
+          if (layer._flightPathCid === cid) {
+            pathLayer.removeLayer(layer);
+          }
+        });
       });
       visiblePaths.delete(cid);
       // remove visual highlights
@@ -318,7 +318,7 @@
       setMarkerHalo(cid, false);
       console.log(`Hidden flight path for ${cid}`);
     } else {
-      // Show path - fetch history and draw polyline
+      // Show path - fetch history and draw polyline on BOTH maps
       try {
         const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
         const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
@@ -329,26 +329,27 @@
           // Create lat/lng points from history
           const points = history.map(pos => [pos.lat, pos.lon]);
 
-          // Create polyline with aircraft color
-          const polyline = L.polyline(points, {
-            color: '#00ff00', // Bright green for visibility
-            weight: 2,
-            opacity: 0.8,
-            dashArray: '5, 5' // Dashed line
+          // Add polyline to BOTH maps
+          [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
+            const polyline = L.polyline(points, {
+              color: '#00ff00', // Bright green for visibility
+              weight: 2,
+              opacity: 0.8,
+              dashArray: '5, 5' // Dashed line
+            });
+            
+            // Mark this polyline with the CID for later removal
+            polyline._flightPathCid = cid;
+            pathLayer.addLayer(polyline);
           });
 
-          // Mark this polyline with the CID for later removal
-          polyline._flightPathCid = cid;
-
-          // Add to path layer
-          pathLayer.addLayer(polyline);
           visiblePaths.add(cid);
 
           // add visual highlights
           setRowHighlight(cid, true);
           setMarkerHalo(cid, true);
 
-          console.log(`Shown flight path for ${cid} with ${points.length} points`);
+          console.log(`Shown flight path for ${cid} with ${points.length} points on both maps`);
         } else {
           console.log(`No history data available for ${cid}`);
         }
