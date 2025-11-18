@@ -127,17 +127,16 @@ li{margin-bottom:6px}
 footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .disclaimers{margin-bottom:8px}
 .disclaimers p{margin:4px 0;font-size:0.9rem;color:#cfe6ff}
-.build-info{margin-top:8px;font-size:0.85rem;color:#8b9db8;font-family:monospace}
-.build-info .github-link{display:inline-flex;align-items:center;gap:6px;margin-right:8px;color:#cfe6ff;text-decoration:none}
+.build-info{margin-top:8px;font-size:0.85rem;color:#8b9db8;font-family:monospace;display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+.build-info .github-link{display:inline-flex;align-items:center;color:#cfe6ff;text-decoration:none;line-height:1}
 .build-info .github-link:hover{color:#9fc5ff}
-.build-info .gh-icon{width:20px;height:20px;fill:currentColor;display:inline-block;vertical-align:middle}
+.build-info .gh-icon{width:20px;height:20px;fill:currentColor;display:block}
 /* flight plan tooltip styling */
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
 .fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
 .traffic-table{width:100%;border-collapse:collapse;font-size:0.85rem;table-layout:auto;min-width:800px}
-.traffic-table thead{position:sticky;top:0;z-index:10}
-.traffic-table tbody{display:block;max-height:400px;overflow-y:auto;scrollbar-gutter:stable}
-.traffic-table thead, .traffic-table tbody{display:block;width:100%}
+.traffic-table thead{position:sticky;top:0;z-index:10;display:block;width:100%;overflow-y:scroll}
+.traffic-table tbody{display:block;max-height:400px;overflow-y:scroll;width:100%}
 .traffic-table thead tr, .traffic-table tbody tr{display:table;width:100%;table-layout:fixed}
 .traffic-table th, .traffic-table td{padding:3px 4px;border-bottom:1px solid #23303a;text-align:center;word-wrap:break-word;white-space:normal;overflow:hidden;min-width:50px}
 .traffic-table th{background:#0d2538;color:#cfe6ff;font-weight:600}
