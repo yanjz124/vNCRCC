@@ -175,6 +175,14 @@ async def health() -> dict:
     return {"status": "ok"}
 
 
+@app.get("/metrics")
+@limiter.exempt
+async def metrics_redirect() -> Response:
+    """Redirect /metrics to /metrics.html for convenience."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/metrics.html", status_code=302)
+
+
 @app.get("/api/version")
 @limiter.limit("6/minute")
 async def version(request: Request) -> dict:
