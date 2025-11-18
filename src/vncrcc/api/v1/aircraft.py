@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import Any, Dict, Optional
 
 from ... import storage
 from ...aircraft_history import get_history
+from ...rate_limit import limiter
 
 router = APIRouter(prefix="/aircraft")
 
@@ -32,7 +33,8 @@ def _haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 @router.get("/latest")
-async def latest_aircraft() -> Dict[str, Any]:
+@limiter.limit("6/minute")
+async def latest_aircraft(request: Request) -> Dict[str, Any]:
     snap = storage.STORAGE.get_latest_snapshot() if storage.STORAGE else None
     if not snap:
         raise HTTPException(status_code=404, detail="No snapshot available")
@@ -40,7 +42,8 @@ async def latest_aircraft() -> Dict[str, Any]:
 
 
 @router.get("/list")
-async def list_aircraft() -> Dict[str, Any]:
+@limiter.limit("6/minute")
+async def list_aircraft(request: Request) -> Dict[str, Any]:
     # Return pre-computed trimmed aircraft list from cache for instant response
     from ...precompute import get_cached
     cached = get_cached("aircraft_list")
@@ -52,7 +55,9 @@ async def list_aircraft() -> Dict[str, Any]:
 
 
 @router.get("/list/history")
+@limiter.limit("6/minute")
 async def aircraft_history(
+    request: Request,
     range_nm: Optional[float] = Query(None, description="Filter by distance from DCA in nautical miles")
 ) -> Dict[str, Any]:
     full_history = get_history()

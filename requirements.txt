@@ -5,3 +5,4 @@ pyyaml>=6.0
 shapely>=2.0.0
 SQLAlchemy>=2.0
 psycopg2-binary>=2.9
+slowapi>=0.1.9

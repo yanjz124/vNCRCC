@@ -46,7 +46,9 @@ from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
 from ...p56_history import get_history, record_penetration, sync_snapshot
 from ...aircraft_history import get_history as get_ac_history
+from ...rate_limit import limiter
 from shapely.geometry import Point
+from fastapi import Request
 
 router = APIRouter(prefix="/p56")
 
@@ -63,7 +65,8 @@ def _identifier(a: dict) -> Optional[str]:
 
 
 @router.get("/")
-async def p56_breaches(name: str = Query("p56", description="keyword to find the P56 geojson file, default 'p56'")) -> Dict[str, Any]:
+@limiter.limit("6/minute")
+async def p56_breaches(request: Request, name: str = Query("p56", description="keyword to find the P56 geojson file, default 'p56'")) -> Dict[str, Any]:
     # Return pre-computed result if available (instant response for all users)
     from ...precompute import get_cached
     cached = get_cached("p56")
@@ -298,7 +301,8 @@ async def p56_breaches(name: str = Query("p56", description="keyword to find the
 
 
 @router.get("/incidents")
-async def p56_incidents(limit: int = Query(100, description="Max incidents to return")) -> Dict[str, Any]:
+@limiter.limit("6/minute")
+async def p56_incidents(request: Request, limit: int = Query(100, description="Max incidents to return")) -> Dict[str, Any]:
     """Return logged P-56 incidents from the database.
     
     These are automatically logged every ~10s when the service runs,
@@ -314,7 +318,8 @@ async def p56_incidents(limit: int = Query(100, description="Max incidents to re
 
 
 @router.post("/clear")
-async def p56_clear(payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
+@limiter.limit("6/minute")
+async def p56_clear(request: Request, payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
     """Clear P-56 history (events and current_inside).
 
     This endpoint requires the server admin password to be set in the

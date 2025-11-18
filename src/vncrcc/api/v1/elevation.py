@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request
 from typing import Any, Dict
 import time
 from vncrcc.geo import raster_elevation
+from ...rate_limit import limiter
 
 router = APIRouter(prefix="/elevation")
 
@@ -16,7 +17,8 @@ def _cache_key(lat: float, lon: float) -> str:
 
 
 @router.get("/")
-async def elevation(lat: float = Query(...), lon: float = Query(...)) -> Dict[str, Any]:
+@limiter.limit("6/minute")
+async def elevation(request: Request, lat: float = Query(...), lon: float = Query(...)) -> Dict[str, Any]:
     key = _cache_key(lat, lon)
     now = time.time()
     ent = _CACHE.get(key)

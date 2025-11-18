@@ -8,12 +8,15 @@ from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from .storage import STORAGE
 from .aircraft_history import update_history_batch
 from .vatsim_client import VatsimClient
 from .api import router as api_router
 from .precompute import precompute_all
+from .rate_limit import limiter
 import asyncio
 
 
@@ -33,6 +36,8 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 app = FastAPI(title="vNCRCC API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Middleware to disable caching for all responses
 class NoCacheMiddleware(BaseHTTPMiddleware):
@@ -154,12 +159,14 @@ async def shutdown() -> None:
 
 
 @app.get("/health")
+@limiter.exempt
 async def health() -> dict:
     return {"status": "ok"}
 
 
 @app.get("/api/version")
-async def version() -> dict:
+@limiter.limit("6/minute")
+async def version(request: Request) -> dict:
     """Return the current git commit and timestamp to verify deployment."""
     import subprocess
     try:
@@ -172,7 +179,8 @@ async def version() -> dict:
 
 
 @app.get("/api/debug/last_snapshot")
-async def last_snapshot() -> dict:
+@limiter.limit("6/minute")
+async def last_snapshot(request: Request) -> dict:
     """Return the timestamp and aircraft count of the latest saved snapshot.
 
     This is a small debug endpoint useful to verify the fetch loop is saving

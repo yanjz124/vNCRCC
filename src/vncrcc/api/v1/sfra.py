@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import List, Dict, Any
 
 from ... import storage
+from ...rate_limit import limiter
 from ...geo.loader import load_all_geojson, find_geo_by_keyword, point_from_aircraft
 from ...precompute import get_cached
 import math
@@ -43,7 +44,8 @@ router = APIRouter(prefix="/sfra")
 
 
 @router.get("/")
-async def sfra_aircraft(name: str = Query("sfra", description="keyword to find the SFRA geojson file, default 'sfra'")) -> Dict[str, Any]:
+@limiter.limit("6/minute")
+async def sfra_aircraft(request: Request, name: str = Query("sfra", description="keyword to find the SFRA geojson file, default 'sfra'")) -> Dict[str, Any]:
     # Return pre-computed result if available (instant response for all users)
     cached = get_cached("sfra")
     if cached:

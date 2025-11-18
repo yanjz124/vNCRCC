@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from typing import List, Dict, Any
 
 from ... import storage
+from ...rate_limit import limiter
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
 from ...precompute import get_cached
 import math
@@ -44,7 +45,8 @@ router = APIRouter(prefix="/frz")
 
 
 @router.get("/")
-async def frz_aircraft(name: str = Query("frz", description="keyword to find the FRZ geojson file, default 'frz'")) -> Dict[str, Any]:
+@limiter.limit("6/minute")
+async def frz_aircraft(request: Request, name: str = Query("frz", description="keyword to find the FRZ geojson file, default 'frz'")) -> Dict[str, Any]:
     # Return pre-computed result if available (instant response for all users)
     cached = get_cached("frz")
     if cached:
