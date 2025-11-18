@@ -133,9 +133,9 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}
 .traffic-table{width:100%;border-collapse:collapse;font-size:0.9rem}
 .traffic-table tbody{display:block;max-height:400px;overflow-y:auto;scrollbar-gutter:stable}
-.traffic-table thead{display:table;width:100%;table-layout:fixed}
-.traffic-table tbody tr{display:table;width:100%;table-layout:fixed}
-.traffic-table th, .traffic-table td{padding:4px 8px;border-bottom:1px solid #23303a;text-align:center;word-wrap:break-word;white-space:normal;overflow:hidden}
+.traffic-table thead{display:table;width:100%;table-layout:auto}
+.traffic-table tbody tr{display:table;width:100%;table-layout:auto}
+.traffic-table th, .traffic-table td{padding:4px 6px;border-bottom:1px solid #23303a;text-align:center;word-wrap:break-word;white-space:normal;overflow:hidden}
 .traffic-table th{background:#0d2538;color:#cfe6ff;font-weight:600}
 .traffic-table tbody tr:hover{background:#152026}
 .traffic-table .expandable{cursor:pointer}
