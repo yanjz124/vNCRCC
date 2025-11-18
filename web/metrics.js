@@ -362,6 +362,6 @@ async function updateMetrics() {
   // Initial load
   await updateMetrics();
   
-  // Auto-refresh every 10 seconds
-  setInterval(updateMetrics, 10000);
+  // Auto-refresh every 15 seconds (reduce load)
+  setInterval(updateMetrics, 15000);
 })();

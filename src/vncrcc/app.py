@@ -215,7 +215,7 @@ async def last_snapshot(request: Request) -> dict:
 
 
 @app.get("/api/metrics")
-@limiter.limit("12/minute")
+@limiter.exempt
 async def metrics(request: Request) -> dict:
     """Return server metrics including active users and resource usage.
     

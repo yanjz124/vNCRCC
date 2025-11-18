@@ -6,6 +6,7 @@
   const REFRESH = 15000;
   // Add light client-side jitter and shared cooldown to de-sync tabs and respect 429s
   const JITTER_PCT = 0.10; // +/-10%
+  const MAX_COOLDOWN_MS = 60 * 1000; // cap any client-side cooldown to 60s
   const COOLDOWN_KEY = 'vncrcc.cooldownUntil';
 
   function withJitter(ms){
@@ -35,7 +36,8 @@
       const ra = resp.headers.get('Retry-After');
       const parsed = parseRetryAfter(ra);
       const fallback = now + REFRESH; // default to one base cycle
-      const retryAt = parsed || fallback;
+      // Clamp retry time to avoid excessively long cooldowns
+      const retryAt = Math.min(parsed || fallback, now + MAX_COOLDOWN_MS);
       const jittered = now + Math.round((retryAt - now) * (0.9 + Math.random()*0.2));
       setSharedCooldownUntil(jittered);
       const err = new Error('Rate limited'); err.code='RATE_LIMIT'; err.retryAt=jittered; throw err;
