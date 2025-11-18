@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Metrics Dashboard - vNCRCC</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css?v=1763345500" />
+  <link rel="icon" href="/static/logo.png?v=1" type="image/png" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .metric-card {
+      background: rgba(15, 25, 40, 0.95);
+      border: 1px solid #4a90e2;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .metric-card h3 {
+      margin: 0 0 12px 0;
+      color: #4a90e2;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .metric-value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #dfefff;
+      margin: 8px 0;
+    }
+    .metric-label {
+      font-size: 12px;
+      color: #9fb9d8;
+      text-transform: uppercase;
+    }
+    .chart-container {
+      position: relative;
+      height: 250px;
+      margin-top: 12px;
+    }
+    .status-good { color: #4ade80; }
+    .status-warning { color: #fbbf24; }
+    .status-danger { color: #f87171; }
+    .refresh-info {
+      text-align: center;
+      color: #9fb9d8;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .back-link {
+      display: inline-block;
+      margin: 16px 0;
+      padding: 8px 16px;
+      background: rgba(74, 144, 226, 0.2);
+      border: 1px solid #4a90e2;
+      border-radius: 4px;
+      color: #4a90e2;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .back-link:hover {
+      background: rgba(74, 144, 226, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <div id="logo-placeholder"><img id="site-logo" src="/static/logo.png?v=1" alt="vNCRCC logo" /></div>
+      <h1>Metrics Dashboard</h1>
+    </div>
+  </header>
+  
+  <div class="container">
+    <a href="/" class="back-link">← Back to Main Dashboard</a>
+    
+    <div class="refresh-info">
+      Auto-refreshing every 10 seconds | Last update: <span id="last-update">—</span>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <h3>Active Users</h3>
+        <div class="metric-value" id="active-users">—</div>
+        <div class="metric-label">Unique IPs (last 5 min)</div>
+      </div>
+      
+      <div class="metric-card">
+        <h3>Request Rate</h3>
+        <div class="metric-value" id="request-rate">—</div>
+        <div class="metric-label">Requests per second (1 min avg)</div>
+      </div>
+      
+      <div class="metric-card">
+        <h3>CPU Usage</h3>
+        <div class="metric-value" id="cpu-usage">—</div>
+        <div class="metric-label">Percent</div>
+      </div>
+      
+      <div class="metric-card">
+        <h3>Memory Usage</h3>
+        <div class="metric-value" id="memory-usage">—</div>
+        <div class="metric-label">MB Used</div>
+      </div>
+      
+      <div class="metric-card">
+        <h3>Uptime</h3>
+        <div class="metric-value" id="uptime">—</div>
+        <div class="metric-label">Hours</div>
+      </div>
+      
+      <div class="metric-card">
+        <h3>Error Rate</h3>
+        <div class="metric-value" id="error-rate">—</div>
+        <div class="metric-label">Errors per minute</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <h3>Active Users Over Time</h3>
+        <div class="chart-container">
+          <canvas id="users-chart"></canvas>
+        </div>
+      </div>
+      
+      <div class="metric-card">
+        <h3>Request Rate History</h3>
+        <div class="chart-container">
+          <canvas id="requests-chart"></canvas>
+        </div>
+      </div>
+      
+      <div class="metric-card">
+        <h3>Resource Usage</h3>
+        <div class="chart-container">
+          <canvas id="resources-chart"></canvas>
+        </div>
+      </div>
+      
+      <div class="metric-card">
+        <h3>Top Endpoints (Last 5 min)</h3>
+        <div class="chart-container">
+          <canvas id="endpoints-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Endpoint Details Table -->
+    <section class="panels">
+      <div class="panel">
+        <div class="panel-header">
+          <h2>Endpoint Statistics</h2>
+        </div>
+        <table class="traffic-table">
+          <thead>
+            <tr>
+              <th>Endpoint</th>
+              <th>Requests (1 min)</th>
+              <th>Requests (5 min)</th>
+              <th>Errors (1 min)</th>
+            </tr>
+          </thead>
+          <tbody id="endpoints-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <p class="build-info">
+      <a href="https://github.com/yanjz124/vNCRCC" target="_blank" class="github-link">
+        <svg class="gh-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.333-1.754-1.333-1.754-1.089-.745.083-.729.083-.729 1.205.085 1.838 1.236 1.838 1.236 1.07 1.835 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.468-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.605-.015 2.895-.015 3.285 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+        </svg>
+      </a>
+      Metrics Dashboard
+    </p>
+  </footer>
+
+  <script src="metrics.js?v=1763345500"></script>
+</body>
+</html>

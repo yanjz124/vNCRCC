@@ -1870,11 +1870,52 @@
             const p56json = await fetch(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{history:{}});
             events = p56json.history?.events || [];
           }
-          openP56PurgeModal(events || []);
-        }catch(err){ console.error('Failed to open purge modal', err); }
+          openAdminMenu(events || []);
+        }catch(err){ console.error('Failed to open admin menu', err); }
       });
     }
   }catch(e){ console.error('Failed to attach admin purge handler', e); }
+
+  // Build and open admin menu (purge + metrics)
+  function openAdminMenu(events){
+    let overlay = document.getElementById('admin-menu-overlay');
+    if(!overlay){
+      overlay = document.createElement('div');
+      overlay.id = 'admin-menu-overlay';
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="admin-menu-title" style="max-width:400px;">
+          <header>
+            <h3 id="admin-menu-title">Admin Menu</h3>
+            <button class="btn" id="admin-menu-close">✕</button>
+          </header>
+          <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;padding:20px;">
+            <button class="btn" id="admin-purge-btn" style="padding:12px;font-size:16px;">
+              🗑️ Purge P56 Entries
+            </button>
+            <button class="btn" id="admin-metrics-btn" style="padding:12px;font-size:16px;">
+              📊 View Metrics Dashboard
+            </button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+    }
+    
+    const close = ()=> overlay.classList.remove('show');
+    overlay.querySelector('#admin-menu-close').onclick = close;
+    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) close(); });
+    
+    overlay.querySelector('#admin-purge-btn').onclick = ()=>{
+      close();
+      openP56PurgeModal(events);
+    };
+    
+    overlay.querySelector('#admin-metrics-btn').onclick = ()=>{
+      window.location.href = '/metrics.html';
+    };
+    
+    overlay.classList.add('show');
+  }
 
   // Build and open purge modal
   function openP56PurgeModal(events){
