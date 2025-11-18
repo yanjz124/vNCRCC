@@ -211,6 +211,8 @@
   async function updateVisiblePaths() {
     if (visiblePaths.size === 0) return;
     
+    console.log(`Updating ${visiblePaths.size} visible flight path(s):`, Array.from(visiblePaths));
+    
     try {
       const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
       const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
@@ -219,14 +221,21 @@
       // Update each visible path
       for (const cid of visiblePaths) {
         const history = data.history?.[cid];
-        if (!history || history.length < 2) continue;
+        if (!history || history.length < 2) {
+          console.log(`No history data for CID ${cid} (${history?.length || 0} points)`);
+          continue;
+        }
+        
+        console.log(`Updating path for CID ${cid} with ${history.length} points`);
         
         // Update on both maps
         [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
+          let removedCount = 0;
           // Remove old polyline for this CID
           pathLayer.eachLayer(layer => {
             if (layer._flightPathCid === cid) {
               pathLayer.removeLayer(layer);
+              removedCount++;
             }
           });
           
@@ -240,6 +249,10 @@
           });
           polyline._flightPathCid = cid;
           pathLayer.addLayer(polyline);
+          
+          if (removedCount > 0) {
+            console.log(`Replaced ${removedCount} old polyline(s) with new one for CID ${cid}`);
+          }
         });
       }
     } catch (error) {
