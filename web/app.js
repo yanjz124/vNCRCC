@@ -1937,23 +1937,26 @@
     overlay.querySelector('#purge-confirm').onclick = async ()=>{
       try{
         const checked = Array.from(list.querySelectorAll('.purge-item:checked')).map(cb => cb.value);
-        if(checked.length === 0){ alert('No entries selected.'); return; }
+        if(checked.length === 0){ 
+          await showConfirmation({ title: 'No selection', message: 'No entries selected.', isError: true });
+          return; 
+        }
         const pwd = await askPassword({ title: 'Admin verification', message: 'Enter admin password to purge selected entries.' });
         if(!pwd) return; // cancelled
-        const resp = await fetch(`${API_ROOT}/p56/purge`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd, keys: checked }) });
+        const resp = await fetchWithBackoff(`${API_ROOT}/p56/purge`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd, keys: checked }) });
         if(!resp.ok){
           const j = await resp.json().catch(()=>({detail:resp.statusText}));
-          alert('Purge failed: ' + (j.detail || JSON.stringify(j)));
+          await showConfirmation({ title: 'Purge failed', message: j.detail || JSON.stringify(j), isError: true });
           return;
         }
         const j = await resp.json().catch(()=>({}));
         const purged = j?.result?.purged ?? 0;
-        alert(`Purged ${purged} entr${purged===1?'y':'ies'}. Refreshing…`);
         close();
+        await showConfirmation({ title: 'Success', message: `Purged ${purged} entr${purged===1?'y':'ies'}. Refreshing…`, isError: false });
         try{ await pollAircraftThenRefresh(); }catch(e){}
       }catch(err){
         console.error('Purge error', err);
-        alert('Purge failed: ' + (err && err.message ? err.message : err));
+        await showConfirmation({ title: 'Error', message: 'Purge failed: ' + (err && err.message ? err.message : err), isError: true });
       }
     };
 
@@ -2041,6 +2044,74 @@
       setTimeout(()=> input.focus(), 0);
     });
   }
+
+  // Confirmation dialog that auto-closes after 3 seconds
+  function showConfirmation(opts){
+    const { title = 'Confirmation', message = '', isError = false } = opts || {};
+    return new Promise(resolve => {
+      let overlay = document.getElementById('confirm-overlay');
+      if(!overlay){
+        overlay = document.createElement('div');
+        overlay.id = 'confirm-overlay';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal small" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+            <header>
+              <h3 id="confirm-title"></h3>
+              <button class="btn" id="confirm-close">✕</button>
+            </header>
+            <div class="modal-body">
+              <div style="color:#cfe6ff;text-align:center;padding:12px 0;" id="confirm-msg"></div>
+            </div>
+            <footer style="justify-content:center;">
+              <button class="btn" id="confirm-ok">OK</button>
+            </footer>
+          </div>`;
+        document.body.appendChild(overlay);
+      }
+
+      const modal = overlay.querySelector('.modal');
+      overlay.querySelector('#confirm-title').textContent = title;
+      overlay.querySelector('#confirm-msg').textContent = message;
+      
+      // Style based on error vs success
+      const header = modal.querySelector('header');
+      if(isError){
+        header.style.borderBottom = '1px solid #d9534f';
+        overlay.querySelector('#confirm-title').style.color = '#ff6b6b';
+      } else {
+        header.style.borderBottom = '1px solid #28a745';
+        overlay.querySelector('#confirm-title').style.color = '#5cb85c';
+      }
+
+      const closeBtn = overlay.querySelector('#confirm-close');
+      const okBtn = overlay.querySelector('#confirm-ok');
+
+      let autoCloseTimer = null;
+
+      const cleanup = () => {
+        if(autoCloseTimer) clearTimeout(autoCloseTimer);
+        closeBtn.onclick = null;
+        okBtn.onclick = null;
+      };
+
+      const close = () => {
+        overlay.classList.remove('show');
+        cleanup();
+        resolve();
+      };
+
+      closeBtn.onclick = close;
+      okBtn.onclick = close;
+      overlay.onclick = (e) => { if(e.target === overlay) close(); };
+
+      // Auto-close after 3 seconds
+      autoCloseTimer = setTimeout(close, 3000);
+
+      overlay.classList.add('show');
+    });
+  }
+
     // update when overlay toggles change
     ['toggle-sfra','toggle-frz','toggle-p56','toggle-ac-p56','toggle-ac-frz','toggle-ac-sfra','toggle-ac-vicinity','toggle-ac-ground'].forEach(id => {
       const elc = document.getElementById(id);
