@@ -48,6 +48,61 @@ def clear_history() -> None:
     _atomic_write({"events": [], "current_inside": {}})
 
 
+def purge_events(keys: Optional[List[str]] = None, items: Optional[List[Dict[str, Any]]] = None) -> Dict[str, int]:
+    """Remove selected events from history by keys or explicit items.
+
+    A key is a string formatted as "<cid>:<recorded_at>" where recorded_at
+    is the exact float timestamp used when the event was written. Alternatively,
+    callers may provide items as a list of {"cid": ..., "recorded_at": ...}.
+
+    Returns a dict with counts: {"before": N, "after": M, "purged": (N-M)}.
+    """
+    data = _load()
+    events: List[Dict[str, Any]] = data.setdefault("events", [])
+    before = len(events)
+
+    # Build a set of (cid_str, recorded_at_str) tuples to remove for fast lookup
+    targets = set()
+    if items:
+        for it in items:
+            try:
+                cid = str(it.get("cid") or "")
+                ra = it.get("recorded_at")
+                if ra is None:
+                    continue
+                ra_s = str(ra)
+                targets.add((cid, ra_s))
+            except Exception:
+                continue
+    if keys:
+        for k in keys:
+            try:
+                cid_s, ra_s = str(k).split(":", 1)
+                targets.add((cid_s, ra_s))
+            except Exception:
+                continue
+
+    if not targets:
+        return {"before": before, "after": before, "purged": 0}
+
+    kept: List[Dict[str, Any]] = []
+    for e in events:
+        try:
+            cid_s = str(e.get("cid") or "")
+            ra_s = str(e.get("recorded_at")) if (e.get("recorded_at") is not None) else ""
+            if (cid_s, ra_s) in targets:
+                continue  # purge this one
+            kept.append(e)
+        except Exception:
+            # if malformed, keep to avoid accidental deletion
+            kept.append(e)
+
+    data["events"] = kept
+    _atomic_write(data)
+    after = len(kept)
+    return {"before": before, "after": after, "purged": max(0, before - after)}
+
+
 def record_penetration(event: Dict[str, Any]) -> None:
     """Record a new penetration event. Event should include at least 'cid' or 'identifier'."""
     data = _load()
@@ -88,9 +143,22 @@ def record_penetration(event: Dict[str, Any]) -> None:
             # Merge useful fields from the incoming event into last_event.
             # Preserve the original recorded_at (earliest detection).
             # Update latest_ts if provided and is newer.
-            if event_copy.get("latest_ts"):
-                if (not last_event.get("latest_ts")) or event_copy.get("latest_ts") > last_event.get("latest_ts"):
-                    last_event["latest_ts"] = event_copy.get("latest_ts")
+            new_ts = event_copy.get("latest_ts")
+            if new_ts is not None:
+                prev_ts = last_event.get("latest_ts")
+                new_ts_f = None
+                prev_ts_f = None
+                try:
+                    new_ts_f = float(new_ts)
+                except Exception:
+                    new_ts_f = None
+                try:
+                    if prev_ts is not None:
+                        prev_ts_f = float(prev_ts)
+                except Exception:
+                    prev_ts_f = None
+                if prev_ts_f is None or (new_ts_f is not None and new_ts_f > prev_ts_f):
+                    last_event["latest_ts"] = new_ts
             # Merge pre_positions/post_positions if available and last_event doesn't have them
             if event_copy.get("pre_positions") and not last_event.get("pre_positions"):
                 last_event["pre_positions"] = event_copy.get("pre_positions")

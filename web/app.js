@@ -1818,8 +1818,7 @@
   // Keep permalink updated whenever inputs that affect it change.
   try{
 
-  // Admin clear handler: prompt for password and call server endpoint.
-  // The admin password must be configured on the server via VNCRCC_ADMIN_PASSWORD.
+  // Admin cog (⚙): open selective purge modal for P56 events
   try{
     const adminBtn = el('admin-clear-p56');
     if(adminBtn && !adminBtn._adminAttached){
@@ -1827,34 +1826,102 @@
       adminBtn.addEventListener('click', async (ev)=>{
         ev.preventDefault();
         try{
-          // Step 1: prompt for password (do not store it anywhere in client)
-          const pwd = prompt('Enter admin password to clear P-56 history:');
-          if(!pwd) return;
-          // Step 2: double-confirm to avoid accidental clears
-          const ok = confirm('Are you sure you want to clear P-56 history and leaderboard? This cannot be undone.');
-          if(!ok) return;
-          adminBtn.disabled = true;
-          const resp = await fetch(`${API_ROOT}/p56/clear`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd }) });
-          if(!resp.ok){
-            const j = await resp.json().catch(()=>({detail:resp.statusText}));
-            alert('Failed to clear P-56 history: ' + (j.detail || JSON.stringify(j)));
-            return;
+          // Prefer cached events; fallback to fetch
+          let events = (tableDataCache && Array.isArray(tableDataCache.events)) ? tableDataCache.events.slice() : null;
+          if(!events){
+            const p56json = await fetch(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{history:{}});
+            events = p56json.history?.events || [];
           }
-          const j = await resp.json().catch(()=>({}));
-          if(j && j.cleared){
-            alert('P-56 history cleared. Refreshing data...');
-            // refresh client state
-            try{ await pollAircraftThenRefresh(); }catch(e){}
-          } else {
-            alert('P-56 clear returned unexpected response: ' + JSON.stringify(j));
-          }
-        }catch(err){
-          console.error('Admin clear failed', err);
-          alert('Admin clear failed: ' + (err && err.message ? err.message : err));
-        }finally{ adminBtn.disabled = false; }
+          openP56PurgeModal(events || []);
+        }catch(err){ console.error('Failed to open purge modal', err); }
       });
     }
-  }catch(e){ console.error('Failed to attach admin clear handler', e); }
+  }catch(e){ console.error('Failed to attach admin purge handler', e); }
+
+  // Build and open purge modal
+  function openP56PurgeModal(events){
+    let overlay = document.getElementById('purge-overlay');
+    if(!overlay){
+      overlay = document.createElement('div');
+      overlay.id = 'purge-overlay';
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="purge-title">
+          <header>
+            <h3 id="purge-title">P56 Intrusion Log — Select entries to purge</h3>
+            <button class="btn" id="purge-close">✕</button>
+          </header>
+          <div class="modal-body">
+            <div style="margin-bottom:8px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn" id="purge-select-all">Select all</button>
+              <button class="btn" id="purge-select-none">Select none</button>
+            </div>
+            <div class="list" id="purge-list"></div>
+          </div>
+          <footer>
+            <button class="btn" id="purge-cancel">Cancel</button>
+            <button class="btn btn-danger" id="purge-confirm">Purge selected…</button>
+          </footer>
+        </div>`;
+      document.body.appendChild(overlay);
+    }
+
+    // Populate list
+    const list = overlay.querySelector('#purge-list');
+    list.innerHTML = '';
+    // Sort newest first
+    const evts = events.slice().sort((a,b)=> (b.recorded_at||0) - (a.recorded_at||0));
+    evts.forEach(evt => {
+      const key = `${evt.cid||''}:${evt.recorded_at||''}`;
+      const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
+      const div = document.createElement('div');
+      div.className = 'list-item';
+      div.innerHTML = `
+        <input type="checkbox" class="purge-item" value="${key}">
+        <div style="flex:1;min-width:0;">
+          <div><strong>${evt.callsign||''}</strong> — ${evt.name||''} (CID: ${evt.cid||''})</div>
+          <div style="color:#9fb9d8;font-size:12px;">${recorded} • ${((evt.flight_plan&&evt.flight_plan.aircraft_faa)|| (evt.flight_plan&&evt.flight_plan.aircraft_short) || '')} • ${((evt.flight_plan&&evt.flight_plan.departure)||'')}-${((evt.flight_plan&&evt.flight_plan.arrival)||'')}</div>
+        </div>`;
+      list.appendChild(div);
+    });
+
+    // Wire controls
+    const close = ()=> overlay.classList.remove('show');
+    overlay.querySelector('#purge-close').onclick = close;
+    overlay.querySelector('#purge-cancel').onclick = close;
+    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) close(); });
+    overlay.querySelector('#purge-select-all').onclick = ()=>{
+      list.querySelectorAll('.purge-item').forEach(cb => cb.checked = true);
+    };
+    overlay.querySelector('#purge-select-none').onclick = ()=>{
+      list.querySelectorAll('.purge-item').forEach(cb => cb.checked = false);
+    };
+    overlay.querySelector('#purge-confirm').onclick = async ()=>{
+      try{
+        const checked = Array.from(list.querySelectorAll('.purge-item:checked')).map(cb => cb.value);
+        if(checked.length === 0){ alert('No entries selected.'); return; }
+        const pwd = prompt('Enter admin password to purge selected entries:');
+        if(!pwd) return;
+        const resp = await fetch(`${API_ROOT}/p56/purge`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd, keys: checked }) });
+        if(!resp.ok){
+          const j = await resp.json().catch(()=>({detail:resp.statusText}));
+          alert('Purge failed: ' + (j.detail || JSON.stringify(j)));
+          return;
+        }
+        const j = await resp.json().catch(()=>({}));
+        const purged = j?.result?.purged ?? 0;
+        alert(`Purged ${purged} entr${purged===1?'y':'ies'}. Refreshing…`);
+        close();
+        try{ await pollAircraftThenRefresh(); }catch(e){}
+      }catch(err){
+        console.error('Purge error', err);
+        alert('Purge failed: ' + (err && err.message ? err.message : err));
+      }
+    };
+
+    // Show overlay
+    overlay.classList.add('show');
+  }
     // update when overlay toggles change
     ['toggle-sfra','toggle-frz','toggle-p56','toggle-ac-p56','toggle-ac-frz','toggle-ac-sfra','toggle-ac-vicinity','toggle-ac-ground'].forEach(id => {
       const elc = document.getElementById(id);

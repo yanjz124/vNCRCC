@@ -339,3 +339,29 @@ async def p56_clear(request: Request, payload: Dict[str, str] = Body(...)) -> Di
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to clear P56 history: {e}")
     return {"status": "ok", "cleared": True}
+
+
+@router.post("/purge")
+@limiter.limit("6/minute")
+async def p56_purge(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Purge selected P-56 events from history.
+
+    Payload must include the server admin password and either:
+      - keys: ["<cid>:<recorded_at>", ...]
+      - items: [{"cid": "...", "recorded_at": 1234567890.0}, ...]
+    """
+    admin_pwd = os.getenv("VNCRCC_ADMIN_PASSWORD")
+    if not admin_pwd:
+        raise HTTPException(status_code=403, detail="Server admin password not configured")
+    provided = (payload or {}).get("password")
+    if not provided or provided != admin_pwd:
+        raise HTTPException(status_code=403, detail="Invalid password")
+
+    keys = (payload or {}).get("keys") or []
+    items = (payload or {}).get("items") or []
+    try:
+        from ...p56_history import purge_events
+        result = purge_events(keys=keys, items=items)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to purge events: {e}")
