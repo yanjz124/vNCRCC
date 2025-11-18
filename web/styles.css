@@ -130,7 +130,7 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .build-info{margin-top:8px;font-size:0.85rem;color:#8b9db8;font-family:monospace}
 .build-info .github-link{display:inline-flex;align-items:center;gap:6px;margin-right:8px;color:#cfe6ff;text-decoration:none}
 .build-info .github-link:hover{color:#9fc5ff}
-.build-info .gh-icon{width:18px;height:18px;fill:currentColor;display:inline-block;vertical-align:middle}
+.build-info .gh-icon{width:20px;height:20px;fill:currentColor;display:inline-block;vertical-align:middle}
 /* flight plan tooltip styling */
 .fp-tooltip .fp{white-space:pre-wrap;max-width:360px;display:block;color:#fff;font-size:12px}
 .fp-tooltip{background:rgba(6,10,14,0.98);border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:4px}

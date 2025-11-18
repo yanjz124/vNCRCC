@@ -4,6 +4,44 @@
   const DCA = [38.8514403, -77.0377214];
   const DEFAULT_RANGE_NM = 300;
   const REFRESH = 15000;
+  // Add light client-side jitter and shared cooldown to de-sync tabs and respect 429s
+  const JITTER_PCT = 0.10; // +/-10%
+  const COOLDOWN_KEY = 'vncrcc.cooldownUntil';
+
+  function withJitter(ms){
+    const delta = ms * JITTER_PCT;
+    return Math.max(0, Math.round(ms + (Math.random()*2*delta - delta)));
+  }
+  function getSharedCooldownUntil(){
+    try{ const v = parseInt(localStorage.getItem(COOLDOWN_KEY)||'0',10); return isNaN(v)?0:v; }catch(e){ return 0; }
+  }
+  function setSharedCooldownUntil(ts){
+    try{ localStorage.setItem(COOLDOWN_KEY, String(ts)); }catch(e){}
+  }
+  function parseRetryAfter(header){
+    if(!header) return null;
+    const h = String(header).trim();
+    if(/^\d+$/.test(h)) return Date.now() + parseInt(h,10)*1000; // seconds
+    const t = Date.parse(h);
+    return isNaN(t) ? null : t;
+  }
+  async function fetchWithBackoff(url, opts){
+    // Respect shared cooldown across tabs
+    const now = Date.now();
+    const until = getSharedCooldownUntil();
+    if(until > now){ const err = new Error('In shared cooldown'); err.code='COOLDOWN'; err.retryAt=until; throw err; }
+    const resp = await fetch(url, opts);
+    if(resp.status === 429){
+      const ra = resp.headers.get('Retry-After');
+      const parsed = parseRetryAfter(ra);
+      const fallback = now + REFRESH; // default to one base cycle
+      const retryAt = parsed || fallback;
+      const jittered = now + Math.round((retryAt - now) * (0.9 + Math.random()*0.2));
+      setSharedCooldownUntil(jittered);
+      const err = new Error('Rate limited'); err.code='RATE_LIMIT'; err.retryAt=jittered; throw err;
+    }
+    return resp;
+  }
 
   const el = id => document.getElementById(id);
   
@@ -477,7 +515,7 @@
 
   async function loadGeo(name){
     try{
-      const res = await fetch(`${API_ROOT}/geo/?name=${encodeURIComponent(name)}`);
+      const res = await fetchWithBackoff(`${API_ROOT}/geo/?name=${encodeURIComponent(name)}`);
       if(!res.ok) return null;
       return await res.json();
     }catch(e){return null}
@@ -582,7 +620,7 @@
   }
 
   async function fetchAllAircraft(){
-    const res = await fetch(`${API_ROOT}/aircraft/list`);
+    const res = await fetchWithBackoff(`${API_ROOT}/aircraft/list`);
     if(!res.ok) return [];
     const j = await res.json();
     return j.aircraft || [];
@@ -592,7 +630,7 @@
     const key = `${lat.toFixed(4)}:${lon.toFixed(4)}`;
     if(elevCache[key]) return elevCache[key];
     try{
-      const res = await fetch(`${API_ROOT}/elevation/?lat=${lat}&lon=${lon}`);
+      const res = await fetchWithBackoff(`${API_ROOT}/elevation/?lat=${lat}&lon=${lon}`);
       if(!res.ok) return null;
       const j = await res.json();
       elevCache[key] = j.elevation_m;
@@ -975,7 +1013,7 @@
   // always match. We still fetch P56 history for the details panel but the
   // count/listing will be driven by client-side classification below.
     console.log('Fetching P56 history for details...');
-    const p56json = await fetch(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}});
+    const p56json = await fetchWithBackoff(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}}).catch(()=>({breaches:[],history:{}}));
     // Build a quick lookup set of CIDs currently inside P-56 so we can
     // force their marker color to the P-56 color regardless of on-ground state.
     const currentP56Cids = new Set();
@@ -1002,8 +1040,8 @@
     // to ensure the UI populates even if client-side classification can't work.
     if (!overlays.p56.sfra || !overlays.p56.frz) {
       console.log('Geo overlays not loaded, falling back to API for SFRA/FRZ lists');
-      const sfrajson = await fetch(`${API_ROOT}/sfra/`).then(r=>r.ok?r.json():{aircraft:[]});
-      const frzjson = await fetch(`${API_ROOT}/frz/`).then(r=>r.ok?r.json():{aircraft:[]});
+      const sfrajson = await fetchWithBackoff(`${API_ROOT}/sfra/`).then(r=>r.ok?r.json():{aircraft:[]}).catch(()=>({aircraft:[]}));
+      const frzjson = await fetchWithBackoff(`${API_ROOT}/frz/`).then(r=>r.ok?r.json():{aircraft:[]}).catch(()=>({aircraft:[]}));
       sfraList.push(...(sfrajson.aircraft || []));
       frzList.push(...(frzjson.aircraft || []));
     }
@@ -2219,7 +2257,7 @@
   async function fetchHistoryData() {
     try {
       const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
-      const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
+      const response = await fetchWithBackoff(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
       return await response.json();
     } catch (error) {
       console.error('Failed to fetch history data:', error);
@@ -2230,7 +2268,7 @@
   // Fetch and display build version/timestamp
   async function fetchBuildInfo(){
     try{
-      const resp = await fetch('/api/version');
+      const resp = await fetchWithBackoff('/api/version');
       const data = await resp.json();
       if(data.version){
         el('build-version').textContent = data.version;
@@ -2258,8 +2296,23 @@
   loadOverlays().then(()=>pollAircraftThenRefresh()).then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
   // ensure maps reflow on window resize
   window.addEventListener('resize', ()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
-  // run periodic polling: each tick first fetches aircraft, then immediately
-  // runs the remaining refresh logic so other API calls stay in sync.
-  window.setInterval(()=>{ pollAircraftThenRefresh().then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} }); }, REFRESH);
+  // run periodic polling with jitter and shared cooldown awareness
+  function scheduleNextPoll(baseMs){
+    const now = Date.now();
+    const cooldownRemaining = Math.max(0, getSharedCooldownUntil() - now);
+    const delay = Math.max(withJitter(baseMs), cooldownRemaining);
+    window.setTimeout(async ()=>{
+      try {
+        await pollAircraftThenRefresh();
+      } catch (e) {
+        // If rate-limited, honor the stored cooldown next tick
+        console.warn('Poll error', e);
+      } finally {
+        try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){}
+        scheduleNextPoll(REFRESH);
+      }
+    }, delay);
+  }
+  scheduleNextPoll(REFRESH);
 
 })();
