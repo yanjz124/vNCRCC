@@ -223,20 +223,21 @@
       
       // Update each visible path
       for (const cid of visiblePaths) {
-        const history = data.history?.[cid];
+        const cidKey = String(cid);
+        const history = data.history?.[cidKey];
         if (!history || history.length < 2) {
-          console.log(`No history data for CID ${cid} (${history?.length || 0} points)`);
+          console.log(`No history data for CID ${cidKey} (${history?.length || 0} points)`);
           continue;
         }
         
-        console.log(`Updating path for CID ${cid} with ${history.length} points`);
+        console.log(`Updating path for CID ${cidKey} with ${history.length} points`);
         
         // Update on both maps
         [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
           let removedCount = 0;
           // Remove old polyline for this CID
           pathLayer.eachLayer(layer => {
-            if (layer._flightPathCid === cid) {
+            if (layer._flightPathCid === cidKey) {
               pathLayer.removeLayer(layer);
               removedCount++;
             }
@@ -250,11 +251,11 @@
             opacity: 0.8,
             dashArray: '5, 5'
           });
-          polyline._flightPathCid = cid;
+          polyline._flightPathCid = cidKey;
           pathLayer.addLayer(polyline);
           
           if (removedCount > 0) {
-            console.log(`Replaced ${removedCount} old polyline(s) with new one for CID ${cid}`);
+            console.log(`Replaced ${removedCount} old polyline(s) with new one for CID ${cidKey}`);
           }
         });
       }
@@ -265,6 +266,8 @@
 
   // Function to toggle flight path for an aircraft (shows/hides on BOTH maps)
   async function toggleFlightPath(cid, mapType) {
+    // Normalize CID to string for consistent keys across UI and layers
+    const cidKey = String(cid);
     // Helper: find and toggle table row highlight/expansion for sfra/frz/p56-current rows
     function setRowHighlight(cidVal, show){
       try{
@@ -303,27 +306,27 @@
       }catch(e){}
     }
 
-    if (visiblePaths.has(cid)) {
+    if (visiblePaths.has(cidKey)) {
       // Hide path - remove all polylines for this CID from BOTH maps
       [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
         pathLayer.eachLayer(layer => {
-          if (layer._flightPathCid === cid) {
+          if (layer._flightPathCid === cidKey) {
             pathLayer.removeLayer(layer);
           }
         });
       });
-      visiblePaths.delete(cid);
+      visiblePaths.delete(cidKey);
       // remove visual highlights
-      setRowHighlight(cid, false);
-      setMarkerHalo(cid, false);
-      console.log(`Hidden flight path for ${cid}`);
+      setRowHighlight(cidKey, false);
+      setMarkerHalo(cidKey, false);
+      console.log(`Hidden flight path for ${cidKey}`);
     } else {
       // Show path - fetch history and draw polyline on BOTH maps
       try {
         const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
         const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
         const data = await response.json();
-        const history = data.history?.[cid];
+        const history = data.history?.[cidKey];
 
         if (history && history.length > 1) {
           // Create lat/lng points from history
@@ -339,22 +342,22 @@
             });
             
             // Mark this polyline with the CID for later removal
-            polyline._flightPathCid = cid;
+            polyline._flightPathCid = cidKey;
             pathLayer.addLayer(polyline);
           });
 
-          visiblePaths.add(cid);
+          visiblePaths.add(cidKey);
 
           // add visual highlights
-          setRowHighlight(cid, true);
-          setMarkerHalo(cid, true);
+          setRowHighlight(cidKey, true);
+          setMarkerHalo(cidKey, true);
 
-          console.log(`Shown flight path for ${cid} with ${points.length} points on both maps`);
+          console.log(`Shown flight path for ${cidKey} with ${points.length} points on both maps`);
         } else {
-          console.log(`No history data available for ${cid}`);
+          console.log(`No history data available for ${cidKey}`);
         }
       } catch (error) {
-        console.error(`Failed to fetch history for ${cid}:`, error);
+        console.error(`Failed to fetch history for ${cidKey}:`, error);
       }
     }
   }
