@@ -268,16 +268,26 @@ async function updateMetrics() {
     errElem.className = 'metric-value ' + (errorRate > 10 ? 'status-danger' : errorRate > 1 ? 'status-warning' : 'status-good');
     
     // Disk usage
-    const diskFree = data.resources?.disk?.free_gb || 0;
-    const diskPct = data.resources?.disk?.percent || 0;
     const diskElem = document.getElementById('disk-usage');
-    diskElem.textContent = diskFree.toFixed(1);
-    diskElem.className = 'metric-value ' + (diskPct > 90 ? 'status-danger' : diskPct > 80 ? 'status-warning' : 'status-good');
+    if (data.resources?.error || !data.resources?.disk) {
+      diskElem.textContent = 'N/A';
+      diskElem.className = 'metric-value';
+    } else {
+      const diskFree = data.resources.disk.free_gb || 0;
+      const diskPct = data.resources.disk.percent || 0;
+      diskElem.textContent = diskFree.toFixed(1);
+      diskElem.className = 'metric-value ' + (diskPct > 90 ? 'status-danger' : diskPct > 80 ? 'status-warning' : 'status-good');
+    }
     
     // Network I/O
-    const bytesSent = (data.resources?.network?.bytes_sent || 0) / (1024 * 1024); // Convert to MB
-    const bytesRecv = (data.resources?.network?.bytes_recv || 0) / (1024 * 1024);
-    document.getElementById('network-io').textContent = `${bytesSent.toFixed(0)} / ${bytesRecv.toFixed(0)}`;
+    const netElem = document.getElementById('network-io');
+    if (data.resources?.error || !data.resources?.network) {
+      netElem.textContent = 'N/A';
+    } else {
+      const bytesSent = (data.resources.network.bytes_sent || 0) / (1024 * 1024); // Convert to MB
+      const bytesRecv = (data.resources.network.bytes_recv || 0) / (1024 * 1024);
+      netElem.textContent = `${bytesSent.toFixed(0)} / ${bytesRecv.toFixed(0)}`;
+    }
     
     // Update history
     const now = new Date();
