@@ -41,15 +41,35 @@ fi
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Installing requirements" | tee -a "$LOGFILE"
-pip install --upgrade pip
-pip install -r requirements.txt
+# Smart pip install: only reinstall if requirements.txt changed
+REQS_CHANGED=false
+if ! git diff HEAD@{1} HEAD --quiet -- requirements.txt 2>/dev/null; then
+  REQS_CHANGED=true
+fi
+
+if [ "$REQS_CHANGED" = true ]; then
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Requirements changed, installing updates" | tee -a "$LOGFILE"
+  pip install --upgrade pip
+  pip install -r requirements.txt
+else
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] No changes to requirements.txt, skipping pip install" | tee -a "$LOGFILE"
+fi
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Copying web files to nginx document root" | tee -a "$LOGFILE"
 sudo cp -r "$REPO_DIR/web"/* /var/www/html/web/ 2>&1 | tee -a "$LOGFILE" || true
 
-echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Restarting systemd service vncrcc" | tee -a "$LOGFILE"
-sudo systemctl restart vncrcc.service
+# Smart service restart: only restart if backend Python code or requirements changed
+BACKEND_CHANGED=false
+if ! git diff HEAD@{1} HEAD --quiet -- 'src/' 'requirements.txt' 2>/dev/null; then
+  BACKEND_CHANGED=true
+fi
+
+if [ "$BACKEND_CHANGED" = true ]; then
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Backend changes detected, restarting service" | tee -a "$LOGFILE"
+  sudo systemctl restart vncrcc.service
+else
+  echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] No backend changes, skipping service restart (frontend-only update)" | tee -a "$LOGFILE"
+fi
 
 echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Deploy finished" | tee -a "$LOGFILE"
 
