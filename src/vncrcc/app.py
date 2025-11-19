@@ -214,7 +214,7 @@ async def health() -> dict:
 async def metrics_redirect() -> Response:
     """Redirect /metrics to /metrics.html for convenience."""
     from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/metrics.html", status_code=302)
+    return RedirectResponse(url="/metrics.html", status_code=301)
 
 
 @app.get("/api/version")

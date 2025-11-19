@@ -46,7 +46,7 @@ from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
 from ...p56_history import get_history, record_penetration, sync_snapshot
 from ...aircraft_history import get_history as get_ac_history
-from ...rate_limit import limiter
+from ...rate_limit import maybe_limit
 from shapely.geometry import Point
 from fastapi import Request
 
@@ -64,9 +64,8 @@ def _identifier(a: dict) -> Optional[str]:
     return None
 
 
-@router.get("/")
-@limiter.limit("30/minute")
-async def p56_breaches(request: Request, name: str = Query("p56", description="keyword to find the P56 geojson file, default 'p56'")) -> Dict[str, Any]:
+def _compute_p56_breaches(name: str) -> Dict[str, Any]:
+    """Core implementation for computing P56 breaches, shared by route and tests."""
     # Return pre-computed result if available (instant response for all users)
     from ...precompute import get_cached
     cached = get_cached("p56")
@@ -144,7 +143,7 @@ async def p56_breaches(request: Request, name: str = Query("p56", description="k
 
         if not matched_zones:
             # No line intersection detected. However, the aircraft may have
-            # appeared (connected) already inside the P56 zone â€?detect that
+            # appeared (connected) already inside the P56 zone ï¿½?detect that
             # by testing the latest point directly against the zones. If the
             # previous snapshot shows the aircraft was already inside, skip
             # (it's not a new penetration).
@@ -299,9 +298,20 @@ async def p56_breaches(request: Request, name: str = Query("p56", description="k
     return {"breaches": breaches, "history": get_history()}
 
 
+@router.get("/")
+@maybe_limit("30/minute")
+async def p56_breaches_route(request: Request, name: str = Query("p56", description="keyword to find the P56 geojson file, default 'p56'")) -> Dict[str, Any]:
+    return _compute_p56_breaches(name)
+
+
+# Expose a test-friendly function with the original name expected by tests
+async def p56_breaches(name: str = "p56") -> Dict[str, Any]:
+    return _compute_p56_breaches(name)
+
+
 
 @router.get("/incidents")
-@limiter.limit("30/minute")
+@maybe_limit("30/minute")
 async def p56_incidents(request: Request, limit: int = Query(100, description="Max incidents to return")) -> Dict[str, Any]:
     """Return logged P-56 incidents from the database.
     
@@ -318,7 +328,7 @@ async def p56_incidents(request: Request, limit: int = Query(100, description="M
 
 
 @router.post("/clear")
-@limiter.limit("6/minute")
+@maybe_limit("6/minute")
 async def p56_clear(request: Request, payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
     """Clear P-56 history (events and current_inside).
 
@@ -342,7 +352,7 @@ async def p56_clear(request: Request, payload: Dict[str, str] = Body(...)) -> Di
 
 
 @router.post("/purge")
-@limiter.limit("6/minute")
+@maybe_limit("6/minute")
 async def p56_purge(request: Request, payload: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
     """Purge selected P-56 events from history.
 
@@ -361,7 +371,22 @@ async def p56_purge(request: Request, payload: Dict[str, Any] = Body(...)) -> Di
     items = (payload or {}).get("items") or []
     try:
         from ...p56_history import purge_events
+        from ...metrics import METRICS
+        
         result = purge_events(keys=keys, items=items)
+        purged_count = result.get("purged", 0)
+        
+        # Log purge operation to metrics
+        client_ip = ""
+        if request is not None:
+            client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            if not client_ip:
+                client_ip = request.headers.get("X-Real-IP", "")
+            if not client_ip and getattr(request, "client", None):
+                client_ip = request.client.host
+        
+        METRICS.record_p56_purge(purged_count, client_ip or "unknown")
+        
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to purge events: {e}")

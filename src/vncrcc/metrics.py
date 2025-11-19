@@ -25,6 +25,9 @@ class MetricsTracker:
         # Track unique IPs: {ip: last_seen_timestamp}
         self._active_ips: Dict[str, float] = {}
         
+        # Track P56 purge operations: deque of (timestamp, count, client_ip)
+        self._p56_purges: deque = deque(maxlen=100)
+        
         # Process start time
         self._start_time = time.time()
     
@@ -38,6 +41,11 @@ class MetricsTracker:
         """Record an error for an endpoint."""
         now = time.time()
         self._errors[endpoint].append((now, error_type))
+    
+    def record_p56_purge(self, count: int, client_ip: str) -> None:
+        """Record a P56 purge operation."""
+        now = time.time()
+        self._p56_purges.append((now, count, client_ip))
     
     def get_active_users(self) -> int:
         """Get count of unique IPs active in the last window."""
@@ -121,6 +129,18 @@ class MetricsTracker:
             }
         return stats
     
+    def get_p56_purge_history(self) -> list:
+        """Get P56 purge history with formatted timestamps."""
+        history = []
+        for ts, count, ip in self._p56_purges:
+            history.append({
+                "timestamp": datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S"),
+                "count": count,
+                "ip": ip,
+                "unix_ts": int(ts)
+            })
+        return list(reversed(history))  # Most recent first
+    
     def get_summary(self) -> dict:
         """Get a comprehensive metrics summary."""
         return {
@@ -137,6 +157,7 @@ class MetricsTracker:
             },
             "resources": self.get_resource_usage(),
             "endpoints": self.get_endpoint_stats(),
+            "p56_purges": self.get_p56_purge_history(),
         }
 
 

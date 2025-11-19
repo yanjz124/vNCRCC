@@ -339,6 +339,28 @@ async function updateMetrics() {
         tbody.appendChild(row);
       });
     
+    // Update P56 purge history table
+    const purges = data.p56_purges || [];
+    const purgesTbody = document.getElementById('purges-tbody');
+    const noPurges = document.getElementById('no-purges');
+    
+    if (purges.length === 0) {
+      purgesTbody.innerHTML = '';
+      noPurges.style.display = 'block';
+    } else {
+      noPurges.style.display = 'none';
+      purgesTbody.innerHTML = '';
+      purges.forEach(purge => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${purge.timestamp}</td>
+          <td>${purge.count}</td>
+          <td><code>${purge.ip}</code></td>
+        `;
+        purgesTbody.appendChild(row);
+      });
+    }
+    
   } catch (err) {
     console.error('Failed to fetch metrics', err);
     document.getElementById('last-update').textContent = 'Error loading metrics';

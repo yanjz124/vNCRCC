@@ -38,7 +38,11 @@ class Storage:
         # 3. VNCRCC_DATABASE_URL env var
         # 4. default sqlite file `vncrcc.db`
         if db_url:
-            url = db_url
+            # If a raw filesystem path was passed positionally (legacy tests), convert to sqlite URL
+            if "://" not in db_url and not db_url.startswith("sqlite:"):
+                url = f"sqlite:///{db_url}"
+            else:
+                url = db_url
         elif db_path:
             # If db_path looks like an in-memory or file path, convert to sqlite URL
             if db_path == ":memory:" or db_path.startswith("file:"):
