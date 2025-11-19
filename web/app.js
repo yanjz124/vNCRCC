@@ -1068,6 +1068,11 @@
     const vipList = vipjson.aircraft || [];
     el('vip-count').textContent = vipList.length;
 
+    console.log('Fetching ZDC controllers...');
+    const ctrlsjson = await fetchWithBackoff(`${API_ROOT}/controllers/`).then(r=>r.ok?r.json():{controllers:[],count:0}).catch(()=>({controllers:[],count:0}));
+    const controllersList = ctrlsjson.controllers || [];
+    el('controllers-count').textContent = controllersList.length;
+
   // keep a local copy of the latest aircraft snapshot for lookups
   const latest_ac = aircraft || [];
 
@@ -1650,6 +1655,18 @@
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
         return `<td><strong>${it.callsign || ''}</strong></td><td>${it.vip_title || ''}</td><td>${it.vip_type || ''}</td><td>${acType}</td><td>${it.name || ''}</td><td>${cid}</td><td>${Math.round(it.altitude || 0)}</td><td>${Math.round(it.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
       }, it => `vip:${it.cid || it.callsign || ''}`);
+
+      // Render Controllers table
+      renderTable('controllers-tbody', controllersList, it => {
+        const cid = it.cid || '';
+        const name = it.realName || '';
+        const callsign = it.callsign || '';
+        const facility = it.facilityId || '';
+        const position = it.positionName || '';
+        const freq = it.frequency || '';
+        const rating = it.rating || '';
+        return `<td><strong>${callsign}</strong></td><td>${name}</td><td>${cid}</td><td>${facility}</td><td>${position}</td><td>${freq}</td><td>${rating}</td>`;
+      }, it => `ctrl:${it.cid || it.callsign || ''}`);
     }catch(e){ console.error('Error rendering lists after markers', e); }
 
     // prune expandedSet entries for keys that are no longer present in any table

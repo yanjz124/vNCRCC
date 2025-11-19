@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from . import aircraft, sfra, frz, p56, incidents, vso, geo, elevation, vip
+from . import aircraft, sfra, frz, p56, incidents, vso, geo, elevation, vip, controllers
 
 router = APIRouter(prefix="/v1")
 router.include_router(aircraft.router)
@@ -12,5 +12,6 @@ router.include_router(vso.router)
 router.include_router(geo.router)
 router.include_router(elevation.router)
 router.include_router(vip.router)
+router.include_router(controllers.router)
 
 __all__ = ["router"]
