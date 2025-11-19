@@ -22,8 +22,6 @@ main{padding:12px}
 .panel{min-width:0}
 #vip-panel{border:2px solid #ffd700;background:linear-gradient(135deg,rgba(13,37,56,0.95) 0%,rgba(7,16,22,0.95) 100%)}
 #vip-panel h2{color:#ffd700;text-shadow:0 0 10px rgba(255,215,0,0.5)}
-#controllers-panel{border:2px solid #5bc0de;background:linear-gradient(135deg,rgba(13,37,56,0.95) 0%,rgba(7,16,22,0.95) 100%)}
-#controllers-panel h2{color:#5bc0de;text-shadow:0 0 10px rgba(91,192,222,0.4)}
 .panel ul{max-width:100%;overflow-wrap:break-word}
 .vso-controls{display:flex;align-items:center;gap:12px;margin-bottom:8px}
 .vso-controls label{color:#dfefff}
