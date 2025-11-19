@@ -65,7 +65,7 @@ def _identifier(a: dict) -> Optional[str]:
 
 
 @router.get("/")
-@limiter.limit("12/minute")
+@limiter.limit("30/minute")
 async def p56_breaches(request: Request, name: str = Query("p56", description="keyword to find the P56 geojson file, default 'p56'")) -> Dict[str, Any]:
     # Return pre-computed result if available (instant response for all users)
     from ...precompute import get_cached
@@ -144,7 +144,7 @@ async def p56_breaches(request: Request, name: str = Query("p56", description="k
 
         if not matched_zones:
             # No line intersection detected. However, the aircraft may have
-            # appeared (connected) already inside the P56 zone â€” detect that
+            # appeared (connected) already inside the P56 zone â€?detect that
             # by testing the latest point directly against the zones. If the
             # previous snapshot shows the aircraft was already inside, skip
             # (it's not a new penetration).
@@ -301,7 +301,7 @@ async def p56_breaches(request: Request, name: str = Query("p56", description="k
 
 
 @router.get("/incidents")
-@limiter.limit("12/minute")
+@limiter.limit("30/minute")
 async def p56_incidents(request: Request, limit: int = Query(100, description="Max incidents to return")) -> Dict[str, Any]:
     """Return logged P-56 incidents from the database.
     

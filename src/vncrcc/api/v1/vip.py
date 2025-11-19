@@ -8,7 +8,7 @@ router = APIRouter(prefix="/vip", tags=["vip"])
 
 
 @router.get("/")
-@limiter.limit("12/minute")
+@limiter.limit("30/minute")
 async def get_vip_activity(request: Request) -> dict:
     """
     Return currently active VIP aircraft on VATSIM network.

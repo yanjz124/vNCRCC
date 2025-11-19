@@ -67,7 +67,7 @@ def _dca_radial_range(lat: float, lon: float) -> dict:
 
 
 def _compute_geofence(aircraft: List[Dict[str, Any]], geo_keyword: str, max_altitude: Optional[float] = None) -> List[Dict[str, Any]]:
-    """Compute which aircraft are inside a geofence.
+    """Compute which aircraft are inside a geofence using spatial indexing.
 
     Args:
         aircraft: List of aircraft dicts from VATSIM data
@@ -81,6 +81,18 @@ def _compute_geofence(aircraft: List[Dict[str, Any]], geo_keyword: str, max_alti
     if not shapes:
         logger.warning(f"No geo shapes found for keyword '{geo_keyword}'")
         return []
+
+    # Build spatial index (STRtree) for O(log n) lookups instead of O(n)
+    # Only create index if we have multiple shapes or many aircraft (worth the overhead)
+    try:
+        from shapely.strtree import STRtree
+        if len(shapes) > 1 or len(aircraft) > 50:
+            shape_geoms = [shp for shp, _ in shapes]
+            tree = STRtree(shape_geoms)
+        else:
+            tree = None
+    except Exception:
+        tree = None
 
     inside: List[Dict[str, Any]] = []
     for a in aircraft:
@@ -99,16 +111,33 @@ def _compute_geofence(aircraft: List[Dict[str, Any]], geo_keyword: str, max_alti
             if alt_val is None or alt_val > max_altitude:
                 continue
 
-        for shp, props in shapes:
+        # Use spatial index if available
+        if tree:
             try:
-                inside_match = shp.contains(pt) or shp.touches(pt)
+                candidates = tree.query(pt)
+                for candidate_shp in candidates:
+                    if candidate_shp.contains(pt) or candidate_shp.touches(pt):
+                        # Find matching props for this shape
+                        for shp, props in shapes:
+                            if shp == candidate_shp:
+                                dca = _dca_radial_range(pt.y, pt.x)
+                                inside.append({"aircraft": a, "matched_props": props, "dca": dca})
+                                break
+                        break
             except Exception:
-                inside_match = False
+                pass  # Fallback to linear search
+        else:
+            # Linear search fallback for small datasets
+            for shp, props in shapes:
+                try:
+                    inside_match = shp.contains(pt) or shp.touches(pt)
+                except Exception:
+                    inside_match = False
 
-            if inside_match:
-                dca = _dca_radial_range(pt.y, pt.x)
-                inside.append({"aircraft": a, "matched_props": props, "dca": dca})
-                break
+                if inside_match:
+                    dca = _dca_radial_range(pt.y, pt.x)
+                    inside.append({"aircraft": a, "matched_props": props, "dca": dca})
+                    break
 
     return inside
 
@@ -304,12 +333,27 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
 
     This runs synchronously in the fetch callback, so keep it fast.
     If computation takes >1s, consider offloading to a thread pool.
+    
+    EVENT SURGE MODE: Automatically reduces radius when aircraft count is high
+    to keep processing time reasonable on resource-constrained hardware.
     """
     try:
         start = datetime.now()
         aircraft = data.get("pilots") or data.get("aircraft") or []
+        total_aircraft = len(aircraft)
+        
+        # Dynamic radius adjustment for event surge protection
+        # When VATSIM has 500+ aircraft, reduce processing load by focusing on core area
+        effective_radius = _TRIM_RADIUS_NM
+        if total_aircraft > 500:
+            effective_radius = min(_TRIM_RADIUS_NM, 80)  # Reduce to 80nm during mega events
+            logger.warning(f"EVENT SURGE: {total_aircraft} aircraft detected, reducing radius to {effective_radius}nm")
+        elif total_aircraft > 300:
+            effective_radius = min(_TRIM_RADIUS_NM, 150)  # Reduce to 150nm during large events
+            logger.info(f"High traffic detected: {total_aircraft} aircraft, reducing radius to {effective_radius}nm")
+        
         # Trim dataset to within configured radius of DCA to minimize processing
-        if aircraft and _TRIM_RADIUS_NM and _TRIM_RADIUS_NM > 0:
+        if aircraft and effective_radius and effective_radius > 0:
             trimmed: List[Dict[str, Any]] = []
             for a in aircraft:
                 try:
@@ -318,12 +362,22 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
                     if lat is None or lon is None:
                         continue
                     d = _dca_radial_range(float(lat), float(lon))
-                    if d.get("range_nm", 1e9) <= _TRIM_RADIUS_NM:
+                    if d.get("range_nm", 1e9) <= effective_radius:
                         trimmed.append(a)
                 except Exception:
                     continue
             aircraft = trimmed
         count = len(aircraft)
+        
+        # Store surge mode status in cache for /api/status endpoint
+        _CACHE["system_status"] = {
+            "total_aircraft_vatsim": total_aircraft,
+            "processed_aircraft": count,
+            "configured_radius_nm": _TRIM_RADIUS_NM,
+            "effective_radius_nm": effective_radius,
+            "surge_mode": effective_radius < _TRIM_RADIUS_NM,
+            "computed_at": ts
+        }
 
         # Compute SFRA violations (altitude <= 17999 ft)
         sfra_results = _compute_geofence(aircraft, "sfra", max_altitude=17999)

@@ -7,7 +7,7 @@ router = APIRouter(prefix="/controllers", tags=["controllers"])
 
 
 @router.get("/")
-@limiter.limit("12/minute")
+@limiter.limit("30/minute")
 async def get_controllers(request: Request) -> dict:
     """
     Return currently active ZDC controllers from vNAS.
