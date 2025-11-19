@@ -103,12 +103,17 @@ main{padding:12px}
 ul{margin:6px 0;padding-left:18px}
 li{margin-bottom:6px}
 .legend{position:absolute;right:12px;top:12px;background:rgba(6,10,14,0.85);padding:10px;border-radius:6px;color:#dfefff;z-index:4000}
-.legend .swatch{display:inline-block;width:14px;height:14px;margin-right:8px;border-radius:3px;vertical-align:middle}
-.legend .frz{background:#f0ad4e}
-.legend .p56{background:#d9534f}
-.legend .sfra{background:#0275d8}
-.legend .ground{background:#6c757d}
-.legend .vicinity{background:#28a745}
+/* Colored checkmark labels */
+.legend .legend-check{display:flex;align-items:center;cursor:pointer;user-select:none}
+.legend .legend-check input[type="checkbox"]{margin:0;opacity:0;width:0;height:0;position:absolute}
+.legend .legend-check .checkmark{font-size:16px;font-weight:bold;margin-right:6px;transition:opacity 0.2s}
+.legend .legend-check input[type="checkbox"]:not(:checked) + .checkmark{opacity:0.3}
+/* Color classes for checkmarks and airspace borders */
+.legend .frz .checkmark{color:#f0ad4e}
+.legend .p56 .checkmark{color:#d9534f}
+.legend .sfra .checkmark{color:#0275d8}
+.legend .ground .checkmark{color:#6c757d}
+.legend .vicinity .checkmark{color:#28a745}
 /* aircraft tooltip */
 /* Ensure tooltip text is readable even when Leaflet applies default styles.
 	Use selector specificity so our styles take precedence. */
