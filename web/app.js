@@ -2497,10 +2497,23 @@
   // ensure maps reflow on window resize
   window.addEventListener('resize', ()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
   // run periodic polling with jitter and shared cooldown awareness
+  // Adaptive polling: reduce frequency when tab is not visible to save server resources
+  let isPageVisible = !document.hidden;
+  const INACTIVE_MULTIPLIER = 1.5; // Poll 50% slower when tab hidden (15s → 22.5s)
+  
+  document.addEventListener('visibilitychange', () => {
+    isPageVisible = !document.hidden;
+    console.log(`Page visibility changed: ${isPageVisible ? 'visible' : 'hidden'}`);
+  });
+  
   function scheduleNextPoll(baseMs){
     const now = Date.now();
     const cooldownRemaining = Math.max(0, getSharedCooldownUntil() - now);
-    const delay = Math.max(withJitter(baseMs), cooldownRemaining);
+    
+    // Increase poll interval when page is hidden to reduce server load
+    const effectiveDelay = isPageVisible ? baseMs : baseMs * INACTIVE_MULTIPLIER;
+    const delay = Math.max(withJitter(effectiveDelay), cooldownRemaining);
+    
     window.setTimeout(async ()=>{
       try {
         await pollAircraftThenRefresh();
