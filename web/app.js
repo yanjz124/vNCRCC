@@ -1901,6 +1901,10 @@
     };
     console.log('Cached table data for fast sorting');
 
+    // Ensure markers are fully rendered before updating paths to prevent visual desync
+    // Use requestAnimationFrame to wait for browser to paint markers before drawing trails
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    
     // Update visible flight paths with fresh data (pass pre-fetched history if available)
     await updateVisiblePaths(historyData);
 
