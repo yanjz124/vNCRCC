@@ -196,6 +196,10 @@
   };
   // Track visible flight paths per aircraft CID
   const visiblePaths = new Set();
+  // Track current aircraft CIDs to detect when they disconnect/go out of range
+  let currentAircraftCids = new Set();
+  // Cache last known position history for incremental updates
+  const lastKnownHistory = {};
 
   // Create path layers for flight path visualization
   const p56PathLayer = L.layerGroup().addTo(p56Map);
@@ -261,43 +265,83 @@
         return await response.json();
       })();
       
-      // Update each visible path
+      // Check for disconnected/out-of-range aircraft and remove their paths
+      const pathsToRemove = [];
       for (const cid of visiblePaths) {
         const cidKey = String(cid);
-        const history = data.history?.[cidKey];
-        if (!history || history.length < 2) {
-          console.log(`No history data for CID ${cidKey} (${history?.length || 0} points)`);
-          continue;
+        // If aircraft is no longer in current data OR has no/insufficient history, remove its path
+        if (!currentAircraftCids.has(cidKey) || !data.history?.[cidKey] || data.history[cidKey].length < 2) {
+          pathsToRemove.push(cidKey);
+          console.log(`Aircraft ${cidKey} disconnected or out of range, removing path`);
         }
-        
-        console.log(`Updating path for CID ${cidKey} with ${history.length} points`);
-        
-        // Update on both maps
+      }
+      
+      // Remove paths for disconnected aircraft
+      pathsToRemove.forEach(cidKey => {
         [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
-          let removedCount = 0;
-          // Remove old polyline for this CID
           pathLayer.eachLayer(layer => {
             if (layer._flightPathCid === cidKey) {
               pathLayer.removeLayer(layer);
-              removedCount++;
             }
           });
-          
-          // Add updated polyline
-          const points = history.map(pos => [pos.lat, pos.lon]);
-          const polyline = L.polyline(points, {
-            color: '#00ff00',
-            weight: 2,
-            opacity: 0.8,
-            dashArray: '5, 5'
-          });
-          polyline._flightPathCid = cidKey;
-          pathLayer.addLayer(polyline);
-          
-          if (removedCount > 0) {
-            console.log(`Replaced ${removedCount} old polyline(s) with new one for CID ${cidKey}`);
-          }
         });
+        visiblePaths.delete(cidKey);
+        delete lastKnownHistory[cidKey];
+        // Remove visual highlights
+        highlightRowAndMarker(cidKey, false);
+      });
+      
+      // Update paths for remaining visible aircraft (incremental approach)
+      for (const cid of visiblePaths) {
+        const cidKey = String(cid);
+        const history = data.history?.[cidKey];
+        if (!history || history.length < 2) continue;
+        
+        const lastHistory = lastKnownHistory[cidKey] || [];
+        const newPoints = history.slice(lastHistory.length); // Only new points
+        
+        // If we have new points, update incrementally; otherwise full refresh if mismatch
+        if (newPoints.length > 0 && lastHistory.length > 0) {
+          // Incremental update: append new points to existing polyline
+          console.log(`Incrementally updating path for CID ${cidKey}: adding ${newPoints.length} new point(s)`);
+          
+          [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
+            pathLayer.eachLayer(layer => {
+              if (layer._flightPathCid === cidKey && layer.setLatLngs) {
+                // Get existing points and append new ones
+                const existingLatLngs = layer.getLatLngs();
+                const newLatLngs = newPoints.map(pos => [pos.lat, pos.lon]);
+                layer.setLatLngs([...existingLatLngs, ...newLatLngs]);
+              }
+            });
+          });
+        } else if (lastHistory.length === 0 || history.length !== lastHistory.length) {
+          // Full refresh if this is first update or history length mismatch (shouldn't happen but defensive)
+          console.log(`Full path update for CID ${cidKey} with ${history.length} points`);
+          
+          [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
+            // Remove old polyline
+            pathLayer.eachLayer(layer => {
+              if (layer._flightPathCid === cidKey) {
+                pathLayer.removeLayer(layer);
+              }
+            });
+            
+            // Add new polyline
+            const points = history.map(pos => [pos.lat, pos.lon]);
+            const polyline = L.polyline(points, {
+              color: '#00ff00',
+              weight: 2,
+              opacity: 0.8,
+              dashArray: '5, 5'
+            });
+            polyline._flightPathCid = cidKey;
+            pathLayer.addLayer(polyline);
+          });
+        }
+        
+        // Update cache
+        lastKnownHistory[cidKey] = history;
       }
     } catch (error) {
       console.error('Failed to update visible paths:', error);
@@ -356,6 +400,8 @@
         });
       });
       visiblePaths.delete(cidKey);
+      // Clean up history cache
+      delete lastKnownHistory[cidKey];
       // remove visual highlights
       setRowHighlight(cidKey, false);
       setMarkerHalo(cidKey, false);
@@ -387,6 +433,8 @@
           });
 
           visiblePaths.add(cidKey);
+          // Cache the initial history for incremental updates
+          lastKnownHistory[cidKey] = history;
 
           // add visual highlights
           setRowHighlight(cidKey, true);
@@ -966,6 +1014,9 @@
       return nm <= range_nm;
     });
     console.log('Filtered aircraft count:', filtered.length);
+    
+    // Update current aircraft CIDs for disconnection detection
+    currentAircraftCids = new Set(filtered.map(a => String(a.cid || '')).filter(c => c));
 
     // Precompute on-ground detection for suspicious aircraft this refresh.
     // This ensures the 'On Ground' logic runs every time data is pulled when
