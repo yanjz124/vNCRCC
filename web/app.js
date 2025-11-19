@@ -1039,13 +1039,14 @@
     }catch(e){ }
     */
     // Simple on-ground heuristic without elevation lookup
-    // Use a conservative fallback: treat aircraft as on-ground when
-    // very low GS, or when GS is low and altitude is below 1000 ft.
-    // New rule: (gs <= 5) OR (gs < 20 && alt < 1000)
+    // More lenient rules to catch fast-taxiing aircraft:
+    // 1. GS <= 10 kt (stationary/slow taxi)
+    // 2. GS < 40 kt AND alt < 500 ft (fast taxi or low approach - but 500 ft is too low for normal flight)
+    // 3. GS < 60 kt AND alt < 200 ft (very low - likely on runway or final)
     filtered.forEach(ac => {
       const gs = Number(ac.groundspeed || ac.gs || 0);
       const alt = Number(ac.altitude || ac.alt || 0);
-      ac._onGround = (gs <= 5) || (gs < 20 && alt < 1000);
+      ac._onGround = (gs <= 10) || (gs < 40 && alt < 500) || (gs < 60 && alt < 200);
     });
     console.log('On-ground detection complete (simple heuristic)');
 
@@ -1466,9 +1467,7 @@
         // If this aircraft is currently recorded as inside P-56, force its
         // visual status to P-56 so it shows the P-56 color regardless of
         // whether it's on the ground or airborne.
-        try{
-          if(currentP56Cids.has(String(ac.cid || ''))){ statusClass = 'p56'; statusText = 'P-56'; }
-        }catch(e){ }
+        if(currentP56Cids.has(String(ac.cid || ''))){ statusClass = 'p56'; statusText = 'P-56'; }
 
         // Colors: FRZ (orange), P56 (red), SFRA (blue), ground (gray), vicinity (green)
         const color = statusClass==='frz'? '#f0ad4e' : statusClass==='p56'? '#d9534f' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
@@ -1572,14 +1571,12 @@
   try{ ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass; }catch(e){}
   console.log('Added marker for', ac.callsign, 'to', statusClass, 'group');
       // Populate client-side lists so UI tables/counts match the map classification
-      // Use the final computed `statusClass` (which may be forced to 'p56'
-      // when the aircraft is currently recorded as inside P-56) so that
-      // P56 intrusions appear in the FRZ/P56 lists consistently.
+      // statusClass already incorporates area + ground status + P56 overrides
       try{
-        if(statusClass === 'sfra' || area === 'sfra') sfraList.push(ac);
-        else if(statusClass === 'frz' || area === 'frz') frzList.push(ac);
-        else if(statusClass === 'p56' || area === 'p56') p56List.push(ac);
-        else if(isGround) groundList.push(ac);
+        if(statusClass === 'sfra') sfraList.push(ac);
+        else if(statusClass === 'frz') frzList.push(ac);
+        else if(statusClass === 'p56') p56List.push(ac);
+        else if(statusClass === 'ground') groundList.push(ac);
         else airList.push(ac);
       }catch(e){/* ignore list population errors */}
       }catch(e){
