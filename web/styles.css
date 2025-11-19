@@ -20,6 +20,8 @@ main{padding:12px}
 .panel-row{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .panel-row > .panel{min-width:0}
 .panel{min-width:0}
+#vip-panel{border:2px solid #ffd700;background:linear-gradient(135deg,rgba(13,37,56,0.95) 0%,rgba(7,16,22,0.95) 100%)}
+#vip-panel h2{color:#ffd700;text-shadow:0 0 10px rgba(255,215,0,0.5)}
 .panel ul{max-width:100%;overflow-wrap:break-word}
 .vso-controls{display:flex;align-items:center;gap:12px;margin-bottom:8px}
 .vso-controls label{color:#dfefff}

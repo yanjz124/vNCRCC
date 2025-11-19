@@ -1063,6 +1063,11 @@
       Object.keys(cis).forEach(k => { try{ if(cis[k] && cis[k].inside) currentP56Cids.add(String(k)); }catch(e){} });
     }catch(e){ /* ignore */ }
 
+    console.log('Fetching VIP activity...');
+    const vipjson = await fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}));
+    const vipList = vipjson.aircraft || [];
+    el('vip-count').textContent = vipList.length;
+
   // keep a local copy of the latest aircraft snapshot for lookups
   const latest_ac = aircraft || [];
 
@@ -1630,6 +1635,21 @@
         const statusHtmlRow = `<td><span class="status-${statusSwatch} status-label">${statusText}</span></td>`;
         return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>${statusHtmlRow}`;
       }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+
+      // Render VIP table
+      renderTable('vip-tbody', vipList, it => {
+        const cid = it.cid || '';
+        const dep = (it.flight_plan && (it.flight_plan.departure || it.flight_plan.depart)) || '';
+        const arr = (it.flight_plan && (it.flight_plan.arrival || it.flight_plan.arr)) || '';
+        const acType = (it.flight_plan && it.flight_plan.aircraft_faa) || (it.flight_plan && it.flight_plan.aircraft_short) || '';
+        const squawk = it.transponder || '';
+        let squawkClass = '';
+        if (squawk === '1200') squawkClass = 'squawk-1200';
+        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+        else if (squawk === '7777') squawkClass = 'squawk-7777';
+        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
+        return `<td><strong>${it.callsign || ''}</strong></td><td>${it.vip_title || ''}</td><td>${it.vip_type || ''}</td><td>${acType}</td><td>${it.name || ''}</td><td>${cid}</td><td>${Math.round(it.altitude || 0)}</td><td>${Math.round(it.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
+      }, it => `vip:${it.cid || it.callsign || ''}`);
     }catch(e){ console.error('Error rendering lists after markers', e); }
 
     // prune expandedSet entries for keys that are no longer present in any table
