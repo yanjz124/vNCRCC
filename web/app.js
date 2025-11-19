@@ -291,44 +291,32 @@
         highlightRowAndMarker(cidKey, false);
       });
       
-      // Update paths for remaining visible aircraft (incremental approach)
+      // Update paths for remaining visible aircraft (always do full refresh for simplicity and correctness)
       for (const cid of visiblePaths) {
         const cidKey = String(cid);
         const history = data.history?.[cidKey];
         if (!history || history.length < 2) continue;
         
-        const lastHistory = lastKnownHistory[cidKey] || [];
-        const newPoints = history.slice(lastHistory.length); // Only new points
+        // Always do full path update to ensure accuracy (history can rotate/trim old points)
+        console.log(`Updating path for CID ${cidKey} with ${history.length} points`);
         
-        // If we have new points, update incrementally; otherwise full refresh if mismatch
-        if (newPoints.length > 0 && lastHistory.length > 0) {
-          // Incremental update: append new points to existing polyline
-          console.log(`Incrementally updating path for CID ${cidKey}: adding ${newPoints.length} new point(s)`);
+        [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
+          let foundLayer = null;
           
-          [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
-            pathLayer.eachLayer(layer => {
-              if (layer._flightPathCid === cidKey && layer.setLatLngs) {
-                // Get existing points and append new ones
-                const existingLatLngs = layer.getLatLngs();
-                const newLatLngs = newPoints.map(pos => [pos.lat, pos.lon]);
-                layer.setLatLngs([...existingLatLngs, ...newLatLngs]);
-              }
-            });
+          // Find existing polyline for this CID
+          pathLayer.eachLayer(layer => {
+            if (layer._flightPathCid === cidKey && layer.setLatLngs) {
+              foundLayer = layer;
+            }
           });
-        } else if (lastHistory.length === 0 || history.length !== lastHistory.length) {
-          // Full refresh if this is first update or history length mismatch (shouldn't happen but defensive)
-          console.log(`Full path update for CID ${cidKey} with ${history.length} points`);
           
-          [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
-            // Remove old polyline
-            pathLayer.eachLayer(layer => {
-              if (layer._flightPathCid === cidKey) {
-                pathLayer.removeLayer(layer);
-              }
-            });
-            
-            // Add new polyline
-            const points = history.map(pos => [pos.lat, pos.lon]);
+          const points = history.map(pos => [pos.lat, pos.lon]);
+          
+          if (foundLayer) {
+            // Update existing polyline in place (efficient, no DOM removal/recreation)
+            foundLayer.setLatLngs(points);
+          } else {
+            // Create new polyline if not found (shouldn't happen but defensive)
             const polyline = L.polyline(points, {
               color: '#00ff00',
               weight: 2,
@@ -337,8 +325,8 @@
             });
             polyline._flightPathCid = cidKey;
             pathLayer.addLayer(polyline);
-          });
-        }
+          }
+        });
         
         // Update cache
         lastKnownHistory[cidKey] = history;
