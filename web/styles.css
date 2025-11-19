@@ -23,7 +23,7 @@ main{padding:12px}
 .panel ul{max-width:100%;overflow-wrap:break-word}
 .vso-controls{display:flex;align-items:center;gap:12px;margin-bottom:8px}
 .vso-controls label{color:#dfefff}
-.vso-controls input[type="text"], .vso-controls input[type="number"]{background:#081218;border:1px solid #23303a;color:#dfefff;padding:4px;border-radius:4px}
+.vso-controls input[type="text"], .vso-controls input[type="number"]{background:#081218;border:1px solid #23303a;color:#dfefff;padding:4px;border-radius:4px;width:70px}
 .vso-controls .affiliations{display:flex;gap:8px;align-items:center}
 .aff-dropdown-container{position:relative;display:flex;gap:4px}
 .dropdown-btn{background:#0d2538;border:1px solid #23303a;color:#dfefff;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;min-width:30px}
