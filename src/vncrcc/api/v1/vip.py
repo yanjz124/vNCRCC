@@ -1,8 +1,8 @@
 """VIP activity API endpoint."""
 from fastapi import APIRouter, Request
-from ..storage import STORAGE
-from ..vip_activity import detect_vip_aircraft
-from ..rate_limit import limiter
+from ...storage import STORAGE
+from ...vip_activity import detect_vip_aircraft
+from ...rate_limit import limiter
 
 router = APIRouter(prefix="/vip", tags=["vip"])
 
