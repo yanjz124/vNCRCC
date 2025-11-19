@@ -1450,55 +1450,68 @@
   // clear per-category groups
   categories.forEach(cat => { p56MarkerGroups[cat].clearLayers(); sfraMarkerGroups[cat].clearLayers(); });
     console.log('Starting marker creation for', filtered.length, 'aircraft');
-    for(const ac of filtered){
-      try{
-      const lat = ac.latitude || ac.lat || ac.y;
-      const lon = ac.longitude || ac.lon || ac.x;
-      const heading = ac.heading || 0;
-      const groundspeed = Number(ac.groundspeed || ac.gs || 0);
-      const altitude = Number(ac.altitude || ac.alt || 0);
-      let area = classifyAircraft(ac, lat, lon, overlays);
-      let isGround = ac._onGround;
-      let statusText = isGround ? 'Ground' : 'Airborne';
-      let statusClass = isGround ? 'ground' : area;
-      // If this aircraft is currently recorded as inside P-56, force its
-      // visual status to P-56 so it shows the P-56 color regardless of
-      // whether it's on the ground or airborne.
-      try{
-        if(currentP56Cids.has(String(ac.cid || ''))){ statusClass = 'p56'; statusText = 'P-56'; }
-      }catch(e){ }
 
-      console.log('Processing', ac.callsign, 'area:', area, 'isGround:', isGround, 'statusText:', statusText, 'statusClass:', statusClass, 'lat:', lat, 'lon:', lon);
-
-  // Colors: FRZ (orange), P56 (red), SFRA (blue), ground (gray), vicinity (green)
-  const color = statusClass==='frz'? '#f0ad4e' : statusClass==='p56'? '#d9534f' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
-      // create marker/icon defensively so one failure doesn't prevent all markers from showing
-      let markerP56, markerSFRA;
-      
+    // Parallelize icon creation for all aircraft to avoid sequential blocking
+    const markerDataPromises = filtered.map(async (ac) => {
       try{
+        const lat = ac.latitude || ac.lat || ac.y;
+        const lon = ac.longitude || ac.lon || ac.x;
+        const heading = ac.heading || 0;
+        const groundspeed = Number(ac.groundspeed || ac.gs || 0);
+        const altitude = Number(ac.altitude || ac.alt || 0);
+        let area = classifyAircraft(ac, lat, lon, overlays);
+        let isGround = ac._onGround;
+        let statusText = isGround ? 'Ground' : 'Airborne';
+        let statusClass = isGround ? 'ground' : area;
+        // If this aircraft is currently recorded as inside P-56, force its
+        // visual status to P-56 so it shows the P-56 color regardless of
+        // whether it's on the ground or airborne.
+        try{
+          if(currentP56Cids.has(String(ac.cid || ''))){ statusClass = 'p56'; statusText = 'P-56'; }
+        }catch(e){ }
+
+        // Colors: FRZ (orange), P56 (red), SFRA (blue), ground (gray), vicinity (green)
+        const color = statusClass==='frz'? '#f0ad4e' : statusClass==='p56'? '#d9534f' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
+        
+        // Create icon (async operation)
         const icon = await createPlaneIcon(color, heading).catch((err)=>{
           console.warn('Icon creation failed for', ac.callsign, err);
           return null;
         });
-        if(icon){
-          markerP56 = L.marker([lat, lon], {icon: icon});
-          markerSFRA = L.marker([lat, lon], {icon: icon});
-          console.log('Created icon marker for', ac.callsign);
-        }else{
-          // fallback to small circle marker
-          markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
-          markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
-          console.log('Created circle marker fallback for', ac.callsign);
-        }
-        // tag markers with CID so we can find them later for highlighting
-        try{ const _cid = String(ac.cid||''); markerP56._flightPathCid = _cid; markerSFRA._flightPathCid = _cid; }catch(e){}
+
+        return { ac, lat, lon, heading, area, isGround, statusText, statusClass, color, icon };
       }catch(err){
-        console.error('Marker creation failed for aircraft', ac.callsign, err);
+        console.error('Failed to prepare marker data for', ac.callsign, err);
+        return null;
+      }
+    });
+
+    // Wait for all icons to be created in parallel
+    const markerDataArray = await Promise.all(markerDataPromises);
+    console.log('All icons created, now building markers synchronously');
+
+    // Now create all markers synchronously (fast DOM operations)
+    for(const markerData of markerDataArray){
+      if(!markerData) continue;
+      const {ac, lat, lon, heading, area, isGround, statusText, statusClass, color, icon} = markerData;
+      
+      try{
+      console.log('Processing', ac.callsign, 'area:', area, 'isGround:', isGround, 'statusText:', statusText, 'statusClass:', statusClass, 'lat:', lat, 'lon:', lon);
+
+      let markerP56, markerSFRA;
+      
+      if(icon){
+        markerP56 = L.marker([lat, lon], {icon: icon});
+        markerSFRA = L.marker([lat, lon], {icon: icon});
+        console.log('Created icon marker for', ac.callsign);
+      }else{
+        // fallback to small circle marker
         markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
-        console.log('Created circle marker after error for', ac.callsign);
-        try{ const _cid = String(ac.cid||''); markerP56._flightPathCid = _cid; markerSFRA._flightPathCid = _cid; }catch(e){}
+        console.log('Created circle marker fallback for', ac.callsign);
       }
+      // tag markers with CID so we can find them later for highlighting
+      try{ const _cid = String(ac.cid||''); markerP56._flightPathCid = _cid; markerSFRA._flightPathCid = _cid; }catch(e){}
   const dca = ac.dca || computeDca(lat, lon);
   const cid = ac.cid || '';
   const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
