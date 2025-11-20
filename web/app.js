@@ -1212,31 +1212,37 @@
       const tbody = document.getElementById(tbodyId);
       if(!tbody) return;
       const expandedSet = loadExpandedSet();
+      // compute colspan dynamically from the table header (mirror renderTable)
+      let colspan = 12;
+      try{
+        const table = tbody.closest('table');
+        if(table){ colspan = table.querySelectorAll('thead th').length || 12; }
+      }catch(e){}
+
       const parts = [];
-      
-      // Render airborne items
-      airborneItems.forEach(item => {
-        const key = keyFn(item);
-        const fpRow = renderFlightPlan(item, fpOptions);
-        const tdHtml = rowFn(item);
-        parts.push(`<tr class="expandable" data-key="${key}">${tdHtml}</tr>`);
-        parts.push(fpRow);
-      });
-      
-      // Insert divider if both groups have items
+      const buildRows = (items) => {
+        items.forEach(item => {
+          const key = keyFn(item);
+          let rowHtml = '';
+          try{ rowHtml = rowFn(item) || ''; }catch(err){ rowHtml = `<td colspan="${colspan}">Row error</td>`; }
+          const fpHtml = formatFlightPlan(item, fpOptions);
+          const onGroundClass = item && item._isOnGround ? ' on-ground' : '';
+          const dataAttr = key ? ` data-fp-key="${String(key).replace(/"/g,'') }"` : '';
+          const fpShow = key && expandedSet.has(key) ? ' show' : '';
+          parts.push(`<tr class="expandable${onGroundClass}"${dataAttr}>${rowHtml}</tr>`);
+          parts.push(`<tr class="flight-plan${fpShow}"${dataAttr}><td class="flight-plan-cell" colspan="${colspan}">${fpHtml}</td></tr>`);
+        });
+      };
+
+      // Airborne rows
+      buildRows(airborneItems);
+      // Divider
       if(airborneItems.length > 0 && groundItems.length > 0){
-        parts.push(`<tr class="ground-divider"><td colspan="12"></td></tr>`);
+        parts.push(`<tr class="ground-divider"><td colspan="${colspan}"></td></tr>`);
       }
-      
-      // Render ground items
-      groundItems.forEach(item => {
-        const key = keyFn(item);
-        const fpRow = renderFlightPlan(item, fpOptions);
-        const tdHtml = rowFn(item);
-        parts.push(`<tr class="expandable" data-key="${key}">${tdHtml}</tr>`);
-        parts.push(fpRow);
-      });
-      
+      // Ground rows
+      buildRows(groundItems);
+
       tbody.innerHTML = parts.join('');
 
       // Attach delegated click handler once per tbody (same pattern as renderTable)
@@ -1246,21 +1252,18 @@
           try{
             const tr = ev.target.closest('tr.expandable');
             if(!tr) return;
-            const key = tr.dataset.key;
+            const key = tr.dataset.fpKey;
             if(!key) return;
-            const tbodyIdLocal = tbody.id;
             const fpRow = tbody.querySelector(`tr.flight-plan[data-fp-key="${key}"]`);
             if(!fpRow) return;
             const opening = !fpRow.classList.contains('show');
             fpRow.classList.toggle('show');
             if(opening){ expandedSet.add(key); saveExpandedSet(expandedSet); }
             else { expandedSet.delete(key); saveExpandedSet(expandedSet); }
-
-            // Sync flight-path display similar to prior per-row handlers
             try{
-              const parts = String(key).split(':');
-              const prefix = parts[0];
-              const cidVal = parts.slice(1).join(':');
+              const partsArr = String(key).split(':');
+              const prefix = partsArr[0];
+              const cidVal = partsArr.slice(1).join(':');
               let mapType = null;
               if(prefix === 'sfra') mapType = 'sfra';
               else if(prefix === 'frz') mapType = 'p56';
@@ -1269,9 +1272,8 @@
               if(mapType && cidVal){
                 try{ toggleFlightPath(cidVal, mapType).catch(e=>console.error('toggleFlightPath error', e)); }catch(e){}
               }
-            }catch(e){ console.error('Failed to sync flight-path for delegated click', e); }
-
-          }catch(e){ console.error('tbody click handler error', e); }
+            }catch(e){ console.error('Failed to sync flight-path for divider table click', e); }
+          }catch(e){ console.error('divider table tbody click handler error', e); }
         });
       }
     };
