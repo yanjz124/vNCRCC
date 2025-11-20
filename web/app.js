@@ -5,7 +5,7 @@
   const DEFAULT_RANGE_NM = 300;
   const REFRESH = 15000;
   // Add light client-side jitter and shared cooldown to de-sync tabs and respect 429s
-  const JITTER_PCT = 0.03; // +/-3% (reduced from 10% to keep timing predictable)
+  const JITTER_PCT = 0.10; // +/-10%
   const MAX_COOLDOWN_MS = 60 * 1000; // cap any client-side cooldown to 60s
   const COOLDOWN_KEY = 'vncrcc.cooldownUntil';
 
@@ -1007,6 +1007,7 @@
 
   async function refresh(aircraftSnapshot, historyData){
     try{
+    const r0 = performance.now();
     setPermalink();
     // track keys present in this refresh so we can prune persisted expanded keys
     const presentKeys = new Set();
@@ -1017,6 +1018,8 @@
 
   // fetch aircraft (use provided snapshot if caller already fetched it)
   const aircraft = aircraftSnapshot || await fetchAllAircraft();
+  const r1 = performance.now();
+  if(!aircraftSnapshot) console.log(`[PERF] fetchAllAircraft took ${((r1-r0)/1000).toFixed(2)}s`);
   // Fetched aircraft
   // Read VSO range as a floating value so fractional nautical miles are respected
   const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
@@ -1081,7 +1084,10 @@
   // the same client-side overlays used to render the map so the UI and map
   // always match. We still fetch P56 history for the details panel but the
   // count/listing will be driven by client-side classification below.
+    const r2 = performance.now();
     const p56json = await fetchWithBackoff(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}}).catch(()=>({breaches:[],history:{}}));
+    const r3 = performance.now();
+    console.log(`[PERF] P56 API call took ${((r3-r2)/1000).toFixed(2)}s`);
     // Build a quick lookup set of CIDs currently inside P-56 so we can
     // force their marker color to the P-56 color regardless of on-ground state.
     const currentP56Cids = new Set();
@@ -1090,12 +1096,18 @@
       Object.keys(cis).forEach(k => { try{ if(cis[k] && cis[k].inside) currentP56Cids.add(String(k)); }catch(e){} });
     }catch(e){ /* ignore */ }
 
+    const r4 = performance.now();
     const vipjson = await fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}));
+    const r5 = performance.now();
+    console.log(`[PERF] VIP API call took ${((r5-r4)/1000).toFixed(2)}s`);
     const vipList = vipjson.aircraft || [];
     el('vip-count').textContent = vipList.length;
 
     // Fetching controllers
+    const r6 = performance.now();
     const ctrlsjson = await fetchWithBackoff(`${API_ROOT}/controllers/`).then(r=>r.ok?r.json():{controllers:[],count:0}).catch(()=>({controllers:[],count:0}));
+    const r7 = performance.now();
+    console.log(`[PERF] Controllers API call took ${((r7-r6)/1000).toFixed(2)}s`);
     const controllersList = ctrlsjson.controllers || [];
     el('controllers-count').textContent = controllersList.length;
 
@@ -1556,6 +1568,7 @@
     if(!window.markersByCid){ window.markersByCid = { p56:{}, sfra:{} }; }
     if(window.INCREMENTAL_MARKERS === undefined) window.INCREMENTAL_MARKERS = true;
 
+    const r8 = performance.now();
     if(window.INCREMENTAL_MARKERS){
       // Build lookup of current CIDs
       const currentCids = new Set(filtered.map(a => String(a.cid||'')));    
@@ -1641,6 +1654,8 @@
         }catch(e){ /* per-aircraft failure ignored */ }
       }
       // Incremental marker update complete
+      const r9 = performance.now();
+      console.log(`[PERF] Incremental marker updates took ${((r9-r8)/1000).toFixed(2)}s`);
     } else {
       // Fallback: original full rebuild path
   // clear per-category groups
@@ -1737,6 +1752,7 @@
         renderTableWithDivider(tbodyId, airborne, ground, makeRow, it => `${keyPrefix}:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
       };
 
+      const r10 = performance.now();
       // Render SFRA table
       renderAirspaceTable('sfra-tbody', sfraList, 'sfra');
 
@@ -1769,6 +1785,8 @@
         const rating = it.rating || '';
         return `<td><strong>${callsign}</strong></td><td>${name}</td><td>${cid}</td><td>${facility}</td><td>${position}</td><td>${freq}</td><td>${rating}</td>`;
       }, it => `ctrl:${it.cid || it.callsign || ''}`);
+      const r11 = performance.now();
+      console.log(`[PERF] All table rendering took ${((r11-r10)/1000).toFixed(2)}s`);
     }catch(e){ console.error('Error rendering lists after markers', e); }
 
     // prune expandedSet entries for keys that are no longer present in any table
@@ -1989,6 +2007,8 @@
     // Leaflet handles internal batching, so both markers and paths render together
     await updateVisiblePaths(historyData);
 
+    const rEnd = performance.now();
+    console.log(`[PERF] refresh() total time: ${((rEnd-r0)/1000).toFixed(2)}s`);
     }catch(err){
       console.error('REFRESH ERROR:', err);
       console.error('Error stack:', err.stack);
@@ -2529,12 +2549,18 @@
   // other API calls are executed immediately after the aircraft fetch.
   async function pollAircraftThenRefresh(){
     try{
+      const t0 = performance.now();
       // Fetch aircraft and history in parallel for visible paths
       const aircraftPromise = fetchAllAircraft();
       const historyPromise = (visiblePaths.size > 0) ? fetchHistoryData() : Promise.resolve(null);
       
       const [aircraft, historyData] = await Promise.all([aircraftPromise, historyPromise]);
+      const t1 = performance.now();
+      console.log(`[PERF] Fetched aircraft+history in ${((t1-t0)/1000).toFixed(2)}s`);
+      
       await refresh(aircraft, historyData);
+      const t2 = performance.now();
+      console.log(`[PERF] refresh() took ${((t2-t1)/1000).toFixed(2)}s (total: ${((t2-t0)/1000).toFixed(2)}s)`);
     }catch(e){ console.error('pollAircraftThenRefresh error', e); }
   }
   
@@ -2599,18 +2625,9 @@
     const effectiveDelay = isPageVisible ? baseMs : baseMs * INACTIVE_MULTIPLIER;
     const delay = Math.max(withJitter(effectiveDelay), cooldownRemaining);
     
-    const scheduleTime = Date.now();
-    console.log(`[POLL] Scheduled next poll in ${(delay/1000).toFixed(1)}s (base: ${(baseMs/1000).toFixed(1)}s, visible: ${isPageVisible}, cooldown: ${cooldownRemaining}ms)`);
-    
     window.setTimeout(async ()=>{
-      const pollStart = Date.now();
-      const actualDelay = pollStart - scheduleTime;
-      console.log(`[POLL] Starting poll (actual delay: ${(actualDelay/1000).toFixed(1)}s)`);
       try {
         await pollAircraftThenRefresh();
-        const pollEnd = Date.now();
-        const pollDuration = pollEnd - pollStart;
-        console.log(`[POLL] Completed in ${(pollDuration/1000).toFixed(2)}s`);
       } catch (e) {
         // If rate-limited, honor the stored cooldown next tick
         console.warn('Poll error', e);
