@@ -1,23 +1,42 @@
 # vNCRCC — virtual National Capitol Region Command Center
 
-**Live Dashboard**: [vncrcc.org](https://vncrcc.org)
+**Live Dashboard**: [p56buster.club](https://p56buster.club) | [vncrcc.org](https://vncrcc.org)
 
-vNCRCC is a real-time flight tracking and airspace monitoring system for the National Capital Region (Washington, DC area) on the VATSIM network. It provides automated detection and logging of aircraft in restricted airspace zones (P-56, FRZ, SFRA) with a responsive web dashboard featuring live maps, position history tracking, and comprehensive flight data.
+vNCRCC is a real-time flight tracking and airspace monitoring system for the National Capital Region (Washington, DC area) on the VATSIM network. It provides automated detection and logging of aircraft in restricted airspace zones (P-56, FRZ, SFRA) with a responsive web dashboard featuring live maps, continuous position tracking, and comprehensive flight data with telemetry labels.
 
 > **Note**: This project is primarily AI-assisted development, with most code generated and refined through AI collaboration.
 
 ## Key Features
 
-- **Real-time Aircraft Tracking**: Live position updates every 15 seconds from VATSIM data feed
-- **Automated P-56 Intrusion Detection**: Continuous background monitoring with line-crossing detection
-- **Dual Interactive Maps**: Side-by-side P-56 and SFRA/FRZ visualization using Leaflet
-- **Flight History Tracking**: Visual track overlays with up to 10 historical positions per aircraft
-- **Comprehensive Airspace Zones**: P-56, FRZ (Flight Restricted Zone), SFRA (Special Flight Rules Area), VSO (Virtual Security Officer range)
-- **P-56 Leaderboard**: Track intrusion counts and timestamps per pilot
-- **Position History**: Pre/inside/post-intrusion position capture (5 before, unlimited inside capped at 100, 5 after exit)
-- **Rate Limiting**: DDoS protection at both nginx and FastAPI levels (6 requests/minute)
-- **Responsive Design**: Compact tables with auto-sizing columns and text wrapping
-- **Flight Plan Integration**: Expandable flight plan details with route and remarks
+### Real-Time Airspace Monitoring
+- **Live Aircraft Tracking**: Position updates every ~12 seconds from VATSIM data feed
+- **Automated Geofencing**: Continuous P-56 intrusion detection with line-crossing validation
+- **Dual Interactive Maps**: Side-by-side P-56 and SFRA/FRZ visualization using Leaflet.js
+- **Four-Zone Classification**: P-56 (red), FRZ/Flight Restricted Zone (orange), SFRA/Special Flight Rules Area (blue), Vicinity (green)
+- **On-Ground Detection**: Automatic identification of ground traffic using groundspeed and altitude heuristics
+
+### Position History & Flight Tracking
+- **Continuous Position Capture**: Full intrusion tracks with "P56 buster" flag tracking
+  - 7 pre-intrusion positions (approach context)
+  - All positions while inside P-56 (capped at 200 for safety)
+  - 10-cycle exit confirmation (prevents false exits from GPS jitter)
+  - 1-second minimum position spacing
+- **Visual Flight Tracks**: Click any aircraft to show full historical path with telemetry labels
+  - Heading°/Altitude ft/Groundspeed kts displayed on sampled positions
+  - Max 50 labels per track (intelligently sampled)
+  - Yellow tracks on both maps with synchronized display
+- **Aircraft History**: JSON-based position log with last 10 positions per aircraft within 300nm
+
+### Analytics & Leaderboard
+- **P-56 Buster Leaderboard**: Ranked intrusion counts per pilot with first/last timestamps
+- **Detailed Event History**: Expandable intrusion details with complete position tracks
+- **Online ATC Display**: Live controller list from ZDC ARTCC area with friendly facility names
+
+### User Experience
+- **Performance Optimized**: Parallel icon creation, minimal console logging, fast DOM operations
+- **Responsive Design**: Sticky headers, auto-sizing columns, mobile-friendly tables
+- **Flight Plan Integration**: Expandable details with full route, remarks, and squawk codes
+- **Rate Limiting**: DDoS protection at nginx and FastAPI levels (6 requests/minute per IP)
 
 ## Technical Stack
 
@@ -150,48 +169,148 @@ Adjust `ExecStart` flags (workers, bind address) as appropriate for your hardwar
 
 ## Advanced Features
 
-### Automatic P-56 Intrusion Logging
+### Airspace Classification & Geofencing
 
-The service automatically detects and logs P-56 intrusions **every ~12 seconds** in the background, even when nobody is viewing the webpage.
+**Four-Zone System:**
 
-**How it works:**
+Aircraft are automatically categorized in real-time based on their geographic position:
 
-- Compares current and previous VATSIM snapshots to detect aircraft crossing P-56 boundaries
-- Uses line-crossing detection (requires 2 consecutive snapshots) for accurate penetration detection
-- Automatically saves intrusions to the database with full details (callsign, CID, position, timestamp, zones)
-- Maintains P-56 state tracking with 60-second deduplication to prevent duplicate logs
-- Captures position history: 5 datapoints before entry, unlimited inside (capped at 100), 5 after exit
+1. **P-56 (Red)** - Prohibited Area around White House/Capitol
+   - Most restrictive zone, triggers intrusion logging
+   - 2-mile radius around sensitive government buildings
+   
+2. **FRZ (Orange)** - Flight Restricted Zone
+   - 13-15 mile radius around Ronald Reagan Washington National Airport (KDCA)
+   - Requires special authorization to operate
+   
+3. **SFRA (Blue)** - Special Flight Rules Area  
+   - 30-mile radius around KDCA
+   - Requires flight plan and two-way radio communication
+   
+4. **Vicinity (Green)** - Within monitoring range but outside restricted zones
+   - Up to 300nm from DCA for performance optimization
 
-**Position History Tracking:**
+**Classification Logic:**
 
-- Maintains `aircraft_history.json` with last 10 positions per aircraft within 300nm of DCA
-- Includes latitude, longitude, altitude, groundspeed, and heading
-- Pre-intrusion positions captured from history lookback
-- Post-exit positions tracked for 2 minutes after leaving P-56 to capture full departure path
-
-**View logged incidents:**
-
-```bash
-# API endpoint (returns last 100 incidents)
-curl https://vncrcc.org/api/v1/p56/incidents
-
-# Or specify a limit
-curl https://vncrcc.org/api/v1/p56/incidents?limit=50
+```python
+# Priority order (higher priority overrides lower)
+if point_in_polygon(position, P56_boundary):
+    return 'p56'  # Red marker
+elif point_in_polygon(position, FRZ_boundary):
+    return 'frz'  # Orange marker
+elif point_in_polygon(position, SFRA_boundary):
+    return 'sfra'  # Blue marker
+else:
+    return 'vicinity'  # Green marker
 ```
 
-**Performance notes:**
+**On-Ground Detection:**
 
-- P-56 detection adds ~0.1-0.2s to the precompute cycle
-- Only aircraft within 300nm of DCA are processed
-- Sequential execution ensures history updates before intrusion detection runs
+Ground aircraft are identified using multi-rule heuristics:
+- Groundspeed ≤ 10 kt (stationary/slow taxi)
+- Groundspeed < 40 kt AND altitude < 500 ft (fast taxi)
+- Groundspeed < 60 kt AND altitude < 200 ft (runway operations)
 
-### Flight Path Visualization
+Ground aircraft appear as gray markers and are listed separately in tables.
 
-- Click any aircraft marker or table row to show its flight history track
-- Green dashed polylines show historical path with up to 10 positions
-- Tracks update automatically every 15 seconds in sync with position data
+### Automated P-56 Intrusion Detection & Logging
+
+**Continuous Background Monitoring:**
+
+The service detects and logs P-56 intrusions **every ~12 seconds**, independent of web dashboard viewers.
+
+**Line-Crossing Detection:**
+
+- Compares consecutive VATSIM snapshots to detect boundary crossings
+- Requires 2 snapshots for validation (prevents false positives from GPS jitter)
+- Uses Shapely's `intersects()` and `contains()` for precise geofence testing
+
+**"P56 Buster" Tracking System:**
+
+When an aircraft enters P-56, the system activates continuous position capture:
+
+1. **Entry Detection**: 
+   - Seed `intrusion_positions` array with 7 pre-approach positions from aircraft history
+   - Set `p56_buster` flag to `True` for this aircraft
+   - Record entry point with full telemetry (lat, lon, alt, heading, groundspeed)
+
+2. **Continuous Capture** (while inside or within exit confirmation window):
+   - Append position every cycle (1-second minimum spacing)
+   - Include full aircraft state: latitude, longitude, altitude, heading, groundspeed, callsign
+   - Safety cap at 200 positions to prevent unbounded growth
+
+3. **Exit Confirmation**:
+   - Requires 10 consecutive "outside P-56" positions to confirm exit
+   - Prevents false exits from GPS jitter or brief boundary touches
+   - Once confirmed, set `p56_buster` flag to `False` and finalize event
+
+**Position History Architecture:**
+
+- **Pre-intrusion**: 7 positions captured from `aircraft_history.json` lookback
+- **During intrusion**: Unlimited positions (200-position safety cap) with 1s minimum spacing
+- **Exit tracking**: 10-cycle confirmation window continues capture until validated exit
+
+**Deduplication Logic:**
+
+- 60-second deduplication window prevents duplicate logs for quick re-entries
+- If same pilot re-enters within 60s, positions merge into existing event rather than creating new entry
+
+**Data Persistence:**
+
+- Events stored in `data/p56_history.json` with full position arrays
+- State tracking in `current_inside` object maintains `p56_buster` flags across service restarts
+- Frontend displays complete tracks with telemetry labels (heading°/altitude ft/groundspeed kts)
+
+**View Intrusion History:**
+
+```bash
+# Last 100 logged intrusions with full position data
+curl https://p56buster.club/api/v1/p56/incidents
+
+# Specific limit
+curl https://p56buster.club/api/v1/p56/incidents?limit=50
+
+# Current active intrusions with live position tracking
+curl https://p56buster.club/api/v1/p56/
+```
+
+**Performance:**
+
+- P-56 detection adds ~0.1-0.2s to precompute cycle
+- Only aircraft within 300nm of DCA processed
+- Sequential execution: aircraft history updates before intrusion detection runs
+
+### Flight Path Visualization & Telemetry Labels
+
+**Live Flight Tracks:**
+
+- Click any aircraft marker to toggle its historical flight path
+- Green dashed polylines with up to 10 positions from `aircraft_history.json`
+- Yellow polylines for P-56 intrusion tracks (pre + during + post positions)
 - Synchronized display on both P56 and SFRA maps simultaneously
-- Click again to hide the track
+- Tracks auto-update every ~12 seconds with latest positions
+
+**Telemetry Labels on P-56 Intrusion Tracks:**
+
+Each intrusion track displays sampled position labels with full aircraft state:
+
+- **Format**: `heading°/altitude ft/groundspeed kts`
+- **Example**: `240°/3500ft/180kts`
+- **Sampling**: Max 50 labels per track (intelligently spaced), always includes last position
+- **Styling**: White text on semi-transparent black background, positioned above each point
+
+**Implementation:**
+
+```javascript
+// Frontend creates Leaflet divIcon markers for each sampled position
+const label = L.divIcon({
+  html: `<div class="p56-point-label">${heading}°/${alt}ft/${gs}kts</div>`,
+  className: 'p56-point-label-wrapper',
+  iconAnchor: [0, 15]
+});
+```
+
+Labels help analysts reconstruct the flight profile and understand pilot intent during intrusions.
 
 ### Rate Limiting & DDoS Protection
 
