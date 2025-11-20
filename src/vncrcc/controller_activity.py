@@ -33,7 +33,8 @@ async def fetch_zdc_controllers() -> List[Dict]:
                 facility_id = controller.get("primaryFacilityId")
                 
                 # Only include ZDC controllers at target facilities
-                if artcc_id != TARGET_ARTCC or facility_id not in TARGET_FACILITIES:
+                # Accept if artccId is ZDC OR facility is in our list (to catch TRACON controllers)
+                if not (artcc_id == TARGET_ARTCC or facility_id in TARGET_FACILITIES):
                     continue
                 
                 # Extract relevant info
