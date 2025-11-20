@@ -198,6 +198,13 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .traffic-table .squawk-1200{color:#fff3cd !important} /* yellow */
 .traffic-table .squawk-emergency{color:#f8d7da !important} /* red */
 .traffic-table .squawk-7777{color:#ffeaa7 !important} /* orange */
+/* Ground aircraft divider - subtle horizontal line across all cells */
+.traffic-table tr.ground-divider td{
+	padding:0 !important;
+	height:1px;
+	background:transparent;
+	border-bottom:2px solid #23303a;
+}
 .traffic-table .squawk-vfr{color:#d1ecf1 !important} /* blue */
 
 /* Status text colors to match map colors */

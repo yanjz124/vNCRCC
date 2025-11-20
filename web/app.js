@@ -1204,6 +1204,78 @@
       }
     };
 
+    /**
+     * renderTableWithDivider: Like renderTable, but takes two arrays (airborne, ground)
+     * and inserts a divider row between them. Uses 12 columns for colspan.
+     */
+    const renderTableWithDivider = (tbodyId, airborneItems, groundItems, rowFn, keyFn, fpOptions = {}) => {
+      const tbody = document.getElementById(tbodyId);
+      if(!tbody) return;
+      const expandedSet = loadExpandedSet();
+      const parts = [];
+      
+      // Render airborne items
+      airborneItems.forEach(item => {
+        const key = keyFn(item);
+        const fpRow = renderFlightPlan(item, fpOptions);
+        const tdHtml = rowFn(item);
+        parts.push(`<tr class="expandable" data-key="${key}">${tdHtml}</tr>`);
+        parts.push(fpRow);
+      });
+      
+      // Insert divider if both groups have items
+      if(airborneItems.length > 0 && groundItems.length > 0){
+        parts.push(`<tr class="ground-divider"><td colspan="12"></td></tr>`);
+      }
+      
+      // Render ground items
+      groundItems.forEach(item => {
+        const key = keyFn(item);
+        const fpRow = renderFlightPlan(item, fpOptions);
+        const tdHtml = rowFn(item);
+        parts.push(`<tr class="expandable" data-key="${key}">${tdHtml}</tr>`);
+        parts.push(fpRow);
+      });
+      
+      tbody.innerHTML = parts.join('');
+
+      // Attach delegated click handler once per tbody (same pattern as renderTable)
+      if(!tbody._delegationAttached){
+        tbody._delegationAttached = true;
+        tbody.addEventListener('click', async (ev)=>{
+          try{
+            const tr = ev.target.closest('tr.expandable');
+            if(!tr) return;
+            const key = tr.dataset.key;
+            if(!key) return;
+            const tbodyIdLocal = tbody.id;
+            const fpRow = tbody.querySelector(`tr.flight-plan[data-fp-key="${key}"]`);
+            if(!fpRow) return;
+            const opening = !fpRow.classList.contains('show');
+            fpRow.classList.toggle('show');
+            if(opening){ expandedSet.add(key); saveExpandedSet(expandedSet); }
+            else { expandedSet.delete(key); saveExpandedSet(expandedSet); }
+
+            // Sync flight-path display similar to prior per-row handlers
+            try{
+              const parts = String(key).split(':');
+              const prefix = parts[0];
+              const cidVal = parts.slice(1).join(':');
+              let mapType = null;
+              if(prefix === 'sfra') mapType = 'sfra';
+              else if(prefix === 'frz') mapType = 'p56';
+              else if(prefix === 'p56-current') mapType = 'p56';
+              else if(prefix === 'vso') mapType = 'sfra';
+              if(mapType && cidVal){
+                try{ toggleFlightPath(cidVal, mapType).catch(e=>console.error('toggleFlightPath error', e)); }catch(e){}
+              }
+            }catch(e){ console.error('Failed to sync flight-path for delegated click', e); }
+
+          }catch(e){ console.error('tbody click handler error', e); }
+        });
+      }
+    };
+
     const formatFlightPlan = (item, opts) => {
       const ac = item.aircraft || item;
       const fp = ac.flight_plan || {};
@@ -1570,14 +1642,21 @@
   // background elevation checks can update markers in-place without a full refresh.
   try{ ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass; }catch(e){}
   console.log('Added marker for', ac.callsign, 'to', statusClass, 'group');
-      // Populate client-side lists so UI tables/counts match the map classification
-      // statusClass already incorporates area + ground status + P56 overrides
+      // Populate client-side lists using airspace classification (area)
+      // regardless of ground/airborne status. We'll sort and render with a
+      // divider between airborne and ground aircraft within each airspace list.
+      // Store both area and ground status on the aircraft for later sorting.
+      ac._airspace = area;
+      ac._isOnGround = isGround;
       try{
-        if(statusClass === 'sfra') sfraList.push(ac);
-        else if(statusClass === 'frz') frzList.push(ac);
-        else if(statusClass === 'p56') p56List.push(ac);
-        else if(statusClass === 'ground') groundList.push(ac);
-        else airList.push(ac);
+        // Add to lists based on geographic area, not statusClass
+        // This ensures ground aircraft in SFRA/FRZ appear in those lists
+        if(area === 'sfra') sfraList.push(ac);
+        else if(area === 'frz') frzList.push(ac);
+        else if(area === 'p56') p56List.push(ac);
+        else if(area === 'vicinity') airList.push(ac);
+        // Also track ground aircraft separately for the map layer toggle
+        if(isGround) groundList.push(ac);
       }catch(e){/* ignore list population errors */}
       }catch(e){
         console.error('Failed to process aircraft', ac.callsign, e);
@@ -1602,54 +1681,45 @@
   // rather than client-side classification which may differ.
   el('p56-count').textContent = (currentInside || []).length;
 
+      // Helper to render airspace tables with ground/airborne grouping and divider
+      const renderAirspaceTable = (tbodyId, list, keyPrefix) => {
+        // Split into airborne and ground, preserving stored flags
+        const airborne = list.filter(ac => !ac._isOnGround);
+        const ground = list.filter(ac => ac._isOnGround);
+        
+        // Common row renderer
+        const makeRow = (it) => {
+          const ac = it.aircraft || it;
+          const dca = it.dca || computeDca(ac.latitude, ac.longitude);
+          const cid = ac.cid || '';
+          const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+          const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+          const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+          const squawk = ac.transponder || '';
+          let squawkClass = '';
+          if (squawk === '1200') squawkClass = 'squawk-1200';
+          else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
+          else if (squawk === '7777') squawkClass = 'squawk-7777';
+          else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
+          const assigned = ac.flight_plan?.assigned_transponder || '';
+          const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
+          const isGround = ac._isOnGround;
+          const statusText = isGround ? 'Ground' : 'Airborne';
+          // If this CID is currently inside P-56, show the P56 swatch (red) but keep status text
+          const statusSwatch = (typeof currentP56Cids !== 'undefined' && currentP56Cids.has && currentP56Cids.has(String(cid))) ? 'p56' : (isGround ? 'ground' : 'airborne');
+          const statusHtmlRow = `<td><span class="status-${statusSwatch} status-label">${statusText}</span></td>`;
+          return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>${statusHtmlRow}`;
+        };
+        
+        // Render airborne first, then divider, then ground
+        renderTableWithDivider(tbodyId, airborne, ground, makeRow, it => `${keyPrefix}:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+      };
+
       // Render SFRA table
-      renderTable('sfra-tbody', sfraList, it => {
-        const ac = it.aircraft || it;
-        const dca = it.dca || computeDca(ac.latitude, ac.longitude);
-        const cid = ac.cid || '';
-        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
-        const squawk = ac.transponder || '';
-        let squawkClass = '';
-        if (squawk === '1200') squawkClass = 'squawk-1200';
-        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
-        else if (squawk === '7777') squawkClass = 'squawk-7777';
-        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-        const assigned = ac.flight_plan?.assigned_transponder || '';
-        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
-        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-        let isGround = ac._onGround;
-        let statusText = isGround ? 'Ground' : 'Airborne';
-        let statusClass = isGround ? 'ground' : 'airborne';
-        const statusHtmlRow = `<td><span class="status-${statusClass} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>${statusHtmlRow}`;
-      }, it => `sfra:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+      renderAirspaceTable('sfra-tbody', sfraList, 'sfra');
 
       // Render FRZ table
-      renderTable('frz-tbody', frzList, it => {
-        const ac = it.aircraft || it;
-        const dca = it.dca || computeDca(ac.latitude, ac.longitude);
-        const cid = ac.cid || '';
-        const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-        const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
-        const squawk = ac.transponder || '';
-        let squawkClass = '';
-        if (squawk === '1200') squawkClass = 'squawk-1200';
-        else if (['7500', '7600', '7700'].includes(squawk)) squawkClass = 'squawk-emergency';
-        else if (squawk === '7777') squawkClass = 'squawk-7777';
-        else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
-        const assigned = ac.flight_plan?.assigned_transponder || '';
-        const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span> / ${assigned}` : `${squawk} / ${assigned}`;
-        let area = classifyAircraft(ac, ac.latitude, ac.longitude, overlays);
-        let isGround = ac._onGround;
-        let statusText = isGround ? 'Ground' : 'Airborne';
-        // If this CID is currently inside P-56, show the P56 swatch (red) but keep status text
-        const statusSwatch = (typeof currentP56Cids !== 'undefined' && currentP56Cids.has && currentP56Cids.has(String(cid))) ? 'p56' : (isGround ? 'ground' : 'airborne');
-        const statusHtmlRow = `<td><span class="status-${statusSwatch} status-label">${statusText}</span></td>`;
-        return `<td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${cid}</td><td>${dca.bearing}°</td><td>${Number(dca.range_nm).toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>${statusHtmlRow}`;
-      }, it => `frz:${(it.aircraft||it).cid|| (it.aircraft||it).callsign || ''}`);
+      renderAirspaceTable('frz-tbody', frzList, 'frz');
 
       // Render VIP table
       renderTable('vip-tbody', vipList, it => {
