@@ -262,20 +262,35 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                     except Exception:
                         continue
         
-        # Get positions for this CID
-        if positions_by_cid and cid in positions_by_cid:
-            positions = positions_by_cid.get(cid, [])
-            entry_ts = last_event.get("latest_ts", 0)
-            
-            # Get all positions after initial entry
-            intrusion_positions = [p for p in positions if p["ts"] >= entry_ts]
-            intrusion_positions.sort(key=lambda x: x["ts"])  # oldest first
-            
-            # Apply safety cap of 200 positions
-            intrusion_positions = intrusion_positions[:200]
-            
-            # Update the event with all captured positions
-            last_event["intrusion_positions"] = intrusion_positions
+        # Append current position to intrusion tracking
+        # Get existing intrusion_positions or initialize empty list
+        intrusion_positions = last_event.get("intrusion_positions", [])
+        
+        # Add current aircraft position if aircraft is still being tracked
+        if a:
+            pt = point_from_aircraft(a)
+            if pt:
+                # Create position entry from current aircraft data
+                pos_entry = {
+                    "ts": ts or time.time(),
+                    "lat": pt.y,
+                    "lon": pt.x,
+                    "alt": a.get("altitude") or a.get("alt"),
+                    "gs": a.get("groundspeed") or a.get("gs"),
+                    "heading": a.get("heading"),
+                    "callsign": a.get("callsign")
+                }
+                
+                # Only append if different from last position (avoid duplicates from slow updates)
+                if not intrusion_positions or intrusion_positions[-1]["ts"] < (ts or time.time()) - 1:
+                    intrusion_positions.append(pos_entry)
+                    
+                    # Apply safety cap of 200 positions
+                    if len(intrusion_positions) > 200:
+                        intrusion_positions = intrusion_positions[-200:]
+                    
+                    # Update the event with captured positions
+                    last_event["intrusion_positions"] = intrusion_positions
             
             # Update current_inside state
             if currently_inside:
