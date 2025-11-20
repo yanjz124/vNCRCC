@@ -1200,7 +1200,7 @@
                 const evt = evts.find(e => `${String(e.cid||'')}:${String(e.recorded_at||'')}` === key);
                 if(opening){
                   p56PathLayer.clearLayers(); sfraPathLayer.clearLayers();
-                  const positions = (evt?.pre_positions || []).concat(evt?.post_positions || []);
+                  const positions = evt?.intrusion_positions || (evt?.pre_positions || []).concat(evt?.post_positions || []);
                   if(positions && positions.length > 1){
                     const latlngs = positions.map(p => [p.lat, p.lon]);
                     const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
