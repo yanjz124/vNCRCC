@@ -26,9 +26,12 @@ async def fetch_zdc_controllers() -> List[Dict]:
             response.raise_for_status()
             data = response.json()
             
+            # Extract controllers array from wrapper
+            controllers_list = data.get("controllers", [])
+            
             # Filter controllers
             filtered = []
-            for controller in data:
+            for controller in controllers_list:
                 artcc_id = controller.get("artccId")
                 facility_id = controller.get("primaryFacilityId")
                 
