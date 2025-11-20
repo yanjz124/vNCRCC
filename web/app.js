@@ -479,9 +479,41 @@
 
   function updateTimeDisplay() {
     const now = Date.now();
-    const last = lastUpdateTime;
+    // Use VATSIM update timestamp if available, otherwise fall back to local processing time
+    let last = lastUpdateTime;
+    let lastStr = '--';
+    
+    if(window.vatsimUpdateTimestamp){
+      // Parse VATSIM timestamp (format: "2025-11-20T21:19:31.2952111Z" or "20251120211931")
+      try{
+        const vatsimStr = window.vatsimUpdateTimestamp;
+        let vatsimDate;
+        if(vatsimStr.includes('T') || vatsimStr.includes('-')){
+          // ISO format
+          vatsimDate = new Date(vatsimStr);
+        }else{
+          // Compact format: "20251120211931" -> "2025-11-20 21:19:31"
+          const y = vatsimStr.substring(0,4);
+          const m = vatsimStr.substring(4,6);
+          const d = vatsimStr.substring(6,8);
+          const h = vatsimStr.substring(8,10);
+          const min = vatsimStr.substring(10,12);
+          const s = vatsimStr.substring(12,14);
+          vatsimDate = new Date(`${y}-${m}-${d}T${h}:${min}:${s}Z`);
+        }
+        if(!isNaN(vatsimDate.getTime())){
+          last = vatsimDate.getTime();
+          lastStr = formatZuluEpoch(Math.floor(last / 1000), true);
+        }
+      }catch(e){
+        // Fallback to local time if parsing fails
+        lastStr = last > 0 ? formatZuluEpoch(Math.floor(last / 1000), true) : '--';
+      }
+    }else{
+      lastStr = last > 0 ? formatZuluEpoch(Math.floor(last / 1000), true) : '--';
+    }
+    
     const diff = last > 0 ? now - last : 0;
-    const lastStr = last > 0 ? formatZuluEpoch(Math.floor(last / 1000), true) : '--';
     const nowStr = formatZuluEpoch(Math.floor(now / 1000), true);
     updateDiv.innerHTML = `Last: ${lastStr}<br>Now: ${nowStr}`;
     if (diff > 60000) updateDiv.style.color = 'red';
@@ -684,6 +716,10 @@
     const res = await fetchWithBackoff(`${API_ROOT}/aircraft/list`);
     if(!res.ok) return [];
     const j = await res.json();
+    // Store VATSIM update timestamp globally for display
+    if(j.vatsim_update_timestamp){
+      window.vatsimUpdateTimestamp = j.vatsim_update_timestamp;
+    }
     return j.aircraft || [];
   }
 

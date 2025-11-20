@@ -407,12 +407,21 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
             "aircraft_count": count
         }
 
+        # Extract VATSIM's update timestamp from the general section
+        vatsim_update_timestamp = None
+        try:
+            general = data.get("general", {})
+            vatsim_update_timestamp = general.get("update_timestamp") or general.get("update")
+        except Exception:
+            pass
+        
         # Cache the trimmed aircraft list for fast /aircraft/list endpoint
         _CACHE["aircraft_list"] = {
             "aircraft": aircraft,
             "computed_at": ts,
             "total_count": count,
-            "trim_radius_nm": _TRIM_RADIUS_NM
+            "trim_radius_nm": _TRIM_RADIUS_NM,
+            "vatsim_update_timestamp": vatsim_update_timestamp
         }
 
         elapsed = (datetime.now() - start).total_seconds()

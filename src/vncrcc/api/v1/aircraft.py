@@ -48,7 +48,10 @@ async def list_aircraft(request: Request) -> Dict[str, Any]:
     from ...precompute import get_cached
     cached = get_cached("aircraft_list")
     if cached:
-        return {"aircraft": cached.get("aircraft", [])}
+        return {
+            "aircraft": cached.get("aircraft", []),
+            "vatsim_update_timestamp": cached.get("vatsim_update_timestamp")
+        }
     # Fallback to full snapshot if cache not available
     aircraft_list = storage.STORAGE.list_aircraft() if storage.STORAGE else []
     return {"aircraft": aircraft_list}
