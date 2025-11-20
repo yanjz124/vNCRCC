@@ -1602,19 +1602,15 @@
       const {ac, lat, lon, heading, area, isGround, statusText, statusClass, color, icon} = markerData;
       
       try{
-      console.log('Processing', ac.callsign, 'area:', area, 'isGround:', isGround, 'statusText:', statusText, 'statusClass:', statusClass, 'lat:', lat, 'lon:', lon);
-
       let markerP56, markerSFRA;
       
       if(icon){
         markerP56 = L.marker([lat, lon], {icon: icon});
         markerSFRA = L.marker([lat, lon], {icon: icon});
-        console.log('Created icon marker for', ac.callsign);
       }else{
         // fallback to small circle marker
         markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
         markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
-        console.log('Created circle marker fallback for', ac.callsign);
       }
       // tag markers with CID so we can find them later for highlighting
       try{ const _cid = String(ac.cid||''); markerP56._flightPathCid = _cid; markerSFRA._flightPathCid = _cid; }catch(e){}
@@ -1676,7 +1672,6 @@
   // Attach marker references and current status to the aircraft object so
   // background elevation checks can update markers in-place without a full refresh.
   try{ ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass; }catch(e){}
-  console.log('Added marker for', ac.callsign, 'to', statusClass, 'group');
       // Populate client-side lists using airspace classification (area)
       // regardless of ground/airborne status. We'll sort and render with a
       // divider between airborne and ground aircraft within each airspace list.
