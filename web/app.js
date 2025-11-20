@@ -1791,7 +1791,7 @@
         return `<td><strong>${it.callsign || ''}</strong></td><td>${it.vip_title || ''}</td><td>${it.vip_type || ''}</td><td>${acType}</td><td>${it.name || ''}</td><td>${cid}</td><td>${Math.round(it.altitude || 0)}</td><td>${Math.round(it.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
       }, it => `vip:${it.cid || it.callsign || ''}`);
 
-      // Render Controllers table
+      // Render Controllers table (no flight plan expansion - controllers don't have flight plans)
       renderTable('controllers-tbody', controllersList, it => {
         const cid = it.cid || '';
         const name = it.realName || '';
@@ -1801,7 +1801,7 @@
         const freq = it.frequency || '';
         const rating = it.rating || '';
         return `<td><strong>${callsign}</strong></td><td>${name}</td><td>${cid}</td><td>${facility}</td><td>${position}</td><td>${freq}</td><td>${rating}</td>`;
-      }, it => `ctrl:${it.cid || it.callsign || ''}`);
+      }, null); // Pass null for keyFn to disable flight plan expansion
       const r11 = performance.now();
       console.log(`[PERF] All table rendering took ${((r11-r10)/1000).toFixed(2)}s`);
     }catch(e){ console.error('Error rendering lists after markers', e); }
@@ -2628,6 +2628,7 @@
   // Adaptive polling: reduce frequency when tab is not visible to save server resources
   let isPageVisible = !document.hidden;
   const INACTIVE_MULTIPLIER = 1.5; // Poll 50% slower when tab hidden (15s → 22.5s)
+  const PREFETCH_ADVANCE_MS = 2000; // Start fetching 2 seconds before poll is due
   
   document.addEventListener('visibilitychange', () => {
     isPageVisible = !document.hidden;
@@ -2641,6 +2642,42 @@
     // Increase poll interval when page is hidden to reduce server load
     const effectiveDelay = isPageVisible ? baseMs : baseMs * INACTIVE_MULTIPLIER;
     const delay = Math.max(withJitter(effectiveDelay), cooldownRemaining);
+    
+    // Prefetch: Start fetching slightly before the scheduled poll time
+    // This ensures data is fresh when the poll actually triggers
+    const prefetchDelay = Math.max(0, delay - PREFETCH_ADVANCE_MS);
+    
+    if(prefetchDelay > 0 && isPageVisible){
+      // Schedule prefetch for active tabs only
+      window.setTimeout(async ()=>{
+        try {
+          console.log('[PREFETCH] Starting early data fetch...');
+          // Prefetch data into cache without triggering full refresh
+          const now = Date.now();
+          const CACHE_TTL = 60000;
+          const needVipFetch = (now - window.vipCache.timestamp) > CACHE_TTL;
+          const needCtrlsFetch = (now - window.ctrlsCache.timestamp) > CACHE_TTL;
+          
+          if(needVipFetch || needCtrlsFetch){
+            const fetches = [];
+            if(needVipFetch) fetches.push(
+              fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0})
+                .then(data => { window.vipCache = { data, timestamp: Date.now() }; })
+                .catch(()=>{})
+            );
+            if(needCtrlsFetch) fetches.push(
+              fetchWithBackoff(`${API_ROOT}/controllers/`).then(r=>r.ok?r.json():{controllers:[],count:0})
+                .then(data => { window.ctrlsCache = { data, timestamp: Date.now() }; })
+                .catch(()=>{})
+            );
+            await Promise.all(fetches);
+            console.log('[PREFETCH] Completed early data fetch');
+          }
+        } catch (e) {
+          console.warn('[PREFETCH] Error during prefetch', e);
+        }
+      }, prefetchDelay);
+    }
     
     window.setTimeout(async ()=>{
       try {
