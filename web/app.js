@@ -868,7 +868,7 @@
         if(expandedSet.has(evtKey)){
           fpDiv.classList.add('show');
           p56PathLayer.clearLayers();
-          const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
+          const positions = evt.intrusion_positions || (evt.pre_positions || []).concat(evt.post_positions || []);
           if (positions.length > 1) {
             const latlngs = positions.map(p => [p.lat, p.lon]);
             const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
@@ -880,7 +880,7 @@
           fpDiv.classList.toggle('show');
           if(opening){
             p56PathLayer.clearLayers();
-            const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
+            const positions = evt.intrusion_positions || (evt.pre_positions || []).concat(evt.post_positions || []);
             if (positions.length > 1) {
               const latlngs = positions.map(p => [p.lat, p.lon]);
               const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
@@ -1413,7 +1413,7 @@
           fpDiv.classList.add('show');
           p56PathLayer.clearLayers();
           sfraPathLayer.clearLayers();
-          const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
+          const positions = evt.intrusion_positions || (evt.pre_positions || []).concat(evt.post_positions || []);
           if (positions.length > 1) {
             const latlngs = positions.map(p => [p.lat, p.lon]);
             const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
@@ -1430,7 +1430,7 @@
             // Draw path when opening
             p56PathLayer.clearLayers();
             sfraPathLayer.clearLayers();
-            const positions = (evt.pre_positions || []).concat(evt.post_positions || []);
+            const positions = evt.intrusion_positions || (evt.pre_positions || []).concat(evt.post_positions || []);
             if (positions.length > 1) {
               const latlngs = positions.map(p => [p.lat, p.lon]);
               const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
