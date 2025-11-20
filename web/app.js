@@ -278,7 +278,7 @@
   async function updateVisiblePaths(historyData) {
     if (visiblePaths.size === 0) return;
     
-    console.log(`Updating ${visiblePaths.size} visible flight path(s):`, Array.from(visiblePaths));
+    // Updating visible flight paths
     
     try {
       // Use pre-fetched history data if available, otherwise fetch it
@@ -295,7 +295,7 @@
         // If aircraft is no longer in current data OR has no/insufficient history, remove its path
         if (!currentAircraftCids.has(cidKey) || !data.history?.[cidKey] || data.history[cidKey].length < 2) {
           pathsToRemove.push(cidKey);
-          console.log(`Aircraft ${cidKey} disconnected or out of range, removing path`);
+          // Aircraft disconnected or out of range, removing path
         }
       }
       
@@ -321,7 +321,7 @@
         if (!history || history.length < 2) continue;
         
         // Always do full path update to ensure accuracy (history can rotate/trim old points)
-        console.log(`Updating path for CID ${cidKey} with ${history.length} points`);
+        // Updating path
         
         [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
           let foundLayer = null;
@@ -416,7 +416,7 @@
       // remove visual highlights
       setRowHighlight(cidKey, false);
       setMarkerHalo(cidKey, false);
-      console.log(`Hidden flight path for ${cidKey}`);
+      // Hidden flight path
     } else {
       // Show path - fetch history and draw polyline on BOTH maps
       try {
@@ -824,7 +824,7 @@
       return;
     }
 
-    console.log('Fast re-rendering table:', tbodyId);
+    // Fast re-rendering table
 
     const { currentInside, events, lb, sfraList, frzList, latest_ac, p56json } = tableDataCache;
 
@@ -1017,10 +1017,10 @@
 
   // fetch aircraft (use provided snapshot if caller already fetched it)
   const aircraft = aircraftSnapshot || await fetchAllAircraft();
-  console.log('Fetched aircraft count:', aircraft.length);
+  // Fetched aircraft
   // Read VSO range as a floating value so fractional nautical miles are respected
   const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
-  console.log('VSO range setting:', range_nm, 'nm from DCA');
+  // VSO range filter applied
     const filtered = aircraft.filter(a=>{
       const lat = a.latitude || a.lat || a.y;
       const lon = a.longitude || a.lon || a.x;
@@ -1028,7 +1028,7 @@
       const nm = haversineNm(DCA[0], DCA[1], lat, lon);
       return nm <= range_nm;
     });
-    console.log('Filtered aircraft count:', filtered.length);
+    // Filtered aircraft
     
     // Update current aircraft CIDs for disconnection detection
     currentAircraftCids = new Set(filtered.map(a => String(a.cid || '')).filter(c => c));
@@ -1075,13 +1075,12 @@
       const alt = Number(ac.altitude || ac.alt || 0);
       ac._onGround = (gs <= 10) || (gs < 40 && alt < 500) || (gs < 60 && alt < 200);
     });
-    console.log('On-ground detection complete (simple heuristic)');
+    // On-ground detection complete
 
   // Instead of calling SFRA/FRZ endpoints for counts/lists, compute them from
   // the same client-side overlays used to render the map so the UI and map
   // always match. We still fetch P56 history for the details panel but the
   // count/listing will be driven by client-side classification below.
-    console.log('Fetching P56 history for details...');
     const p56json = await fetchWithBackoff(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}}).catch(()=>({breaches:[],history:{}}));
     // Build a quick lookup set of CIDs currently inside P-56 so we can
     // force their marker color to the P-56 color regardless of on-ground state.
@@ -1091,12 +1090,11 @@
       Object.keys(cis).forEach(k => { try{ if(cis[k] && cis[k].inside) currentP56Cids.add(String(k)); }catch(e){} });
     }catch(e){ /* ignore */ }
 
-    console.log('Fetching VIP activity...');
     const vipjson = await fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}));
     const vipList = vipjson.aircraft || [];
     el('vip-count').textContent = vipList.length;
 
-    console.log('Fetching ZDC controllers...');
+    // Fetching controllers
     const ctrlsjson = await fetchWithBackoff(`${API_ROOT}/controllers/`).then(r=>r.ok?r.json():{controllers:[],count:0}).catch(()=>({controllers:[],count:0}));
     const controllersList = ctrlsjson.controllers || [];
     el('controllers-count').textContent = controllersList.length;
@@ -1113,7 +1111,7 @@
     const p56List = [];
     const groundList = [];
     const airList = [];
-    console.log('Prepared client-side lists for classification (will populate during render)');
+    // Prepared client-side lists
 
     // If overlays are not loaded (geo data not available), fall back to API for SFRA/FRZ lists
     // to ensure the UI populates even if client-side classification can't work.
@@ -1557,7 +1555,7 @@
     // markers
   // clear per-category groups
   categories.forEach(cat => { p56MarkerGroups[cat].clearLayers(); sfraMarkerGroups[cat].clearLayers(); });
-    console.log('Starting marker creation for', filtered.length, 'aircraft');
+    // Starting marker creation
 
     // Parallelize icon creation for all aircraft to avoid sequential blocking
     const markerDataPromises = filtered.map(async (ac) => {
@@ -1594,7 +1592,7 @@
 
     // Wait for all icons to be created in parallel
     const markerDataArray = await Promise.all(markerDataPromises);
-    console.log('All icons created, now building markers synchronously');
+    // All icons created, building markers
 
     // Now create all markers synchronously (fast DOM operations)
     for(const markerData of markerDataArray){
@@ -1692,7 +1690,7 @@
         console.error('Failed to process aircraft', ac.callsign, e);
       }
     }
-    console.log('Finished marker creation');
+    // Finished marker creation
 
   // Kick off background elevation checks for suspicious aircraft. This runs
   // asynchronously (non-blocking) and will update markers in-place when
@@ -1797,11 +1795,11 @@
       if(cb.checked){ 
         p56Map.addLayer(pgrp); 
         sfraMap.addLayer(sgrp); 
-        console.log('Added', cat, 'group to maps (initial)');
+        // Added group to maps (initial)
       } else { 
         p56Map.removeLayer(pgrp); 
         sfraMap.removeLayer(sgrp); 
-        console.log('Removed', cat, 'group from maps (initial)');
+        // Removed group from maps (initial)
       }
       // only attach listener once
       if(!cb._toggleAttached){
@@ -1810,11 +1808,11 @@
           if(cb.checked){ 
             p56Map.addLayer(pgrp); 
             sfraMap.addLayer(sgrp); 
-            console.log('Added', cat, 'group to maps');
+            // Added group to maps
           } else { 
             p56Map.removeLayer(pgrp); 
             sfraMap.removeLayer(sgrp); 
-            console.log('Removed', cat, 'group from maps');
+            // Removed group from maps
           }
         });
       }
@@ -1825,15 +1823,7 @@
     toggleGroup('toggle-ac-vicinity','vicinity');
     toggleGroup('toggle-ac-ground','ground');
 
-    // Debug: log marker counts per category
-    console.log('Marker counts after toggle:');
-    categories.forEach(cat => {
-      let count = 0;
-      p56MarkerGroups[cat].eachLayer(() => count++);
-      const onP56Map = p56Map.hasLayer(p56MarkerGroups[cat]);
-      const onSFRAMap = sfraMap.hasLayer(sfraMarkerGroups[cat]);
-      console.log(`  ${cat}: ${count} markers, on p56Map: ${onP56Map}, on sfraMap: ${onSFRAMap}`);
-    });
+    // Marker counts updated
 
     // Make legend collapsible
     try{
@@ -1929,7 +1919,7 @@
               document.querySelectorAll('.traffic-table thead th').forEach(h=>{ h.classList.remove('sort-asc','sort-desc'); });
               if(order === 'asc') th.classList.add('sort-asc'); else if(order === 'desc') th.classList.add('sort-desc');
             // re-render only this table using cached data for fast sorting
-            console.log('Sorting', tbodyId, 'by', col, 'order:', order);
+            // Sorting table
             rerenderTable(tbodyId);
           });
         });
@@ -1999,7 +1989,7 @@
       latest_ac: filtered || [],
       p56json: p56json || {}
     };
-    console.log('Cached table data for fast sorting');
+    // Cached table data
 
     // Update visible flight paths immediately - markers are already added to layer groups
     // Leaflet handles internal batching, so both markers and paths render together
