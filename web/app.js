@@ -825,6 +825,22 @@
     }
 
     // Fast re-rendering table
+    
+    // Handle controllers table with fresh cache data
+    if(tbodyId === 'controllers-tbody'){
+      const controllersList = window.ctrlsCache?.data?.controllers || [];
+      renderTable('controllers-tbody', controllersList, it => {
+        const cid = it.cid || '';
+        const name = it.realName || '';
+        const callsign = it.callsign || '';
+        const facility = it.facilityId || '';
+        const position = it.positionName || '';
+        const freq = it.frequency || '';
+        const rating = it.rating || '';
+        return `<td><strong>${callsign}</strong></td><td>${name}</td><td>${cid}</td><td>${facility}</td><td>${position}</td><td>${freq}</td><td>${rating}</td>`;
+      }, null); // No flight plan expansion for controllers
+      return;
+    }
 
     const { currentInside, events, lb, sfraList, frzList, latest_ac, p56json } = tableDataCache;
 
@@ -1087,32 +1103,27 @@
     
     // Initialize cache storage for VIP and Controllers (60s TTL)
     if(!window.vipCache) window.vipCache = { data: null, timestamp: 0 };
-    if(!window.ctrlsCache) window.ctrlsCache = { data: null, timestamp: 0 };
+    if(!window.ctrlsCache) window.ctrlsCache = { data: { controllers: [], count: 0 }, timestamp: 0 };
     
     const now = Date.now();
     const CACHE_TTL = 60000; // 60 seconds
     
-    // Determine which APIs need fetching
+    // Determine which APIs need fetching (Controllers fetches independently in background)
     const needVipFetch = (now - window.vipCache.timestamp) > CACHE_TTL;
-    const needCtrlsFetch = (now - window.ctrlsCache.timestamp) > CACHE_TTL;
     
     const r2 = performance.now();
-    // Parallelize all API calls (using cached data for VIP/Controllers if available)
-    const [p56json, vipjson, ctrlsjson] = await Promise.all([
+    // Parallelize P56 and VIP calls (Controllers is fetched separately on offset schedule)
+    const [p56json, vipjson] = await Promise.all([
       fetchWithBackoff(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}}).catch(()=>({breaches:[],history:{}})),
       needVipFetch 
         ? fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}))
-        : Promise.resolve(window.vipCache.data),
-      needCtrlsFetch
-        ? fetchWithBackoff(`${API_ROOT}/controllers/`).then(r=>r.ok?r.json():{controllers:[],count:0}).catch(()=>({controllers:[],count:0}))
-        : Promise.resolve(window.ctrlsCache.data)
+        : Promise.resolve(window.vipCache.data)
     ]);
     const r3 = performance.now();
-    console.log(`[PERF] Parallel API calls took ${((r3-r2)/1000).toFixed(2)}s (VIP: ${needVipFetch?'fetched':'cached'}, Controllers: ${needCtrlsFetch?'fetched':'cached'})`);
+    console.log(`[PERF] Parallel API calls took ${((r3-r2)/1000).toFixed(2)}s (VIP: ${needVipFetch?'fetched':'cached'})`);
     
-    // Update caches if we fetched new data
+    // Update cache if we fetched new data
     if(needVipFetch){ window.vipCache = { data: vipjson, timestamp: now }; }
-    if(needCtrlsFetch){ window.ctrlsCache = { data: ctrlsjson, timestamp: now }; }
     
     // Build a quick lookup set of CIDs currently inside P-56 so we can
     // force their marker color to the P-56 color regardless of on-ground state.
@@ -1125,7 +1136,8 @@
     const vipList = vipjson.aircraft || [];
     el('vip-count').textContent = vipList.length;
 
-    const controllersList = ctrlsjson.controllers || [];
+    // Use cached controllers data (updated by background fetcher)
+    const controllersList = window.ctrlsCache.data.controllers || [];
     el('controllers-count').textContent = controllersList.length;
 
   // keep a local copy of the latest aircraft snapshot for lookups
@@ -2624,6 +2636,50 @@
   loadOverlays().then(()=>pollAircraftThenRefresh()).then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
   // ensure maps reflow on window resize
   window.addEventListener('resize', ()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
+  // Expose rerenderTable globally for background fetcher
+  window.rerenderTable = rerenderTable;
+  
+  // Background fetcher for Controllers (offset from main poll to spread server load)
+  async function fetchControllersBackground(){
+    try {
+      console.log('[CONTROLLERS] Background fetch starting...');
+      const ctrlsjson = await fetchWithBackoff(`${API_ROOT}/controllers/`)
+        .then(r=>r.ok?r.json():{controllers:[],count:0})
+        .catch(()=>({controllers:[],count:0}));
+      
+      window.ctrlsCache = { data: ctrlsjson, timestamp: Date.now() };
+      
+      // Update UI if controllers count element exists and table needs refresh
+      const countEl = el('controllers-count');
+      const tbodyEl = el('controllers-tbody');
+      if(countEl){
+        const newCount = (ctrlsjson.controllers || []).length;
+        if(countEl.textContent !== String(newCount)){
+          countEl.textContent = newCount;
+          // If table exists and count changed, trigger table re-render
+          if(tbodyEl){
+            try{ rerenderTable('controllers-tbody'); }catch(e){}
+          }
+        }
+      }
+      console.log('[CONTROLLERS] Background fetch complete');
+    } catch (e) {
+      console.warn('[CONTROLLERS] Background fetch error', e);
+    }
+  }
+  
+  function scheduleControllersBackgroundFetch(baseMs){
+    const CONTROLLERS_INTERVAL = 60000; // 60 seconds
+    const CONTROLLERS_OFFSET = 7500; // Start 7.5s after page load (middle of main poll cycle)
+    
+    window.setTimeout(async ()=>{
+      if(isPageVisible){
+        await fetchControllersBackground();
+      }
+      scheduleControllersBackgroundFetch(CONTROLLERS_INTERVAL);
+    }, baseMs);
+  }
+  
   // run periodic polling with jitter and shared cooldown awareness
   // Adaptive polling: reduce frequency when tab is not visible to save server resources
   let isPageVisible = !document.hidden;
@@ -2648,30 +2704,20 @@
     const prefetchDelay = Math.max(0, delay - PREFETCH_ADVANCE_MS);
     
     if(prefetchDelay > 0 && isPageVisible){
-      // Schedule prefetch for active tabs only
+      // Schedule prefetch for active tabs only (VIP only now, Controllers runs independently)
       window.setTimeout(async ()=>{
         try {
-          console.log('[PREFETCH] Starting early data fetch...');
-          // Prefetch data into cache without triggering full refresh
+          console.log('[PREFETCH] Starting early VIP fetch...');
           const now = Date.now();
           const CACHE_TTL = 60000;
           const needVipFetch = (now - window.vipCache.timestamp) > CACHE_TTL;
-          const needCtrlsFetch = (now - window.ctrlsCache.timestamp) > CACHE_TTL;
           
-          if(needVipFetch || needCtrlsFetch){
-            const fetches = [];
-            if(needVipFetch) fetches.push(
-              fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0})
-                .then(data => { window.vipCache = { data, timestamp: Date.now() }; })
-                .catch(()=>{})
-            );
-            if(needCtrlsFetch) fetches.push(
-              fetchWithBackoff(`${API_ROOT}/controllers/`).then(r=>r.ok?r.json():{controllers:[],count:0})
-                .then(data => { window.ctrlsCache = { data, timestamp: Date.now() }; })
-                .catch(()=>{})
-            );
-            await Promise.all(fetches);
-            console.log('[PREFETCH] Completed early data fetch');
+          if(needVipFetch){
+            await fetchWithBackoff(`${API_ROOT}/vip/`)
+              .then(r=>r.ok?r.json():{aircraft:[],count:0})
+              .then(data => { window.vipCache = { data, timestamp: Date.now() }; })
+              .catch(()=>{});
+            console.log('[PREFETCH] Completed early VIP fetch');
           }
         } catch (e) {
           console.warn('[PREFETCH] Error during prefetch', e);
@@ -2691,6 +2737,8 @@
       }
     }, delay);
   }
+  
   scheduleNextPoll(REFRESH);
+  scheduleControllersBackgroundFetch(7500); // Start offset by 7.5s
 
 })();
