@@ -2769,7 +2769,8 @@
           console.log('[PREFETCH] Starting early VIP fetch...');
           const now = Date.now();
           const CACHE_TTL = 60000;
-          const needVipFetch = (now - window.vipCache.timestamp) > CACHE_TTL;
+          // Safe check: ensure cache exists before accessing timestamp
+          const needVipFetch = !window.vipCache || (now - window.vipCache.timestamp) > CACHE_TTL;
           
           if(needVipFetch){
             await fetchWithBackoff(`${API_ROOT}/vip/`)
