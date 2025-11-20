@@ -515,9 +515,9 @@
     
     const diff = last > 0 ? now - last : 0;
     const nowStr = formatZuluEpoch(Math.floor(now / 1000), true);
-    updateDiv.innerHTML = `Last: ${lastStr}<br>Now: ${nowStr}`;
-    if (diff > 60000) updateDiv.style.color = 'red';
-    else if (diff > 30000) updateDiv.style.color = 'yellow';
+    updateDiv.innerHTML = `Data: ${lastStr}<br>Now: ${nowStr}`;
+    if (diff > 120000) updateDiv.style.color = 'red';
+    else if (diff > 60000) updateDiv.style.color = 'yellow';
     else updateDiv.style.color = 'white';
   }
 
