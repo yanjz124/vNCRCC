@@ -1552,7 +1552,97 @@
   // SFRA/FRZ tables rendering will be performed after markers are created so
   // the lists reflect the exact same classification used on the map.
 
-    // markers
+    // markers (incremental update to reduce latency between history vs icon refresh)
+    if(!window.markersByCid){ window.markersByCid = { p56:{}, sfra:{} }; }
+    if(window.INCREMENTAL_MARKERS === undefined) window.INCREMENTAL_MARKERS = true;
+
+    if(window.INCREMENTAL_MARKERS){
+      // Build lookup of current CIDs
+      const currentCids = new Set(filtered.map(a => String(a.cid||'')));    
+      // Remove markers for aircraft no longer present
+      ['p56','sfra'].forEach(ctx => {
+        const store = window.markersByCid[ctx];
+        Object.keys(store).forEach(cid => {
+          if(!currentCids.has(cid)){
+            try{
+              const rec = store[cid];
+              if(rec){
+                const grpOld = (ctx==='p56'? p56MarkerGroups : sfraMarkerGroups)[rec.statusClass] || (ctx==='p56'? p56MarkerGroups.vicinity : sfraMarkerGroups.vicinity);
+                if(grpOld && rec.marker){ grpOld.removeLayer(rec.marker); }
+              }
+            }catch(e){}
+            delete store[cid];
+          }
+        });
+      });
+
+      // Update / create markers for current aircraft
+      for(const ac of filtered){
+        try{
+          const cid = String(ac.cid||'');
+          if(!cid) continue;
+          const lat = ac.latitude || ac.lat || ac.y;
+          const lon = ac.longitude || ac.lon || ac.x;
+          const heading = ac.heading || 0;
+          const area = classifyAircraft(ac, lat, lon, overlays);
+          const isGround = ac._onGround;
+          let statusClass = isGround ? 'ground' : area;
+          if(currentP56Cids.has(cid)){ statusClass = 'p56'; }
+          const color = statusClass==='frz'? '#f0ad4e' : statusClass==='p56'? '#d9534f' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
+          const ctxs = [{ctx:'p56', groups:p56MarkerGroups},{ctx:'sfra', groups:sfraMarkerGroups}];
+          for(const ctx of ctxs){
+            const store = window.markersByCid[ctx.ctx];
+            let rec = store[cid];
+            if(rec){
+              // Existing marker: move + recolor/heading if changed
+              if(rec.marker && lat!=null && lon!=null){ rec.marker.setLatLng([lat,lon]); }
+              const headingChanged = Math.abs((rec.heading||0) - heading) >= 5;
+              const statusChanged = rec.statusClass !== statusClass;
+              if(headingChanged || statusChanged){
+                try{
+                  const icon = await createPlaneIcon(color, heading).catch(()=>null);
+                  if(icon && rec.marker.setIcon) rec.marker.setIcon(icon);
+                }catch(e){}
+              }
+              if(statusChanged){
+                // Move marker between category groups
+                try{
+                  const oldGrp = ctx.groups[rec.statusClass] || ctx.groups.vicinity;
+                  const newGrp = ctx.groups[statusClass] || ctx.groups.vicinity;
+                  if(oldGrp !== newGrp){ oldGrp.removeLayer(rec.marker); newGrp.addLayer(rec.marker); }
+                }catch(e){}
+                rec.statusClass = statusClass;
+              }
+              rec.heading = heading;
+            }else{
+              // New marker
+              let icon = null;
+              try{ icon = await createPlaneIcon(color, heading).catch(()=>null); }catch(e){ icon = null; }
+              let marker = null;
+              if(icon){ marker = L.marker([lat,lon], {icon}); } else { marker = L.circleMarker([lat,lon], {radius:6,color,fillColor:color,fillOpacity:0.8,weight:2}); }
+              marker._flightPathCid = cid;
+              const grp = ctx.groups[statusClass] || ctx.groups.vicinity;
+              grp.addLayer(marker);
+              marker.on('click', ()=> toggleFlightPath(cid, ctx.ctx));
+              store[cid] = { marker, heading, statusClass };
+              // Minimal tooltip (defer full rebuild cost)
+              try{
+                const gsVal = Math.round(Number(ac.groundspeed||ac.gs||0));
+                const altVal = Math.round(Number(ac.altitude||ac.alt||0));
+                const tooltipHtml = `<div class="ac-tooltip"><div><strong>${ac.callsign||''}</strong></div><div>${gsVal} kt / ${altVal} ft</div></div>`;
+                marker.bindTooltip(tooltipHtml,{direction:'top',className:'fp-tooltip',sticky:true});
+              }catch(e){}
+            }
+          }
+          // Populate client-side lists (area based) for tables
+          ac._airspace = area; ac._isOnGround = isGround;
+          if(area === 'sfra') sfraList.push(ac); else if(area === 'frz') frzList.push(ac); else if(area === 'p56') p56List.push(ac); else airList.push(ac);
+          if(isGround) groundList.push(ac);
+        }catch(e){ /* per-aircraft failure ignored */ }
+      }
+      // Incremental marker update complete
+    } else {
+      // Fallback: original full rebuild path
   // clear per-category groups
   categories.forEach(cat => { p56MarkerGroups[cat].clearLayers(); sfraMarkerGroups[cat].clearLayers(); });
     // Starting marker creation
@@ -1569,126 +1659,30 @@
         let isGround = ac._onGround;
         let statusText = isGround ? 'Ground' : 'Airborne';
         let statusClass = isGround ? 'ground' : area;
-        // If this aircraft is currently recorded as inside P-56, force its
-        // visual status to P-56 so it shows the P-56 color regardless of
-        // whether it's on the ground or airborne.
         if(currentP56Cids.has(String(ac.cid || ''))){ statusClass = 'p56'; statusText = 'P-56'; }
-
-        // Colors: FRZ (orange), P56 (red), SFRA (blue), ground (gray), vicinity (green)
         const color = statusClass==='frz'? '#f0ad4e' : statusClass==='p56'? '#d9534f' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
-        
-        // Create icon (async operation)
-        const icon = await createPlaneIcon(color, heading).catch((err)=>{
-          console.warn('Icon creation failed for', ac.callsign, err);
-          return null;
-        });
-
+        const icon = await createPlaneIcon(color, heading).catch(()=>null);
         return { ac, lat, lon, heading, area, isGround, statusText, statusClass, color, icon };
-      }catch(err){
-        console.error('Failed to prepare marker data for', ac.callsign, err);
-        return null;
-      }
+      }catch(err){ return null; }
     });
-
-    // Wait for all icons to be created in parallel
     const markerDataArray = await Promise.all(markerDataPromises);
-    // All icons created, building markers
-
-    // Now create all markers synchronously (fast DOM operations)
     for(const markerData of markerDataArray){
       if(!markerData) continue;
       const {ac, lat, lon, heading, area, isGround, statusText, statusClass, color, icon} = markerData;
-      
       try{
-      let markerP56, markerSFRA;
-      
-      if(icon){
-        markerP56 = L.marker([lat, lon], {icon: icon});
-        markerSFRA = L.marker([lat, lon], {icon: icon});
-      }else{
-        // fallback to small circle marker
-        markerP56 = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
-        markerSFRA = L.circleMarker([lat, lon], {radius:6, color: color, fillColor: color, fillOpacity:0.8, weight:2});
-      }
-      // tag markers with CID so we can find them later for highlighting
-      try{ const _cid = String(ac.cid||''); markerP56._flightPathCid = _cid; markerSFRA._flightPathCid = _cid; }catch(e){}
-  const dca = ac.dca || computeDca(lat, lon);
-  const cid = ac.cid || '';
-  const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-  const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-      // Summary popup: first line = callsign, pilot name, CID. Second line = DCA radial-range,
-      // dep - dest, aircraft type. Clicking the aircraft replaces the popup with the full
-      // JSON returned by the API for that aircraft.
-      // Show either ON GROUND or the area (SFRA/FRZ/P56/VICINITY) in the popup
-      const popupStatus = isGround ? 'ON GROUND' : (String(area || 'vicinity').toUpperCase());
-      const summary = `<div class="ac-summary"><strong>${ac.callsign||''}</strong> — ${ac.name||''} (CID: ${cid})</div>
-        <div>${dca.radial_range} — ${dep || '-'} - ${arr || '-'} — ${(ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '-'}</div>
-        <div><em>${popupStatus}</em> — Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}</div>`;
-      // markerP56.bindPopup(summary);
-      // markerSFRA.bindPopup(summary);
-
-      // show a compact tooltip on hover with first-line summary (callsign, pilot, cid, gs, alt, route)
-      try{
-        const callsign = ac.callsign || '';
-        const pilotName = ac.name || '';
-        const cidField = ac.cid || '';
-        const gsVal = Math.round(Number(ac.groundspeed || ac.gs || 0));
-        const altVal = Math.round(Number(ac.altitude || ac.alt || 0));
-        const depField = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
-        const arrField = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
-  // Prefer a human-friendly type/model from multiple possible fields used by
-  // different data sources. Prefer `aircraft_faa` then `aircraft_short` when
-  // available, then fall back to older fields for broader compatibility.
-  const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || ac.aircraft || ac.model || ac.aircraft_model || ac.registration || '';
-  const line1 = acType ? `<strong>${callsign}</strong> <span class="ac-type">${acType}</span>` : `<strong>${callsign}</strong>`;
-  let line2 = '-';
-  if(pilotName && cidField) line2 = `${pilotName}, ${cidField}`;
-  else if(pilotName) line2 = pilotName;
-  else if(cidField) line2 = cidField;
-        const line3 = `GS: ${gsVal} kt — ALT: ${altVal} ft — Squawk: ${ac.transponder || '-'} / ${ac.flight_plan?.assigned_transponder || '-'}`;
-        const line4 = (depField || arrField) ? `${depField || '-'} - ${arrField || '-'}` : '';
-        const tooltipHtml = `<div class="ac-tooltip">` +
-                            `<div>${line1}</div>` +
-                            `<div>${line2}</div>` +
-                            `<div>${line3}</div>` +
-                            `<div>${line4}</div>` +
-                            `</div>`;
-        markerP56.bindTooltip(tooltipHtml, {direction:'top', className:'fp-tooltip', sticky:true});
-        markerSFRA.bindTooltip(tooltipHtml, {direction:'top', className:'fp-tooltip', sticky:true});
-      }catch(e){/* ignore tooltip errors */}
-
-      // add markers to their category groups (use statusClass which holds the final group)
-  const grp = p56MarkerGroups[statusClass] || p56MarkerGroups['vicinity'];
-  const sgrp = sfraMarkerGroups[statusClass] || sfraMarkerGroups['vicinity'];
-  grp.addLayer(markerP56);
-  sgrp.addLayer(markerSFRA);
-  
-  // Add click handlers to toggle flight paths
-  markerP56.on('click', () => toggleFlightPath(cid, 'p56'));
-  markerSFRA.on('click', () => toggleFlightPath(cid, 'sfra'));
-  
-  // Attach marker references and current status to the aircraft object so
-  // background elevation checks can update markers in-place without a full refresh.
-  try{ ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass; }catch(e){}
-      // Populate client-side lists using airspace classification (area)
-      // regardless of ground/airborne status. We'll sort and render with a
-      // divider between airborne and ground aircraft within each airspace list.
-      // Store both area and ground status on the aircraft for later sorting.
-      ac._airspace = area;
-      ac._isOnGround = isGround;
-      try{
-        // Add to lists based on geographic area, not statusClass
-        // This ensures ground aircraft in SFRA/FRZ appear in those lists
-        if(area === 'sfra') sfraList.push(ac);
-        else if(area === 'frz') frzList.push(ac);
-        else if(area === 'p56') p56List.push(ac);
-        else if(area === 'vicinity') airList.push(ac);
-        // Also track ground aircraft separately for the map layer toggle
+        let markerP56 = icon? L.marker([lat,lon],{icon}) : L.circleMarker([lat,lon],{radius:6,color,fillColor:color,fillOpacity:0.8,weight:2});
+        let markerSFRA = icon? L.marker([lat,lon],{icon}) : L.circleMarker([lat,lon],{radius:6,color,fillColor:color,fillOpacity:0.8,weight:2});
+        markerP56._flightPathCid = String(ac.cid||''); markerSFRA._flightPathCid = String(ac.cid||'');
+        const grp = p56MarkerGroups[statusClass] || p56MarkerGroups.vicinity;
+        const sgrp = sfraMarkerGroups[statusClass] || sfraMarkerGroups.vicinity;
+        grp.addLayer(markerP56); sgrp.addLayer(markerSFRA);
+        markerP56.on('click',()=>toggleFlightPath(ac.cid,'p56')); markerSFRA.on('click',()=>toggleFlightPath(ac.cid,'sfra'));
+        ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass;
+        ac._airspace = area; ac._isOnGround = isGround;
+        if(area==='sfra') sfraList.push(ac); else if(area==='frz') frzList.push(ac); else if(area==='p56') p56List.push(ac); else airList.push(ac);
         if(isGround) groundList.push(ac);
-      }catch(e){/* ignore list population errors */}
-      }catch(e){
-        console.error('Failed to process aircraft', ac.callsign, e);
-      }
+      }catch(e){ }
+    }
     }
     // Finished marker creation
 
