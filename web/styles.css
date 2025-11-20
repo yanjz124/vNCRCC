@@ -273,6 +273,12 @@ table:has(#p56-leaderboard-tbody) th {
   cursor: default;
 }
 
+/* P56 leaderboard column width constraints */
+#p56-leaderboard-table th:nth-child(1), #p56-leaderboard-table td:nth-child(1), /* Rank */
+#p56-leaderboard-table th:nth-child(5), #p56-leaderboard-table td:nth-child(5)  /* P56 Busts */ {
+  max-width: 400px;
+}
+
 /* Tables will size naturally to content without forced minimum widths */
 
 /* P56 Alert Controls */
