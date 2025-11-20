@@ -164,9 +164,11 @@ def record_penetration(event: Dict[str, Any]) -> None:
                 last_event["pre_positions"] = event_copy.get("pre_positions")
             if event_copy.get("post_positions") and not last_event.get("post_positions"):
                 last_event["post_positions"] = event_copy.get("post_positions")
-            # Ensure we still mark current inside
+            # Ensure we still mark current inside with p56_buster flag
             current[str(cid)] = {
                 "inside": True,
+                "p56_buster": True,  # Ensure flag is set for continued tracking
+                "outside_count": 0,  # Reset exit confirmation counter
                 "last_seen": event_copy.get("latest_ts") or event_copy.get("recorded_at"),
                 "last_position": event_copy.get("latest_position"),
                 "flight_plan": event_copy.get("flight_plan", {}),
@@ -178,10 +180,12 @@ def record_penetration(event: Dict[str, Any]) -> None:
 
     events.append(event_copy)
 
-    # mark current inside
+    # mark current inside with p56_buster flag for continuous tracking
     # store a small summary for the currently-inside pilot (include name/callsign)
     current[str(cid)] = {
         "inside": True,
+        "p56_buster": True,  # Flag to enable continuous position tracking
+        "outside_count": 0,  # Counter for exit confirmation (need 10 consecutive outside)
         "last_seen": event_copy.get("latest_ts") or event_copy.get("recorded_at"),
         "last_position": event_copy.get("latest_position"),
         "flight_plan": event_copy.get("flight_plan", {}),
@@ -202,7 +206,13 @@ def mark_exit(cid: str, ts: Optional[float] = None) -> None:
 
 
 def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optional[float] = None, positions_by_cid: Optional[Dict[str, List]] = None) -> None:
-    """Update current_inside flags based on latest snapshot.
+    """Update current_inside flags and track positions with p56_buster logic.
+
+    P56 Buster Logic:
+    - When intrusion detected: set p56_buster flag, start continuous position capture
+    - Keep appending positions while aircraft is tracked (inside or within confirmation window)
+    - Exit confirmation: need 10 consecutive 'outside' positions to stop tracking
+    - Safety cap: 200 positions maximum per intrusion
 
     aircraft_list: list of VATSIM aircraft dicts
     features: list of (shapely_shape, props)
@@ -211,6 +221,7 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
     data = _load()
     current: Dict[str, Any] = data.setdefault("current_inside", {})
     events: List[Dict[str, Any]] = data.setdefault("events", [])
+    
     # Build map by cid
     ac_map: Dict[str, Dict[str, Any]] = {}
     for a in aircraft_list:
@@ -218,27 +229,12 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
         if cid:
             ac_map[str(cid)] = a
 
-    # For each tracked CID (inside or recently exited), check status and update positions
+    # For each tracked CID with p56_buster flag, update positions
     for cid, state in list(current.items()):
-        is_inside = state.get("inside", False)
-        last_seen = state.get("last_seen", 0)
-        
-        # Skip if exited more than 2 minutes ago (enough time for 5+ positions after exit)
-        if not is_inside and ts and (ts - last_seen > 120):
+        p56_buster = state.get("p56_buster", False)
+        if not p56_buster:
+            # Not actively tracking this CID
             continue
-            
-        a = ac_map.get(str(cid))
-        still_inside = False
-        if a:
-            pt = point_from_aircraft(a)
-            if pt:
-                for shp, props in features:
-                    try:
-                        if getattr(shp, "contains", lambda x: False)(pt) or getattr(shp, "intersects", lambda x: False)(pt):
-                            still_inside = True
-                            break
-                    except Exception:
-                        continue
         
         # Find the last event for this CID
         last_event = None
@@ -247,34 +243,68 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                 last_event = e
                 break
         
-        # Get the last event for this CID to update positions (whether inside or recently exited)
-        if last_event and positions_by_cid:
+        if not last_event:
+            # No event found, shouldn't happen but clean up
+            current[cid]["p56_buster"] = False
+            continue
+        
+        # Check if aircraft is currently inside P-56
+        a = ac_map.get(str(cid))
+        currently_inside = False
+        if a:
+            pt = point_from_aircraft(a)
+            if pt:
+                for shp, props in features:
+                    try:
+                        if getattr(shp, "contains", lambda x: False)(pt) or getattr(shp, "intersects", lambda x: False)(pt):
+                            currently_inside = True
+                            break
+                    except Exception:
+                        continue
+        
+        # Get positions for this CID
+        if positions_by_cid and cid in positions_by_cid:
+            positions = positions_by_cid.get(cid, [])
             entry_ts = last_event.get("latest_ts", 0)
             
-            if entry_ts:
-                positions = positions_by_cid.get(cid, [])
-                # Get all positions after entry
-                post_entry = [p for p in positions if p["ts"] > entry_ts]
-                post_entry.sort(key=lambda x: x["ts"])  # oldest first
+            # Get all positions after initial entry
+            intrusion_positions = [p for p in positions if p["ts"] >= entry_ts]
+            intrusion_positions.sort(key=lambda x: x["ts"])  # oldest first
+            
+            # Apply safety cap of 200 positions
+            intrusion_positions = intrusion_positions[:200]
+            
+            # Update the event with all captured positions
+            last_event["intrusion_positions"] = intrusion_positions
+            
+            # Update current_inside state
+            if currently_inside:
+                # Still inside - reset exit confirmation counter
+                current[cid]["inside"] = True
+                current[cid]["last_seen"] = ts or time.time()
+                current[cid]["outside_count"] = 0
+            else:
+                # Outside - increment exit confirmation counter
+                outside_count = state.get("outside_count", 0) + 1
+                current[cid]["outside_count"] = outside_count
+                current[cid]["inside"] = False
+                current[cid]["last_seen"] = ts or time.time()
                 
-                if still_inside and is_inside:
-                    # Still inside - update with all inside positions (cap at 100 for safety)
-                    last_event["post_positions"] = post_entry[:100]
-                elif not still_inside:
-                    # Exited or still tracking after exit
-                    if is_inside:
-                        # First detection of exit - mark it
-                        current[cid]["inside"] = False
-                        current[cid]["last_seen"] = ts or time.time()
+                # After 10 consecutive outside positions, stop tracking (confirmed exit)
+                if outside_count >= 10:
+                    current[cid]["p56_buster"] = False
+                    last_event["exit_confirmed_at"] = ts or time.time()
+                    # Split into inside and post-exit positions for display
+                    if not last_event.get("exit_detected_at"):
+                        # Mark first exit detection time (when counter started)
                         last_event["exit_detected_at"] = ts or time.time()
-                    
-                    # Continue tracking positions after exit
-                    split_ts = last_event.get("exit_detected_at", ts or time.time())
-                    inside_positions = [p for p in post_entry if p["ts"] <= split_ts]
-                    after_exit = [p for p in post_entry if p["ts"] > split_ts]
-                    
-                    # Combine: all inside (cap at 100) + up to 5 after exit
-                    final_positions = inside_positions[:100] + after_exit[:5]
-                    last_event["post_positions"] = final_positions
+        elif not a:
+            # Aircraft disconnected - stop tracking after 10 cycles
+            outside_count = state.get("outside_count", 0) + 1
+            current[cid]["outside_count"] = outside_count
+            if outside_count >= 10:
+                current[cid]["p56_buster"] = False
+                if last_event and not last_event.get("exit_confirmed_at"):
+                    last_event["exit_confirmed_at"] = ts or time.time()
 
     _atomic_write(data)
