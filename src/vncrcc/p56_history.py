@@ -321,5 +321,10 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                 current[cid]["p56_buster"] = False
                 if last_event and not last_event.get("exit_confirmed_at"):
                     last_event["exit_confirmed_at"] = ts or time.time()
+        
+        # Update post_positions for frontend display compatibility
+        # Frontend expects pre_positions + post_positions for the yellow track
+        if last_event and "intrusion_positions" in last_event:
+            last_event["post_positions"] = last_event["intrusion_positions"]
 
     _atomic_write(data)
