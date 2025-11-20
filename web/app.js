@@ -5,7 +5,7 @@
   const DEFAULT_RANGE_NM = 300;
   const REFRESH = 15000;
   // Add light client-side jitter and shared cooldown to de-sync tabs and respect 429s
-  const JITTER_PCT = 0.10; // +/-10%
+  const JITTER_PCT = 0.03; // +/-3% (reduced from 10% to keep timing predictable)
   const MAX_COOLDOWN_MS = 60 * 1000; // cap any client-side cooldown to 60s
   const COOLDOWN_KEY = 'vncrcc.cooldownUntil';
 
@@ -2599,9 +2599,18 @@
     const effectiveDelay = isPageVisible ? baseMs : baseMs * INACTIVE_MULTIPLIER;
     const delay = Math.max(withJitter(effectiveDelay), cooldownRemaining);
     
+    const scheduleTime = Date.now();
+    console.log(`[POLL] Scheduled next poll in ${(delay/1000).toFixed(1)}s (base: ${(baseMs/1000).toFixed(1)}s, visible: ${isPageVisible}, cooldown: ${cooldownRemaining}ms)`);
+    
     window.setTimeout(async ()=>{
+      const pollStart = Date.now();
+      const actualDelay = pollStart - scheduleTime;
+      console.log(`[POLL] Starting poll (actual delay: ${(actualDelay/1000).toFixed(1)}s)`);
       try {
         await pollAircraftThenRefresh();
+        const pollEnd = Date.now();
+        const pollDuration = pollEnd - pollStart;
+        console.log(`[POLL] Completed in ${(pollDuration/1000).toFixed(2)}s`);
       } catch (e) {
         // If rate-limited, honor the stored cooldown next tick
         console.warn('Poll error', e);
