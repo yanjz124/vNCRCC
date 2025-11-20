@@ -180,12 +180,38 @@ def record_penetration(event: Dict[str, Any]) -> None:
 
     events.append(event_copy)
 
+    # Seed unified intrusion_positions with any pre_positions plus the initial latest_position
+    seed_positions: List[Dict[str, Any]] = []
+    for p in (event_copy.get("pre_positions") or []):
+        if {"lat", "lon", "ts"}.issubset(p.keys()):
+            seed_positions.append({
+                "ts": p.get("ts"),
+                "lat": p.get("lat"),
+                "lon": p.get("lon"),
+                "alt": p.get("alt"),
+                "gs": p.get("gs"),
+                "heading": p.get("heading"),
+                "callsign": event_copy.get("callsign")
+            })
+    lp = event_copy.get("latest_position")
+    ts_lp = event_copy.get("latest_ts") or event_copy.get("recorded_at")
+    if lp and ts_lp is not None:
+        seed_positions.append({
+            "ts": ts_lp,
+            "lat": lp.get("lat"),
+            "lon": lp.get("lon"),
+            "alt": event_copy.get("altitude") or event_copy.get("alt"),
+            "gs": event_copy.get("groundspeed") or event_copy.get("gs"),
+            "heading": event_copy.get("heading"),
+            "callsign": event_copy.get("callsign")
+        })
+    event_copy["intrusion_positions"] = seed_positions
+
     # mark current inside with p56_buster flag for continuous tracking
-    # store a small summary for the currently-inside pilot (include name/callsign)
     current[str(cid)] = {
         "inside": True,
-        "p56_buster": True,  # Flag to enable continuous position tracking
-        "outside_count": 0,  # Counter for exit confirmation (need 10 consecutive outside)
+        "p56_buster": True,
+        "outside_count": 0,
         "last_seen": event_copy.get("latest_ts") or event_copy.get("recorded_at"),
         "last_position": event_copy.get("latest_position"),
         "flight_plan": event_copy.get("flight_plan", {}),
@@ -264,7 +290,7 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
         
         # Append current position to intrusion tracking
         # Get existing intrusion_positions or initialize empty list
-        intrusion_positions = last_event.get("intrusion_positions", [])
+        intrusion_positions = last_event.get("intrusion_positions") or []
         
         # Add current aircraft position if aircraft is still being tracked
         if a:
@@ -282,7 +308,7 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                 }
                 
                 # Only append if different from last position (avoid duplicates from slow updates)
-                if not intrusion_positions or intrusion_positions[-1]["ts"] < (ts or time.time()) - 1:
+                if not intrusion_positions or (pos_entry["ts"] - intrusion_positions[-1]["ts"]) >= 1:
                     intrusion_positions.append(pos_entry)
                     
                     # Apply safety cap of 200 positions
