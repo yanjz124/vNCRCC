@@ -384,3 +384,7 @@ table:has(#p56-leaderboard-tbody) th {
 .pwd-row{display:flex;gap:8px;align-items:center}
 .pwd-field{flex:1;background:#081218;border:1px solid #23303a;color:#dfefff;padding:8px;border-radius:4px}
 .btn-icon{min-width:36px;padding:6px 8px;line-height:1}
+
+/* P56 intrusion point labels */
+.p56-point-label-wrapper{pointer-events:none;}
+.p56-point-label{font-size:10px;color:#ffffff;background:rgba(0,0,0,0.35);padding:2px 4px;border-radius:3px;white-space:nowrap;font-weight:500;backdrop-filter:blur(2px);}
