@@ -106,23 +106,58 @@ class VatsimClient:
             timeout = aiohttp.ClientTimeout(total=60, connect=30)
             self._session = aiohttp.ClientSession(timeout=timeout)
         # use base_url as the default fetch target
+        fetch_start = time.time()
         async with self._session.get(self.base_url) as resp:
             if resp.status != 200:
                 raise RuntimeError(f"VATSIM fetch returned status {resp.status}")
             data = await resp.json()
             ts = time.time()
+            fetch_duration = ts - fetch_start
+            
+            # Extract VATSIM's update timestamp to measure staleness
+            vatsim_update_ts = None
+            vatsim_age_seconds = None
+            try:
+                general = data.get("general", {})
+                update_str = general.get("update_timestamp") or general.get("update")
+                if update_str:
+                    # Parse ISO or compact format
+                    from datetime import datetime
+                    if 'T' in update_str or '-' in update_str:
+                        vatsim_dt = datetime.fromisoformat(update_str.replace('Z', '+00:00'))
+                    else:
+                        # Compact: "20251120211931"
+                        y, m, d, h, mi, s = update_str[:4], update_str[4:6], update_str[6:8], update_str[8:10], update_str[10:12], update_str[12:14]
+                        vatsim_dt = datetime.strptime(f"{y}-{m}-{d}T{h}:{mi}:{s}Z", "%Y-%m-%dT%H:%M:%SZ")
+                    vatsim_update_ts = vatsim_dt.timestamp()
+                    vatsim_age_seconds = ts - vatsim_update_ts
+            except Exception:
+                pass
+            
             # Count aircraft/pilots for log visibility
             count = len((data.get("pilots") or data.get("aircraft") or []))
             async with self._lock:
                 self.latest = data
                 self.latest_ts = ts
-            logger.info("VATSIM fetch success: %d aircraft at %.0f", count, ts)
+            
+            # Log with staleness info
+            if vatsim_age_seconds is not None:
+                logger.info("VATSIM fetch success: %d aircraft, fetch took %.2fs, data age %.1fs", 
+                           count, fetch_duration, vatsim_age_seconds)
+            else:
+                logger.info("VATSIM fetch success: %d aircraft at %.0f, fetch took %.2fs", 
+                           count, ts, fetch_duration)
+            
             # call registered callbacks (run them sync to keep ordering)
+            callback_start = time.time()
             for cb in list(self._callbacks):
                 try:
                     cb(data, ts)
                 except Exception as e:
                     logger.exception("VATSIM callback error: %s", e)
+            callback_duration = time.time() - callback_start
+            if callback_duration > 1.0:
+                logger.warning("VATSIM callbacks took %.2fs (slow!)", callback_duration)
 
     async def fetch_url(self, url: str) -> Tuple[Optional[Dict[str, Any]], Optional[float]]:
         """Fetch an arbitrary URL once and return (data, ts).

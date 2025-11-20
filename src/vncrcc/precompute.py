@@ -342,6 +342,25 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
     """
     try:
         start = datetime.now()
+        
+        # Extract VATSIM's update timestamp to measure processing delay
+        vatsim_update_ts = None
+        try:
+            general = data.get("general", {})
+            update_str = general.get("update_timestamp") or general.get("update")
+            if update_str:
+                from datetime import datetime as dt
+                if 'T' in update_str or '-' in update_str:
+                    vatsim_dt = dt.fromisoformat(update_str.replace('Z', '+00:00'))
+                else:
+                    y, m, d, h, mi, s = update_str[:4], update_str[4:6], update_str[6:8], update_str[8:10], update_str[10:12], update_str[12:14]
+                    vatsim_dt = dt.strptime(f"{y}-{m}-{d}T{h}:{mi}:{s}Z", "%Y-%m-%dT%H:%M:%SZ")
+                vatsim_update_ts = vatsim_dt.timestamp()
+                delay_from_vatsim = ts - vatsim_update_ts
+                logger.info(f"[TIMING] Precompute started {delay_from_vatsim:.1f}s after VATSIM update")
+        except Exception:
+            pass
+        
         aircraft = data.get("pilots") or data.get("aircraft") or []
         total_aircraft = len(aircraft)
         
@@ -425,11 +444,18 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
         }
 
         elapsed = (datetime.now() - start).total_seconds()
-        logger.info(
+        
+        # Log timing breakdown with VATSIM delay if available
+        timing_msg = (
             f"Pre-computed geofences in {elapsed:.3f}s: "
             f"SFRA={len(sfra_results)} FRZ={len(frz_results)} P56={len(p56_results)} "
             f"(processed aircraft={count}, radius_nm={_TRIM_RADIUS_NM})"
         )
+        if vatsim_update_ts:
+            total_delay = ts - vatsim_update_ts
+            logger.info(f"[TIMING] {timing_msg} | Total delay from VATSIM: {total_delay:.1f}s")
+        else:
+            logger.info(timing_msg)
 
     except Exception as e:
         logger.exception(f"Pre-computation error: {e}")

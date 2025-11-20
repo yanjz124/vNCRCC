@@ -2623,6 +2623,29 @@
       const t1 = performance.now();
       console.log(`[PERF] Fetched aircraft+history in ${((t1-t0)/1000).toFixed(2)}s`);
       
+      // Calculate total delay from VATSIM update to client display
+      if(window.vatsimUpdateTimestamp){
+        try{
+          const vatsimStr = window.vatsimUpdateTimestamp;
+          let vatsimDate;
+          if(vatsimStr.includes('T') || vatsimStr.includes('-')){
+            vatsimDate = new Date(vatsimStr);
+          }else{
+            const y = vatsimStr.substring(0,4);
+            const m = vatsimStr.substring(4,6);
+            const d = vatsimStr.substring(6,8);
+            const h = vatsimStr.substring(8,10);
+            const min = vatsimStr.substring(10,12);
+            const s = vatsimStr.substring(12,14);
+            vatsimDate = new Date(`${y}-${m}-${d}T${h}:${min}:${s}Z`);
+          }
+          if(!isNaN(vatsimDate.getTime())){
+            const totalDelay = (Date.now() - vatsimDate.getTime()) / 1000;
+            console.log(`[TIMING] Total delay from VATSIM update to display: ${totalDelay.toFixed(1)}s`);
+          }
+        }catch(e){}
+      }
+      
       await refresh(aircraft, historyData);
       const t2 = performance.now();
       console.log(`[PERF] refresh() took ${((t2-t1)/1000).toFixed(2)}s (total: ${((t2-t0)/1000).toFixed(2)}s)`);
