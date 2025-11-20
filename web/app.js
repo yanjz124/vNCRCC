@@ -1084,10 +1084,36 @@
   // the same client-side overlays used to render the map so the UI and map
   // always match. We still fetch P56 history for the details panel but the
   // count/listing will be driven by client-side classification below.
+    
+    // Initialize cache storage for VIP and Controllers (60s TTL)
+    if(!window.vipCache) window.vipCache = { data: null, timestamp: 0 };
+    if(!window.ctrlsCache) window.ctrlsCache = { data: null, timestamp: 0 };
+    
+    const now = Date.now();
+    const CACHE_TTL = 60000; // 60 seconds
+    
+    // Determine which APIs need fetching
+    const needVipFetch = (now - window.vipCache.timestamp) > CACHE_TTL;
+    const needCtrlsFetch = (now - window.ctrlsCache.timestamp) > CACHE_TTL;
+    
     const r2 = performance.now();
-    const p56json = await fetchWithBackoff(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}}).catch(()=>({breaches:[],history:{}}));
+    // Parallelize all API calls (using cached data for VIP/Controllers if available)
+    const [p56json, vipjson, ctrlsjson] = await Promise.all([
+      fetchWithBackoff(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}}).catch(()=>({breaches:[],history:{}})),
+      needVipFetch 
+        ? fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}))
+        : Promise.resolve(window.vipCache.data),
+      needCtrlsFetch
+        ? fetchWithBackoff(`${API_ROOT}/controllers/`).then(r=>r.ok?r.json():{controllers:[],count:0}).catch(()=>({controllers:[],count:0}))
+        : Promise.resolve(window.ctrlsCache.data)
+    ]);
     const r3 = performance.now();
-    console.log(`[PERF] P56 API call took ${((r3-r2)/1000).toFixed(2)}s`);
+    console.log(`[PERF] Parallel API calls took ${((r3-r2)/1000).toFixed(2)}s (VIP: ${needVipFetch?'fetched':'cached'}, Controllers: ${needCtrlsFetch?'fetched':'cached'})`);
+    
+    // Update caches if we fetched new data
+    if(needVipFetch){ window.vipCache = { data: vipjson, timestamp: now }; }
+    if(needCtrlsFetch){ window.ctrlsCache = { data: ctrlsjson, timestamp: now }; }
+    
     // Build a quick lookup set of CIDs currently inside P-56 so we can
     // force their marker color to the P-56 color regardless of on-ground state.
     const currentP56Cids = new Set();
@@ -1096,18 +1122,9 @@
       Object.keys(cis).forEach(k => { try{ if(cis[k] && cis[k].inside) currentP56Cids.add(String(k)); }catch(e){} });
     }catch(e){ /* ignore */ }
 
-    const r4 = performance.now();
-    const vipjson = await fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}));
-    const r5 = performance.now();
-    console.log(`[PERF] VIP API call took ${((r5-r4)/1000).toFixed(2)}s`);
     const vipList = vipjson.aircraft || [];
     el('vip-count').textContent = vipList.length;
 
-    // Fetching controllers
-    const r6 = performance.now();
-    const ctrlsjson = await fetchWithBackoff(`${API_ROOT}/controllers/`).then(r=>r.ok?r.json():{controllers:[],count:0}).catch(()=>({controllers:[],count:0}));
-    const r7 = performance.now();
-    console.log(`[PERF] Controllers API call took ${((r7-r6)/1000).toFixed(2)}s`);
     const controllersList = ctrlsjson.controllers || [];
     el('controllers-count').textContent = controllersList.length;
 
