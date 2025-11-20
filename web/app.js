@@ -205,27 +205,26 @@
   const p56PathLayer = L.layerGroup().addTo(p56Map);
   const sfraPathLayer = L.layerGroup().addTo(sfraMap);
 
-  // Helper: add small sampled labels for P56 intrusion track points
-  function addIntrusionLabels(positions) {
-    if (!positions || positions.length === 0) return;
+  // Helper: add small sampled labels for intrusion track points to a layer
+  function addIntrusionLabels(layer, positions) {
+    if (!layer || !positions || positions.length === 0) return;
     const MAX_LABELS = 50;
     const step = Math.max(1, Math.ceil(positions.length / MAX_LABELS));
     positions.forEach((p, i) => {
-      // Sample points: every step and always include last point
-      if (i % step !== 0 && i !== positions.length - 1) return;
+      if (i % step !== 0 && i !== positions.length - 1) return; // sample
       const h = (p.heading !== undefined && p.heading !== null) ? Math.round(p.heading) : '–';
       const alt = (p.alt !== undefined && p.alt !== null) ? Math.round(p.alt) : '–';
       const gs = (p.gs !== undefined && p.gs !== null) ? Math.round(p.gs) : '–';
-      const html = `<div class="p56-point-label">${h}&deg; / ${alt}ft / ${gs}kts</div>`;
+      const html = `<div class=\"p56-point-label\">${h}&deg; / ${alt}ft / ${gs}kts</div>`;
       const marker = L.marker([p.lat, p.lon], {
         icon: L.divIcon({
           className: 'p56-point-label-wrapper',
           html,
-          iconSize: [1, 1], // effectively size-less; text dictates box
+          iconSize: [1, 1],
           iconAnchor: [0, 0]
         })
       });
-      p56PathLayer.addLayer(marker);
+      layer.addLayer(marker);
     });
   }
 
@@ -897,7 +896,8 @@
             const latlngs = positions.map(p => [p.lat, p.lon]);
             const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
             p56PathLayer.addLayer(polyline);
-            addIntrusionLabels(positions);
+            addIntrusionLabels(p56PathLayer, positions);
+            addIntrusionLabels(sfraPathLayer, positions);
           }
         }
         tr.addEventListener('click', () => {
@@ -910,7 +910,8 @@
               const latlngs = positions.map(p => [p.lat, p.lon]);
               const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
               p56PathLayer.addLayer(polyline);
-              addIntrusionLabels(positions);
+              addIntrusionLabels(p56PathLayer, positions);
+              addIntrusionLabels(sfraPathLayer, positions);
             }
             expandedSet.add(evtKey); saveExpandedSet(expandedSet);
           }else{
@@ -1206,7 +1207,8 @@
                     const polylineSFRA = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
                     p56PathLayer.addLayer(polylineP56);
                     sfraPathLayer.addLayer(polylineSFRA);
-                    addIntrusionLabels(positions);
+                    addIntrusionLabels(p56PathLayer, positions);
+                    addIntrusionLabels(sfraPathLayer, positions);
                   }
                 }else{ p56PathLayer.clearLayers(); sfraPathLayer.clearLayers(); }
               } else {
@@ -1447,7 +1449,8 @@
             const polylineSFRA = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
             p56PathLayer.addLayer(polylineP56);
             sfraPathLayer.addLayer(polylineSFRA);
-            addIntrusionLabels(positions);
+            addIntrusionLabels(p56PathLayer, positions);
+            addIntrusionLabels(sfraPathLayer, positions);
           }
         }
       tr.addEventListener('click', () => {
@@ -1465,7 +1468,8 @@
               const polylineSFRA = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
               p56PathLayer.addLayer(polylineP56);
               sfraPathLayer.addLayer(polylineSFRA);
-              addIntrusionLabels(positions);
+              addIntrusionLabels(p56PathLayer, positions);
+              addIntrusionLabels(sfraPathLayer, positions);
             }
             expandedSet.add(evtKey); saveExpandedSet(expandedSet);
           }else{
