@@ -1139,29 +1139,17 @@
   // always match. We still fetch P56 history for the details panel but the
   // count/listing will be driven by client-side classification below.
     
-    // Initialize cache storage for VIP and Controllers (60s TTL)
-    if(!window.vipCache) window.vipCache = { data: null, timestamp: 0 };
+    // Initialize cache storage for Controllers (60s TTL, fetched in background)
     if(!window.ctrlsCache) window.ctrlsCache = { data: { controllers: [], count: 0 }, timestamp: 0 };
     
-    const now = Date.now();
-    const CACHE_TTL = 60000; // 60 seconds
-    
-    // Determine which APIs need fetching (Controllers fetches independently in background)
-    const needVipFetch = (now - window.vipCache.timestamp) > CACHE_TTL;
-    
     const r2 = performance.now();
-    // Parallelize P56 and VIP calls (Controllers is fetched separately on offset schedule)
+    // Parallelize P56 and VIP calls (fetch both every time with aircraft data)
     const [p56json, vipjson] = await Promise.all([
       fetchWithBackoff(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}}).catch(()=>({breaches:[],history:{}})),
-      needVipFetch 
-        ? fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}))
-        : Promise.resolve(window.vipCache.data)
+      fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}))
     ]);
     const r3 = performance.now();
-    console.log(`[PERF] Parallel API calls took ${((r3-r2)/1000).toFixed(2)}s (VIP: ${needVipFetch?'fetched':'cached'})`);
-    
-    // Update cache if we fetched new data
-    if(needVipFetch){ window.vipCache = { data: vipjson, timestamp: now }; }
+    console.log(`[PERF] Parallel API calls took ${((r3-r2)/1000).toFixed(2)}s`);
     
     // Build a quick lookup set of CIDs currently inside P-56 so we can
     // force their marker color to the P-56 color regardless of on-ground state.
@@ -2789,32 +2777,7 @@
     const effectiveDelay = isPageVisible ? baseMs : baseMs * INACTIVE_MULTIPLIER;
     const delay = Math.max(withJitter(effectiveDelay), cooldownRemaining);
     
-    // Prefetch: Start fetching slightly before the scheduled poll time
-    // This ensures data is fresh when the poll actually triggers
-    const prefetchDelay = Math.max(0, delay - PREFETCH_ADVANCE_MS);
-    
-    if(prefetchDelay > 0 && isPageVisible){
-      // Schedule prefetch for active tabs only (VIP only now, Controllers runs independently)
-      window.setTimeout(async ()=>{
-        try {
-          console.log('[PREFETCH] Starting early VIP fetch...');
-          const now = Date.now();
-          const CACHE_TTL = 60000;
-          // Safe check: ensure cache exists before accessing timestamp
-          const needVipFetch = !window.vipCache || (now - window.vipCache.timestamp) > CACHE_TTL;
-          
-          if(needVipFetch){
-            await fetchWithBackoff(`${API_ROOT}/vip/`)
-              .then(r=>r.ok?r.json():{aircraft:[],count:0})
-              .then(data => { window.vipCache = { data, timestamp: Date.now() }; })
-              .catch(()=>{});
-            console.log('[PREFETCH] Completed early VIP fetch');
-          }
-        } catch (e) {
-          console.warn('[PREFETCH] Error during prefetch', e);
-        }
-      }, prefetchDelay);
-    }
+    // Prefetch removed - VIP and P56 are now fetched in parallel with aircraft data
     
     window.setTimeout(async ()=>{
       try {
