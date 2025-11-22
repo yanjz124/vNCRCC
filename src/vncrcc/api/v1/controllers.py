@@ -13,8 +13,16 @@ async def get_controllers(request: Request) -> dict:
     Return currently active ZDC controllers from vNAS.
     
     Filters for artccId=ZDC and primaryFacilityId in {PCT, DCA, NYG, ZDC, ADW}.
-    Fetched independently from VATSIM data.
+    Fetched independently from VATSIM data and cached server-side.
     """
+    from ...precompute import get_cached
+    
+    # Return pre-computed result if available (instant response for all users)
+    cached = get_cached("controllers")
+    if cached:
+        return cached
+    
+    # Fallback to live fetch if cache not available (e.g., on startup)
     controllers = await fetch_zdc_controllers()
     
     return {

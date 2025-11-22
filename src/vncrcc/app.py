@@ -173,6 +173,13 @@ def _on_fetch(data: dict, ts: float) -> None:
                 await loop.run_in_executor(None, precompute_all, data, ts)
             except Exception:
                 logger.exception("Background tasks failed")
+            
+            # Fetch and cache controllers (runs after VATSIM processing)
+            try:
+                from .precompute import fetch_and_cache_controllers
+                await fetch_and_cache_controllers(ts)
+            except Exception:
+                logger.exception("Controller fetch failed")
 
         try:
             asyncio.get_running_loop().create_task(_bg())

@@ -474,4 +474,23 @@ def clear_cache() -> None:
     _CACHE.clear()
 
 
-__all__ = ["precompute_all", "get_cached", "clear_cache"]
+async def fetch_and_cache_controllers(ts: float) -> None:
+    """Fetch controllers from vNAS and cache them.
+    
+    This is called independently after VATSIM data processing.
+    Runs asynchronously to avoid blocking the main precompute.
+    """
+    try:
+        from .controller_activity import fetch_zdc_controllers
+        controllers = await fetch_zdc_controllers()
+        _CACHE["controllers"] = {
+            "controllers": controllers,
+            "count": len(controllers),
+            "computed_at": ts
+        }
+        logger.info(f"Cached {len(controllers)} controllers from vNAS")
+    except Exception as e:
+        logger.warning(f"Failed to fetch controllers: {e}")
+
+
+__all__ = ["precompute_all", "get_cached", "clear_cache", "fetch_and_cache_controllers"]
