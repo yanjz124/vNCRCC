@@ -21,8 +21,8 @@ def get_rate_limit_key(request: Request) -> str:
     return client_ip
 
 
-# Shared limiter instance - 6 requests per minute (1 per 10 seconds)
-limiter = Limiter(key_func=get_rate_limit_key, default_limits=["6/minute"])
+# Shared limiter instance - 20 requests per minute (1 per 3 seconds)
+limiter = Limiter(key_func=get_rate_limit_key, default_limits=["20/minute"])
 
 # Disable limiter during tests to allow calling route handlers without a Request object
 if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("VNCRCC_TESTING") == "1" or "pytest" in sys.modules:
@@ -43,7 +43,7 @@ def maybe_limit(limit: str):
     return limiter.limit(limit)
 
 
-def apply_rate_limit(limit: str = "6/minute"):
+def apply_rate_limit(limit: str = "20/minute"):
     """Decorator to apply rate limiting to route handlers."""
     def decorator(func):
         return limiter.limit(limit)(func)

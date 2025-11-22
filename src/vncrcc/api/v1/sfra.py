@@ -44,7 +44,7 @@ router = APIRouter(prefix="/sfra")
 
 
 @router.get("/")
-@limiter.limit("6/minute")
+@limiter.limit("30/minute")
 async def sfra_aircraft(request: Request, name: str = Query("sfra", description="keyword to find the SFRA geojson file, default 'sfra'")) -> Dict[str, Any]:
     # Return pre-computed result if available (instant response for all users)
     cached = get_cached("sfra")

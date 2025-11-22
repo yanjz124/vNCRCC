@@ -6,7 +6,7 @@
   const REFRESH = 15000;
   // Add light client-side jitter and shared cooldown to de-sync tabs and respect 429s
   const JITTER_PCT = 0.10; // +/-10%
-  const MAX_COOLDOWN_MS = 60 * 1000; // cap any client-side cooldown to 60s
+  const MAX_COOLDOWN_MS = 15 * 1000; // cap any client-side cooldown to 15s
   const COOLDOWN_KEY = 'vncrcc.cooldownUntil';
 
   function withJitter(ms){

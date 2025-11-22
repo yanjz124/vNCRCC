@@ -45,7 +45,7 @@ router = APIRouter(prefix="/frz")
 
 
 @router.get("/")
-@limiter.limit("6/minute")
+@limiter.limit("30/minute")
 async def frz_aircraft(request: Request, name: str = Query("frz", description="keyword to find the FRZ geojson file, default 'frz'")) -> Dict[str, Any]:
     # Return pre-computed result if available (instant response for all users)
     cached = get_cached("frz")

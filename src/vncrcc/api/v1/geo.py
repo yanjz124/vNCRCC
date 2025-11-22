@@ -9,7 +9,7 @@ router = APIRouter(prefix="/geo")
 
 
 @router.get("/")
-@limiter.limit("6/minute")
+@limiter.limit("30/minute")
 async def geo_features(request: Request, name: str = Query("", description="keyword to find geo files (e.g. sfra, frz, p56)")) -> Dict[str, Any]:
     if not name:
         raise HTTPException(status_code=400, detail="missing name parameter")
