@@ -2830,6 +2830,10 @@
   }
   
   scheduleNextPoll(REFRESH);
-  scheduleControllersBackgroundFetch(7500); // Start offset by 7.5s
+  
+  // Fetch controllers immediately on page load, then schedule background updates
+  fetchControllersBackground().then(() => {
+    scheduleControllersBackgroundFetch(60000); // Continue updating every 60s
+  });
 
 })();
