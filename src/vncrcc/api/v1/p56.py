@@ -301,6 +301,14 @@ def _compute_p56_breaches(name: str) -> Dict[str, Any]:
 @router.get("/")
 @maybe_limit("30/minute")
 async def p56_breaches_route(request: Request, name: str = Query("p56", description="keyword to find the P56 geojson file, default 'p56'")) -> Dict[str, Any]:
+    # Return pre-computed result if available (instant response for all users)
+    from ...precompute import get_cached
+    cached = get_cached("p56")
+    if cached:
+        # Return cached aircraft list with history
+        return {"breaches": cached.get("aircraft", []), "history": get_history()}
+    
+    # Fallback to live computation if cache not available (e.g., on startup)
     return _compute_p56_breaches(name)
 
 

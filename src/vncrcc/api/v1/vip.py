@@ -15,7 +15,16 @@ async def get_vip_activity(request: Request) -> dict:
     
     Scans globally (no range restriction) for presidential and VP callsigns.
     Returns format similar to SFRA/FRZ endpoints.
+    Cached server-side for instant response.
     """
+    from ...precompute import get_cached
+    
+    # Return pre-computed result if available (instant response for all users)
+    cached = get_cached("vip")
+    if cached:
+        return cached
+    
+    # Fallback to live computation if cache not available (e.g., on startup)
     snapshot = STORAGE.get_latest_snapshot()
     if not snapshot:
         return {"aircraft": [], "count": 0, "fetched_at": None}

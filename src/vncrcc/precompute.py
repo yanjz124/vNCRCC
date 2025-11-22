@@ -443,12 +443,26 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
             "vatsim_update_timestamp": vatsim_update_timestamp
         }
 
+        # Compute VIP aircraft (scan all pilots globally, no range restriction)
+        try:
+            from .vip_activity import detect_vip_aircraft
+            all_pilots = data.get("pilots") or data.get("aircraft") or []
+            vip_aircraft = detect_vip_aircraft(all_pilots)
+            _CACHE["vip"] = {
+                "aircraft": vip_aircraft,
+                "count": len(vip_aircraft),
+                "fetched_at": ts
+            }
+        except Exception as e:
+            logger.warning(f"Failed to compute VIP aircraft: {e}")
+
         elapsed = (datetime.now() - start).total_seconds()
         
         # Log timing breakdown with VATSIM delay if available
+        vip_count = _CACHE.get("vip", {}).get("count", 0)
         timing_msg = (
             f"Pre-computed geofences in {elapsed:.3f}s: "
-            f"SFRA={len(sfra_results)} FRZ={len(frz_results)} P56={len(p56_results)} "
+            f"SFRA={len(sfra_results)} FRZ={len(frz_results)} P56={len(p56_results)} VIP={vip_count} "
             f"(processed aircraft={count}, radius_nm={_TRIM_RADIUS_NM})"
         )
         if vatsim_update_ts:
