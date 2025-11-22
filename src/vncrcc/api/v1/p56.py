@@ -308,8 +308,8 @@ async def p56_breaches_route(request: Request, name: str = Query("p56", descript
         # Return cached aircraft list with history
         return {"breaches": cached.get("aircraft", []), "history": get_history()}
     
-    # Fallback to live computation if cache not available (e.g., on startup)
-    return _compute_p56_breaches(name)
+    # Return empty result if cache not ready (avoids slow computation during startup)
+    return {"breaches": [], "history": get_history()}
 
 
 # Expose a test-friendly function with the original name expected by tests
