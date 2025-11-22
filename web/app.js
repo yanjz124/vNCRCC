@@ -1692,6 +1692,19 @@
                 rec.statusClass = statusClass;
               }
               rec.heading = heading;
+              // Update tooltip with current data
+              try{
+                const gsVal = Math.round(Number(ac.groundspeed||ac.gs||0));
+                const altVal = Math.round(Number(ac.altitude||ac.alt||0));
+                const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
+                const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+                const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+                const line1 = acType ? `<strong>${ac.callsign||''}</strong> <span class="ac-type">${acType}</span>` : `<strong>${ac.callsign||''}</strong>`;
+                const line2 = `${gsVal} kt / ${altVal} ft`;
+                const line3 = (dep || arr) ? `${dep || '-'} → ${arr || '-'}` : '';
+                const tooltipHtml = `<div class="ac-tooltip"><div>${line1}</div><div>${line2}</div>${line3 ? `<div>${line3}</div>` : ''}</div>`;
+                if(rec.marker.setTooltipContent) rec.marker.setTooltipContent(tooltipHtml);
+              }catch(e){}
             }else{
               // New marker
               let icon = null;
@@ -1703,11 +1716,17 @@
               grp.addLayer(marker);
               marker.on('click', ()=> toggleFlightPath(cid, ctx.ctx));
               store[cid] = { marker, heading, statusClass };
-              // Minimal tooltip (defer full rebuild cost)
+              // Tooltip with aircraft details
               try{
                 const gsVal = Math.round(Number(ac.groundspeed||ac.gs||0));
                 const altVal = Math.round(Number(ac.altitude||ac.alt||0));
-                const tooltipHtml = `<div class="ac-tooltip"><div><strong>${ac.callsign||''}</strong></div><div>${gsVal} kt / ${altVal} ft</div></div>`;
+                const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
+                const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
+                const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
+                const line1 = acType ? `<strong>${ac.callsign||''}</strong> <span class="ac-type">${acType}</span>` : `<strong>${ac.callsign||''}</strong>`;
+                const line2 = `${gsVal} kt / ${altVal} ft`;
+                const line3 = (dep || arr) ? `${dep || '-'} → ${arr || '-'}` : '';
+                const tooltipHtml = `<div class="ac-tooltip"><div>${line1}</div><div>${line2}</div>${line3 ? `<div>${line3}</div>` : ''}</div>`;
                 marker.bindTooltip(tooltipHtml,{direction:'top',className:'fp-tooltip',sticky:true});
               }catch(e){}
             }
