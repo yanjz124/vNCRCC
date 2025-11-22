@@ -348,4 +348,18 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                 if last_event and not last_event.get("exit_confirmed_at"):
                     last_event["exit_confirmed_at"] = ts or time.time()
 
+    # Clean up stale entries from current_inside
+    # Remove any entries where p56_buster=False and last_seen is older than 5 minutes
+    now = ts or time.time()
+    stale_threshold = 300  # 5 minutes in seconds
+    stale_cids = []
+    for cid, state in current.items():
+        if not state.get("p56_buster", False):
+            last_seen = state.get("last_seen", 0)
+            if (now - last_seen) > stale_threshold:
+                stale_cids.append(cid)
+    
+    for cid in stale_cids:
+        del current[cid]
+
     _atomic_write(data)
