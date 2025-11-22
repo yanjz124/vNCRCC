@@ -865,11 +865,13 @@
     // Handle controllers table with fresh cache data
     if(tbodyId === 'controllers-tbody'){
       const controllersList = window.ctrlsCache?.data?.controllers || [];
+      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower'};
       renderTable('controllers-tbody', controllersList, it => {
         const cid = it.cid || '';
         const name = it.realName || '';
         const callsign = it.callsign || '';
-        const facility = it.facilityId || '';
+        const facilityId = it.facilityId || '';
+        const facility = facilityDisplayNames[facilityId] || facilityId;
         const position = it.positionName || '';
         const freq = it.frequency || '';
         const rating = it.rating || '';
@@ -1172,9 +1174,29 @@
     const vipList = vipjson.aircraft || [];
     el('vip-count').textContent = vipList.length;
 
-    // Use cached controllers data (updated by background fetcher)
+    // Use cached controllers data (updated by background fetcher) and render immediately
     const controllersList = window.ctrlsCache.data.controllers || [];
     el('controllers-count').textContent = controllersList.length;
+    // Render controllers table immediately to avoid lag between count and table display
+    try{
+      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower'};
+      const tbody = el('controllers-tbody');
+      if(tbody){
+        const parts = [];
+        controllersList.forEach(it => {
+          const cid = it.cid || '';
+          const name = it.realName || '';
+          const callsign = it.callsign || '';
+          const facilityId = it.facilityId || '';
+          const facility = facilityDisplayNames[facilityId] || facilityId;
+          const position = it.positionName || '';
+          const freq = it.frequency || '';
+          const rating = it.rating || '';
+          parts.push(`<tr><td><strong>${callsign}</strong></td><td>${name}</td><td>${cid}</td><td>${facility}</td><td>${position}</td><td>${freq}</td><td>${rating}</td></tr>`);
+        });
+        tbody.innerHTML = parts.join('');
+      }
+    }catch(e){}
 
   // keep a local copy of the latest aircraft snapshot for lookups
   const latest_ac = aircraft || [];
@@ -1858,17 +1880,7 @@
         return `<td><strong>${it.callsign || ''}</strong></td><td>${it.vip_title || ''}</td><td>${it.vip_type || ''}</td><td>${acType}</td><td>${it.name || ''}</td><td>${cid}</td><td>${Math.round(it.altitude || 0)}</td><td>${Math.round(it.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
       }, it => `vip:${it.cid || it.callsign || ''}`);
 
-      // Render Controllers table (no flight plan expansion - controllers don't have flight plans)
-      renderTable('controllers-tbody', controllersList, it => {
-        const cid = it.cid || '';
-        const name = it.realName || '';
-        const callsign = it.callsign || '';
-        const facility = it.facilityId || '';
-        const position = it.positionName || '';
-        const freq = it.frequency || '';
-        const rating = it.rating || '';
-        return `<td><strong>${callsign}</strong></td><td>${name}</td><td>${cid}</td><td>${facility}</td><td>${position}</td><td>${freq}</td><td>${rating}</td>`;
-      }, null); // Pass null for keyFn to disable flight plan expansion
+      // Controllers table already rendered early (right after count update) to avoid lag
       const r11 = performance.now();
       console.log(`[PERF] All table rendering took ${((r11-r10)/1000).toFixed(2)}s`);
     }catch(e){ console.error('Error rendering lists after markers', e); }
