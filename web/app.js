@@ -641,8 +641,8 @@
         p56Map.fitBounds(L.geoJSON(p56).getBounds());
         setTimeout(()=>{ try{ p56Map.invalidateSize(); }catch(e){} }, 200);
       }
-    } catch(e){ console.warn('Failed to load overlays', e); });
-    }
+    } catch(e){ console.warn('Failed to load overlays', e); }
+  }
   }
 
   function pointInLayer(lat, lon, layer){
