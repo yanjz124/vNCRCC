@@ -111,7 +111,7 @@ async function authenticate() {
 }
 
 // Initialize charts
-let usersChart, requestsChart, resourcesChart, delayChart, errorChart;
+let usersChart, requestsChart, resourcesChart, delayChart, errorChart, uptimeChart, diskChart, aircraftChart;
 
 // Historical data for line charts
 const historyLimit = 60; // Keep last 60 data points
@@ -121,6 +121,9 @@ const cpuHistory = [];
 const memoryHistory = [];
 const delayHistory = [];
 const errorHistory = [];
+const uptimeHistory = [];
+const diskHistory = [];
+const aircraftHistory = [];
 const timeLabels = [];
 
 function initCharts() {
@@ -240,6 +243,57 @@ function initCharts() {
     },
     options: { ...chartDefaults }
   });
+
+  // Uptime Chart
+  uptimeChart = new Chart(document.getElementById('uptime-chart'), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{
+        label: 'Uptime (hours)',
+        data: uptimeHistory,
+        borderColor: '#a78bfa',
+        backgroundColor: 'rgba(167, 139, 250, 0.1)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: { ...chartDefaults }
+  });
+
+  // Disk Chart
+  diskChart = new Chart(document.getElementById('disk-chart'), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{
+        label: 'Free GB',
+        data: diskHistory,
+        borderColor: '#22d3ee',
+        backgroundColor: 'rgba(34, 211, 238, 0.1)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: { ...chartDefaults }
+  });
+
+  // Aircraft Count Chart
+  aircraftChart = new Chart(document.getElementById('aircraft-chart'), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{
+        label: 'Aircraft',
+        data: aircraftHistory,
+        borderColor: '#34d399',
+        backgroundColor: 'rgba(52, 211, 153, 0.1)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: { ...chartDefaults }
+  });
 }
 
 // Fetch and update metrics
@@ -295,6 +349,18 @@ async function updateMetrics() {
     delayElem.textContent = currentDelay.toFixed(1);
     delayElem.className = 'metric-value ' + (currentDelay > 45 ? 'status-danger' : currentDelay > 30 ? 'status-warning' : 'status-good');
 
+    // Get aircraft count from latest snapshot
+    let aircraftCount = 0;
+    try {
+      const acResp = await fetch('/api/v1/aircraft/list');
+      if (acResp.ok) {
+        const acData = await acResp.json();
+        aircraftCount = (acData.aircraft || []).length;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch aircraft count', e);
+    }
+
     // Update history
     const now = new Date();
     const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -306,6 +372,9 @@ async function updateMetrics() {
     memoryHistory.push(memPct);
     delayHistory.push(currentDelay);
     errorHistory.push(parseFloat(errorRate));
+    uptimeHistory.push(parseFloat(uptimeHours));
+    diskHistory.push(data.resources?.disk?.free_gb || 0);
+    aircraftHistory.push(aircraftCount);
 
     // Keep only last N points
     if (timeLabels.length > historyLimit) {
@@ -316,6 +385,9 @@ async function updateMetrics() {
       memoryHistory.shift();
       delayHistory.shift();
       errorHistory.shift();
+      uptimeHistory.shift();
+      diskHistory.shift();
+      aircraftHistory.shift();
     }
 
     // Update line charts
@@ -324,6 +396,9 @@ async function updateMetrics() {
     resourcesChart.update('none');
     delayChart.update('none');
     errorChart.update('none');
+    uptimeChart.update('none');
+    diskChart.update('none');
+    aircraftChart.update('none');
 
     // Update endpoints table
     const endpoints = data.endpoints || {};
