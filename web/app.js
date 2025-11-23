@@ -2774,8 +2774,8 @@
   // initial load
   setPermalink();
   fetchBuildInfo();
-  // PERF: Start controller fetch immediately (don't wait for offset)
-  fetchControllersBackground();
+  // PERF: Controllers now from consolidated dashboard - no separate fetch needed
+  // fetchControllersBackground();
   // PERF: Load overlays and aircraft in parallel (don't wait for overlays to start data fetch)
   Promise.all([
     loadOverlays(),
