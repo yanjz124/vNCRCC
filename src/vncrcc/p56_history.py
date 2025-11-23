@@ -9,6 +9,10 @@ HISTORY_PATH = Path.cwd() / "data" / "p56_history.json"
 # If two intrusions for the same CID occur within this many seconds, treat as one
 DEDUPE_WINDOW_SECONDS = 60
 
+# PERF: Cache for get_history() to avoid repeated file reads
+_HISTORY_CACHE: Optional[Dict[str, Any]] = None
+_HISTORY_CACHE_MTIME: float = 0
+
 
 def _ensure_parent():
     # Accept either a pathlib.Path or a string (tests set a string path).
@@ -28,6 +32,7 @@ def _load() -> Dict[str, Any]:
 
 
 def _atomic_write(data: Dict[str, Any]):
+    global _HISTORY_CACHE, _HISTORY_CACHE_MTIME
     _ensure_parent()
     p = HISTORY_PATH if isinstance(HISTORY_PATH, Path) else Path(HISTORY_PATH)
     tmp = p.with_suffix(".tmp")
@@ -35,10 +40,37 @@ def _atomic_write(data: Dict[str, Any]):
     # This runs every 15s during P56 intrusions, so minimize I/O overhead
     tmp.write_text(json.dumps(data, separators=(',', ':'), default=str))
     tmp.replace(p)
+    # Invalidate cache after write
+    _HISTORY_CACHE = None
+    _HISTORY_CACHE_MTIME = 0
 
 
 def get_history() -> Dict[str, Any]:
-    return _load()
+    """Get P56 history with caching to avoid repeated file reads.
+
+    PERF: Caches the history file and only reloads if file has been modified.
+    This is safe because history updates always call _atomic_write which changes mtime.
+    """
+    global _HISTORY_CACHE, _HISTORY_CACHE_MTIME
+
+    try:
+        p = HISTORY_PATH if isinstance(HISTORY_PATH, Path) else Path(HISTORY_PATH)
+        if not p.exists():
+            return {"events": [], "current_inside": {}}
+
+        # Check if file has been modified since last cache
+        current_mtime = p.stat().st_mtime
+        if _HISTORY_CACHE is not None and current_mtime == _HISTORY_CACHE_MTIME:
+            return _HISTORY_CACHE
+
+        # File changed or no cache - reload
+        data = _load()
+        _HISTORY_CACHE = data
+        _HISTORY_CACHE_MTIME = current_mtime
+        return data
+    except Exception:
+        # Fallback to uncached load on error
+        return _load()
 
 
 def clear_history() -> None:

@@ -1,9 +1,13 @@
 import json
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 HISTORY_PATH = Path.cwd() / "data" / "aircraft_history.json"
+
+# PERF: Cache for get_history() to avoid repeated file reads
+_HISTORY_CACHE: Optional[Dict[str, Any]] = None
+_HISTORY_CACHE_MTIME: float = 0
 
 
 def _ensure_parent():
@@ -21,17 +25,44 @@ def _load() -> Dict[str, Any]:
 
 
 def _atomic_write(data: Dict[str, Any]):
+    global _HISTORY_CACHE, _HISTORY_CACHE_MTIME
     _ensure_parent()
     try:
         # PERF: Use compact JSON (no indent) to reduce file size and write time
         HISTORY_PATH.write_text(json.dumps(data, separators=(',', ':'), default=str))
         # PERF: Removed verbose logging - this runs every 15s and clutters logs
+        # Invalidate cache after write
+        _HISTORY_CACHE = None
+        _HISTORY_CACHE_MTIME = 0
     except Exception as e:
         print(f"Error writing aircraft history: {e}")
 
 
 def get_history() -> Dict[str, Any]:
-    return _load()
+    """Get aircraft history with caching to avoid repeated file reads.
+
+    PERF: Caches the history file and only reloads if file has been modified.
+    This is safe because history updates always call _atomic_write which changes mtime.
+    """
+    global _HISTORY_CACHE, _HISTORY_CACHE_MTIME
+
+    try:
+        if not HISTORY_PATH.exists():
+            return {}
+
+        # Check if file has been modified since last cache
+        current_mtime = HISTORY_PATH.stat().st_mtime
+        if _HISTORY_CACHE is not None and current_mtime == _HISTORY_CACHE_MTIME:
+            return _HISTORY_CACHE
+
+        # File changed or no cache - reload
+        data = _load()
+        _HISTORY_CACHE = data
+        _HISTORY_CACHE_MTIME = current_mtime
+        return data
+    except Exception:
+        # Fallback to uncached load on error
+        return _load()
 
 
 def update_history(cid: str, position: Dict[str, Any]) -> None:
