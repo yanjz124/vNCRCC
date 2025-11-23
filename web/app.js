@@ -705,8 +705,12 @@
     }
   }
 
-  async function fetchAllAircraft(){
-    const res = await fetchWithBackoff(`${API_ROOT}/aircraft/list`);
+  async function fetchAllAircraft(rangeNm){
+    // If range is specified, pass it to backend for server-side filtering
+    const url = rangeNm != null
+      ? `${API_ROOT}/aircraft/list?range_nm=${rangeNm}`
+      : `${API_ROOT}/aircraft/list`;
+    const res = await fetchWithBackoff(url);
     if(!res.ok) return [];
     const j = await res.json();
     // Store VATSIM update timestamp globally for display
@@ -1063,23 +1067,18 @@
     // load overlays if not yet
     if(!overlays.p56.sfra && !overlays.p56.frz && !overlays.p56.p56) await loadOverlays();
 
-  // fetch aircraft (use provided snapshot if caller already fetched it)
-  const aircraft = aircraftSnapshot || await fetchAllAircraft();
-  const r1 = performance.now();
-  if(!aircraftSnapshot) console.log(`[PERF] fetchAllAircraft took ${((r1-r0)/1000).toFixed(2)}s`);
-  // Fetched aircraft
   // Read VSO range as a floating value so fractional nautical miles are respected
   const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
-  // VSO range filter applied
-    const filtered = aircraft.filter(a=>{
-      const lat = a.latitude || a.lat || a.y;
-      const lon = a.longitude || a.lon || a.x;
-      if(lat==null||lon==null) return false;
-      const nm = haversineNm(DCA[0], DCA[1], lat, lon);
-      return nm <= range_nm;
-    });
-    // Filtered aircraft
-    
+
+  // fetch aircraft (use provided snapshot if caller already fetched it)
+  // Pass range to backend for server-side filtering (eliminates client-side haversine calculations)
+  const aircraft = aircraftSnapshot || await fetchAllAircraft(range_nm);
+  const r1 = performance.now();
+  if(!aircraftSnapshot) console.log(`[PERF] fetchAllAircraft took ${((r1-r0)/1000).toFixed(2)}s`);
+
+  // Aircraft already filtered by backend - no client-side filtering needed
+  const filtered = aircraft;
+
     // Update current aircraft CIDs for disconnection detection
     currentAircraftCids = new Set(filtered.map(a => String(a.cid || '')).filter(c => c));
 
@@ -2628,9 +2627,11 @@
     try{
       const t0 = performance.now();
       // Fetch aircraft first for fastest initial render
-      const aircraft = await fetchAllAircraft();
+      // Pass current VSO range to backend for server-side filtering
+      const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
+      const aircraft = await fetchAllAircraft(range_nm);
       const t1 = performance.now();
-      console.log(`[PERF] Fetched aircraft snapshot in ${((t1-t0)/1000).toFixed(2)}s`);
+      console.log(`[PERF] Fetched aircraft snapshot (range=${range_nm}nm) in ${((t1-t0)/1000).toFixed(2)}s`);
 
       // Render immediately without waiting for history
       await refresh(aircraft, null);

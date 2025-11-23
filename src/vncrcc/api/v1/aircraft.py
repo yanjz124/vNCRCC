@@ -49,13 +49,30 @@ async def latest_aircraft(request: Request) -> Dict[str, Any]:
 
 @router.get("/list")
 @limiter.limit("30/minute")
-async def list_aircraft(request: Request) -> Dict[str, Any]:
+async def list_aircraft(
+    request: Request,
+    range_nm: Optional[float] = Query(None, description="Filter by distance from DCA in nautical miles")
+) -> Dict[str, Any]:
     # Return pre-computed trimmed aircraft list from cache for fast response
     from ...precompute import get_cached
     cached = get_cached("aircraft_list")
     if cached:
+        aircraft = cached.get("aircraft", [])
+
+        # Apply user's VSO range filter if specified
+        if range_nm is not None:
+            filtered = []
+            for ac in aircraft:
+                lat = ac.get("latitude") or ac.get("lat") or ac.get("y")
+                lon = ac.get("longitude") or ac.get("lon") or ac.get("x")
+                if lat is not None and lon is not None:
+                    dist = _haversine_nm(DCA_LAT, DCA_LON, lat, lon)
+                    if dist <= range_nm:
+                        filtered.append(ac)
+            aircraft = filtered
+
         return {
-            "aircraft": cached.get("aircraft", []),
+            "aircraft": aircraft,
             "vatsim_update_timestamp": cached.get("vatsim_update_timestamp"),
             "computed_at": cached.get("computed_at")
         }
@@ -64,6 +81,19 @@ async def list_aircraft(request: Request) -> Dict[str, Any]:
     if snap:
         data = snap.get("data", {})
         aircraft = data.get("pilots") or data.get("aircraft") or []
+
+        # Apply user's VSO range filter if specified
+        if range_nm is not None:
+            filtered = []
+            for ac in aircraft:
+                lat = ac.get("latitude") or ac.get("lat") or ac.get("y")
+                lon = ac.get("longitude") or ac.get("lon") or ac.get("x")
+                if lat is not None and lon is not None:
+                    dist = _haversine_nm(DCA_LAT, DCA_LON, lat, lon)
+                    if dist <= range_nm:
+                        filtered.append(ac)
+            aircraft = filtered
+
         return {
             "aircraft": aircraft,
             "vatsim_update_timestamp": data.get("general", {}).get("update_timestamp"),
