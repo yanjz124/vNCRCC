@@ -44,6 +44,11 @@ class VatsimClient:
         self._session: Optional[aiohttp.ClientSession] = None
         self._lock = asyncio.Lock()
 
+        # Adaptive timing: sync with VATSIM update cycle
+        self._vatsim_update_ts: Optional[float] = None  # Last known VATSIM update timestamp
+        self._sync_offset: float = 1.0  # Target offset after VATSIM update (1 second to allow propagation)
+        self._resync_counter: int = 0  # Counter to trigger periodic resync
+
     def register_callback(self, cb: Callable[[Dict[str, Any], float], None]) -> None:
         """Register a synchronous callback that will be run after each successful fetch.
 
@@ -100,7 +105,10 @@ class VatsimClient:
                 logger.error("VATSIM fetch client error: %s: %s", type(exc).__name__, exc)
             except Exception as exc:
                 logger.exception("VATSIM fetch error: %s", exc)
-            await asyncio.sleep(self.interval)
+
+            # Adaptive sleep: sync with VATSIM update cycle
+            sleep_duration = self._calculate_adaptive_sleep()
+            await asyncio.sleep(sleep_duration)
 
     async def _fetch_once(self) -> None:
         if not self._session:
@@ -141,6 +149,9 @@ class VatsimClient:
                 self.latest = data
                 self.latest_ts = ts
                 self.latest_delay = vatsim_age_seconds
+                # Track VATSIM update timestamp for adaptive timing
+                if vatsim_update_ts is not None:
+                    self._vatsim_update_ts = vatsim_update_ts
 
             # Log with staleness info
             if vatsim_age_seconds is not None:
@@ -168,6 +179,54 @@ class VatsimClient:
             callback_duration = time.time() - callback_start
             if callback_duration > 1.0:
                 logger.warning("VATSIM callbacks took %.2fs (slow!)", callback_duration)
+
+    def _calculate_adaptive_sleep(self) -> float:
+        """Calculate adaptive sleep duration to sync with VATSIM update cycle.
+
+        Strategy:
+        - VATSIM updates every 15 seconds
+        - We want to fetch ~1 second after their update for fresh data
+        - Gradually adjust offset to avoid always hitting same part of cycle
+        - Resync every 20 fetches to correct drift
+
+        Returns:
+            Sleep duration in seconds
+        """
+        # Increment resync counter
+        self._resync_counter += 1
+
+        # If we don't know VATSIM's update timestamp yet, use default interval
+        if self._vatsim_update_ts is None:
+            return self.interval
+
+        now = time.time()
+        time_since_vatsim_update = now - self._vatsim_update_ts
+
+        # Calculate when the next VATSIM update is expected (every 15 seconds)
+        # VATSIM updates at: vatsim_update_ts + 0, +15, +30, +45, ...
+        seconds_into_cycle = time_since_vatsim_update % 15
+        seconds_until_next_update = 15 - seconds_into_cycle
+
+        # Target: fetch 1 second after VATSIM update
+        # Gradually vary offset between 0.5s and 2.5s to avoid always hitting same point
+        # This prevents getting stuck at the tail end of an update cycle
+        if self._resync_counter >= 20:
+            # Every 20 fetches, vary the offset slightly (0.5s to 2.5s)
+            # Use modulo pattern to cycle through different offsets
+            offset_variation = (self._resync_counter % 5) * 0.5
+            self._sync_offset = 0.5 + offset_variation
+            self._resync_counter = 0
+            logger.info(f"Adaptive timing: adjusting sync offset to {self._sync_offset:.1f}s")
+
+        target_sleep = seconds_until_next_update + self._sync_offset
+
+        # Clamp to reasonable bounds (don't sleep less than 5s or more than 20s)
+        target_sleep = max(5.0, min(20.0, target_sleep))
+
+        logger.debug(f"Adaptive sleep: {target_sleep:.1f}s (cycle position: {seconds_into_cycle:.1f}s, "
+                    f"offset: {self._sync_offset:.1f}s)")
+
+        return target_sleep
 
     async def fetch_url(self, url: str) -> Tuple[Optional[Dict[str, Any]], Optional[float]]:
         """Fetch an arbitrary URL once and return (data, ts).
