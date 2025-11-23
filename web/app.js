@@ -615,39 +615,33 @@
   }
 
   async function loadOverlays(){
-    const sfra = await loadGeo('sfra');
-    const frz = await loadGeo('frz');
-    const p56 = await loadGeo('p56');
+    // If already loaded, skip
+    if(overlays.p56.sfra || overlays.p56.frz || overlays.p56.p56) return;
+    try {
+      const [sfra, frz, p56] = await Promise.all([
+        loadGeo('sfra'),
+        loadGeo('frz'),
+        loadGeo('p56')
+      ]);
 
-    if(sfra){
-      // Create separate instances for each map
-      overlays.p56.sfra = L.geoJSON(sfra, {style:{color:'#0275d8',weight:2,fillOpacity:0.05}});
-      overlays.sfra.sfra = L.geoJSON(sfra, {style:{color:'#0275d8',weight:2,fillOpacity:0.05}});
-      if(el('toggle-sfra').checked) { 
-        overlays.sfra.sfra.addTo(sfraMap); 
+      if(sfra){
+        overlays.p56.sfra = L.geoJSON(sfra, {style:{color:'#0275d8',weight:2,fillOpacity:0.05}});
+        overlays.sfra.sfra = L.geoJSON(sfra, {style:{color:'#0275d8',weight:2,fillOpacity:0.05}});
+        if(el('toggle-sfra').checked) { overlays.sfra.sfra.addTo(sfraMap); }
       }
-    }
-    if(frz){
-      // FRZ color swapped to orange
-      overlays.p56.frz = L.geoJSON(frz, {style:{color:'#f0ad4e',weight:2,fillOpacity:0.05}});
-      overlays.sfra.frz = L.geoJSON(frz, {style:{color:'#f0ad4e',weight:2,fillOpacity:0.05}});
-      if(el('toggle-frz').checked) { 
-        overlays.p56.frz.addTo(p56Map); 
-        overlays.sfra.frz.addTo(sfraMap); 
+      if(frz){
+        overlays.p56.frz = L.geoJSON(frz, {style:{color:'#f0ad4e',weight:2,fillOpacity:0.05}});
+        overlays.sfra.frz = L.geoJSON(frz, {style:{color:'#f0ad4e',weight:2,fillOpacity:0.05}});
+        if(el('toggle-frz').checked) { overlays.p56.frz.addTo(p56Map); overlays.sfra.frz.addTo(sfraMap); }
       }
-    }
-    if(p56){
-      // P56 color swapped to red
-      overlays.p56.p56 = L.geoJSON(p56, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
-      overlays.sfra.p56 = L.geoJSON(p56, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
-      if(el('toggle-p56').checked) { 
-        overlays.p56.p56.addTo(p56Map); 
-        overlays.sfra.p56.addTo(sfraMap); 
+      if(p56){
+        overlays.p56.p56 = L.geoJSON(p56, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
+        overlays.sfra.p56 = L.geoJSON(p56, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
+        if(el('toggle-p56').checked) { overlays.p56.p56.addTo(p56Map); overlays.sfra.p56.addTo(sfraMap); }
+        p56Map.fitBounds(L.geoJSON(p56).getBounds());
+        setTimeout(()=>{ try{ p56Map.invalidateSize(); }catch(e){} }, 200);
       }
-      // Fit P56 map to P56 bounds
-      p56Map.fitBounds(L.geoJSON(p56).getBounds());
-      // Invalidate size after a short delay so Leaflet properly lays out tiles
-      setTimeout(()=>{ try{ p56Map.invalidateSize(); }catch(e){} }, 200);
+    } catch(e){ console.warn('Failed to load overlays', e); });
     }
   }
 
@@ -2634,14 +2628,25 @@
   async function pollAircraftThenRefresh(){
     try{
       const t0 = performance.now();
-      // Fetch aircraft and history in parallel for visible paths
-      const aircraftPromise = fetchAllAircraft();
-      const historyPromise = (visiblePaths.size > 0) ? fetchHistoryData() : Promise.resolve(null);
-      
-      const [aircraft, historyData] = await Promise.all([aircraftPromise, historyPromise]);
+      // Fetch aircraft first for fastest initial render
+      const aircraft = await fetchAllAircraft();
       const t1 = performance.now();
-      console.log(`[PERF] Fetched aircraft+history in ${((t1-t0)/1000).toFixed(2)}s`);
-      
+      console.log(`[PERF] Fetched aircraft snapshot in ${((t1-t0)/1000).toFixed(2)}s`);
+
+      // Render immediately without waiting for history
+      await refresh(aircraft, null);
+      const t2 = performance.now();
+      console.log(`[PERF] Initial refresh() (no history) took ${((t2-t1)/1000).toFixed(2)}s (total: ${((t2-t0)/1000).toFixed(2)}s)`);
+
+      // Start history fetch in background if needed
+      if(visiblePaths.size > 0){
+        fetchHistoryData().then(historyData => {
+          if(historyData){
+            updateVisiblePaths(historyData).catch(()=>{});
+          }
+        }).catch(()=>{});
+      }
+
       // Calculate total delay from VATSIM update to client display
       if(window.vatsimUpdateTimestamp){
         try{
