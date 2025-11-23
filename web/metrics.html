@@ -11,9 +11,20 @@
   <style>
     .metrics-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 16px;
       margin: 20px 0;
+    }
+    /* Responsive: 2 columns on tablets, 1 on mobile */
+    @media (max-width: 1024px) {
+      .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (max-width: 640px) {
+      .metrics-grid {
+        grid-template-columns: 1fr;
+      }
     }
     .metric-card {
       background: rgba(15, 25, 40, 0.95);
@@ -119,6 +130,12 @@
         <div class="metric-value" id="network-io">—</div>
         <div class="metric-label">MB Sent / MB Recv</div>
       </div>
+
+      <div class="metric-card">
+        <h3>VATSIM Data Age</h3>
+        <div class="metric-value" id="vatsim-delay">—</div>
+        <div class="metric-label">Seconds (current)</div>
+      </div>
     </div>
 
     <!-- Charts -->
@@ -148,6 +165,13 @@
         <h3>Top Endpoints (Last 5 min)</h3>
         <div class="chart-container">
           <canvas id="endpoints-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <h3>VATSIM Data Delay Over Time</h3>
+        <div class="chart-container">
+          <canvas id="delay-chart"></canvas>
         </div>
       </div>
     </div>

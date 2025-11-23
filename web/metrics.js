@@ -111,7 +111,7 @@ async function authenticate() {
 }
 
 // Initialize charts
-let usersChart, requestsChart, resourcesChart, endpointsChart;
+let usersChart, requestsChart, resourcesChart, endpointsChart, delayChart;
 
 // Historical data for line charts
 const historyLimit = 60; // Keep last 60 data points
@@ -119,6 +119,7 @@ const usersHistory = [];
 const requestsHistory = [];
 const cpuHistory = [];
 const memoryHistory = [];
+const delayHistory = [];
 const timeLabels = [];
 
 function initCharts() {
@@ -231,6 +232,23 @@ function initCharts() {
       }
     }
   });
+
+  // VATSIM Delay Chart
+  delayChart = new Chart(document.getElementById('delay-chart'), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{
+        label: 'Data Age (seconds)',
+        data: delayHistory,
+        borderColor: '#f87171',
+        backgroundColor: 'rgba(248, 113, 113, 0.1)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: { ...chartDefaults }
+  });
 }
 
 // Fetch and update metrics
@@ -288,17 +306,25 @@ async function updateMetrics() {
       const bytesRecv = (data.resources.network.bytes_recv || 0) / (1024 * 1024);
       netElem.textContent = `${bytesSent.toFixed(0)} / ${bytesRecv.toFixed(0)}`;
     }
-    
+
+    // VATSIM Data Age
+    const delayData = data.delay?.['1min'] || {};
+    const currentDelay = delayData.current || 0;
+    const delayElem = document.getElementById('vatsim-delay');
+    delayElem.textContent = currentDelay.toFixed(1);
+    delayElem.className = 'metric-value ' + (currentDelay > 45 ? 'status-danger' : currentDelay > 30 ? 'status-warning' : 'status-good');
+
     // Update history
     const now = new Date();
     const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    
+
     timeLabels.push(timeLabel);
     usersHistory.push(data.active_users || 0);
     requestsHistory.push(data.request_rate['1min'] || 0);
     cpuHistory.push(cpuPct);
     memoryHistory.push(memPct);
-    
+    delayHistory.push(currentDelay);
+
     // Keep only last N points
     if (timeLabels.length > historyLimit) {
       timeLabels.shift();
@@ -306,12 +332,14 @@ async function updateMetrics() {
       requestsHistory.shift();
       cpuHistory.shift();
       memoryHistory.shift();
+      delayHistory.shift();
     }
-    
+
     // Update line charts
     usersChart.update('none');
     requestsChart.update('none');
     resourcesChart.update('none');
+    delayChart.update('none');
     
     // Update endpoints bar chart
     const endpoints = data.endpoints || {};
