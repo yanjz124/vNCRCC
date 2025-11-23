@@ -151,10 +151,12 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
     - Track up to 10 pre-positions and 1 post-position
 
     Returns list of breach dicts for caching.
+
+    PERF: All P56 history file I/O now batched into single write at end.
     """
     from .storage import STORAGE
     from shapely.geometry import LineString, Point
-    from .p56_history import record_penetration, sync_snapshot
+    from .p56_history import sync_snapshot_with_penetrations
     import os
 
     shapes = find_geo_by_keyword("p56")
@@ -174,32 +176,36 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
     prev_ac = (prev.get("data") or {}).get("pilots") or (prev.get("data") or {}).get("aircraft") or []
 
     # Fetch position history for all aircraft from aircraft_history.json
+    # PERF: Load history file ONCE instead of per-aircraft to avoid N file reads
     positions_by_cid: Dict[str, List] = {}
     write_json_history = os.getenv("VNCRCC_WRITE_JSON_HISTORY", "0").strip() == "1"
     if write_json_history:
         try:
-            from .aircraft_history import get_history_for_cid
-            # Get position history for all aircraft in the current snapshot
+            from .aircraft_history import get_history
+            # Load entire history once and index by CID (single file read)
+            all_history = get_history()
+            history_dict = all_history.get("history", {})
+
+            # Build positions_by_cid map from the loaded history
             for ac in latest_ac:
                 cid = str(ac.get("cid") or "")
-                if cid:
-                    positions = get_history_for_cid(cid)
-                    if positions:
-                        # Convert to the format expected by the rest of the code
-                        # aircraft_history format: {lat, lon, alt, ts, callsign}
-                        # Convert to: {ts, lat, lon, alt, gs, heading, callsign}
-                        converted_positions = []
-                        for p in positions:
-                            converted_positions.append({
-                                "ts": p.get("ts", 0),
-                                "lat": p.get("lat"),
-                                "lon": p.get("lon"),
-                                "alt": p.get("alt"),
-                                "gs": p.get("gs"),
-                                "heading": p.get("heading"),
-                                "callsign": p.get("callsign", "")
-                            })
-                        positions_by_cid[cid] = converted_positions
+                if cid and cid in history_dict:
+                    positions = history_dict[cid]
+                    # Convert to the format expected by the rest of the code
+                    # aircraft_history format: {lat, lon, alt, ts, callsign}
+                    # Convert to: {ts, lat, lon, alt, gs, heading, callsign}
+                    converted_positions = []
+                    for p in positions:
+                        converted_positions.append({
+                            "ts": p.get("ts", 0),
+                            "lat": p.get("lat"),
+                            "lon": p.get("lon"),
+                            "alt": p.get("alt"),
+                            "gs": p.get("gs"),
+                            "heading": p.get("heading"),
+                            "callsign": p.get("callsign", "")
+                        })
+                    positions_by_cid[cid] = converted_positions
         except Exception as e:
             pass
 
@@ -222,6 +228,8 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
         prev_map[ident] = {"pos": (pt.x, pt.y)}
 
     breaches: List[Dict[str, Any]] = []
+    # PERF: Collect all penetration events to write in one batch
+    penetration_events: List[Dict[str, Any]] = []
     for a in latest_ac:
         ident = str(a.get("cid") or a.get("callsign") or "")
         if not ident:
@@ -293,7 +301,7 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
                 "groundspeed": a.get("groundspeed"),
                 "heading": a.get("heading"),
             }
-            
+
             # Add pre_positions (up to 7 positions before the intrusion for better approach visualization)
             cid = str(a.get("cid") or "")
             if cid and cid in positions_by_cid:
@@ -305,11 +313,9 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
                 pre_positions.reverse()  # oldest first for display
                 if pre_positions:
                     event["pre_positions"] = pre_positions
-            
-            try:
-                record_penetration(event)
-            except Exception:
-                pass
+
+            # PERF: Collect event for batch processing
+            penetration_events.append(event)
 
             breaches.append(
                 {
@@ -322,9 +328,14 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
                 }
             )
 
-    # Update current_inside vs exits, passing position history for post_positions
+    # PERF: Write all penetrations + position updates in ONE file write
+    # This consolidates all P56 history writes into one atomic operation per cycle
     try:
-        sync_snapshot(latest_ac, shapes, latest_ts, positions_by_cid=positions_by_cid if write_json_history else None)
+        sync_snapshot_with_penetrations(
+            latest_ac, shapes, latest_ts,
+            penetration_events=penetration_events,
+            positions_by_cid=positions_by_cid if write_json_history else None
+        )
     except Exception:
         pass
 

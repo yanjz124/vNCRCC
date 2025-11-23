@@ -23,8 +23,9 @@ def _load() -> Dict[str, Any]:
 def _atomic_write(data: Dict[str, Any]):
     _ensure_parent()
     try:
-        HISTORY_PATH.write_text(json.dumps(data, indent=2, sort_keys=True, default=str))
-        print(f"Aircraft history written to {HISTORY_PATH}")
+        # PERF: Use compact JSON (no indent) to reduce file size and write time
+        HISTORY_PATH.write_text(json.dumps(data, separators=(',', ':'), default=str))
+        # PERF: Removed verbose logging - this runs every 15s and clutters logs
     except Exception as e:
         print(f"Error writing aircraft history: {e}")
 
@@ -98,4 +99,6 @@ def update_history_batch(updates: Dict[str, Dict[str, Any]], filtered_cids: set 
         history[cid] = history[cid][-10:]
 
     _atomic_write(data)
-    print(f"Updated aircraft history for {len(updates)} aircraft (total tracked: {len(history)})")
+    # PERF: Reduce log spam - this runs every 15s. Only log if significant changes.
+    if len(updates) > 50 or len(history) > 100:
+        print(f"Updated aircraft history: {len(updates)} updates, {len(history)} total tracked")

@@ -134,13 +134,21 @@ def _on_fetch(data: dict, ts: float) -> None:
         # Offload heavy work to background threads to avoid blocking the event loop
         async def _bg():
             loop = asyncio.get_running_loop()
-            tasks = []
+
+            # PERF FIX: Run precompute FIRST to cache aircraft_list, then history update
+            # This breaks the circular dependency (precompute needs old history, updates need new aircraft_list)
+            try:
+                await loop.run_in_executor(None, precompute_all, data, ts)
+            except Exception:
+                logger.exception("Background tasks failed")
+
+            # Now update aircraft history using the freshly cached aircraft_list
             if _WRITE_JSON_HISTORY:
                 # Only track history for aircraft in the filtered/cached list (within range)
                 from .precompute import get_cached
                 cached = get_cached("aircraft_list")
                 filtered_aircraft = cached.get("aircraft", []) if cached else []
-                
+
                 # Build set of CIDs that are in the filtered list
                 filtered_cids = set()
                 history_updates = {}
@@ -156,9 +164,9 @@ def _on_fetch(data: dict, ts: float) -> None:
                         if lat is None or lon is None:
                             continue
                         history_updates[cid] = {
-                            "lat": lat, 
-                            "lon": lon, 
-                            "alt": alt, 
+                            "lat": lat,
+                            "lon": lon,
+                            "alt": alt,
                             "callsign": ac.get("callsign", ""),
                             "gs": ac.get("groundspeed"),
                             "heading": ac.get("heading")
@@ -166,13 +174,8 @@ def _on_fetch(data: dict, ts: float) -> None:
                     except Exception:
                         continue
                 if history_updates:
-                    # Update history FIRST, then precompute can read from it
+                    # Update history after precompute completes
                     await loop.run_in_executor(None, update_history_batch, history_updates, filtered_cids)
-            # Precompute in thread (runs after history is updated)
-            try:
-                await loop.run_in_executor(None, precompute_all, data, ts)
-            except Exception:
-                logger.exception("Background tasks failed")
             
             # Fetch and cache controllers (runs after VATSIM processing)
             try:

@@ -31,7 +31,9 @@ def _atomic_write(data: Dict[str, Any]):
     _ensure_parent()
     p = HISTORY_PATH if isinstance(HISTORY_PATH, Path) else Path(HISTORY_PATH)
     tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2, sort_keys=True, default=str))
+    # PERF: Use compact JSON (no indent) to reduce file size and write time
+    # This runs every 15s during P56 intrusions, so minimize I/O overhead
+    tmp.write_text(json.dumps(data, separators=(',', ':'), default=str))
     tmp.replace(p)
 
 
@@ -103,8 +105,13 @@ def purge_events(keys: Optional[List[str]] = None, items: Optional[List[Dict[str
     return {"before": before, "after": after, "purged": max(0, before - after)}
 
 
-def record_penetration(event: Dict[str, Any]) -> None:
-    """Record a new penetration event. Event should include at least 'cid' or 'identifier'."""
+def record_penetration(event: Dict[str, Any], skip_write: bool = False) -> None:
+    """Record a new penetration event. Event should include at least 'cid' or 'identifier'.
+
+    Args:
+        event: Event dict containing cid, position, etc.
+        skip_write: If True, don't write to disk (for batching with sync_snapshot)
+    """
     data = _load()
     events: List[Dict[str, Any]] = data.setdefault("events", [])
     current: Dict[str, Any] = data.setdefault("current_inside", {})
@@ -175,7 +182,9 @@ def record_penetration(event: Dict[str, Any]) -> None:
                 "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
                 "name": event_copy.get("name")
             }
-            _atomic_write(data)
+            # PERF: Only write if not batching with sync_snapshot
+            if not skip_write:
+                _atomic_write(data)
             return
 
     events.append(event_copy)
@@ -219,7 +228,9 @@ def record_penetration(event: Dict[str, Any]) -> None:
         "name": event_copy.get("name")
     }
 
-    _atomic_write(data)
+    # PERF: Only write if not batching with sync_snapshot
+    if not skip_write:
+        _atomic_write(data)
 
 
 def mark_exit(cid: str, ts: Optional[float] = None) -> None:
@@ -229,6 +240,245 @@ def mark_exit(cid: str, ts: Optional[float] = None) -> None:
         current[str(cid)]["inside"] = False
         current[str(cid)]["last_seen"] = ts or time.time()
         _atomic_write(data)
+
+
+def sync_snapshot_with_penetrations(
+    aircraft_list: List[Dict[str, Any]],
+    features: List,
+    ts: Optional[float] = None,
+    penetration_events: Optional[List[Dict[str, Any]]] = None,
+    positions_by_cid: Optional[Dict[str, List]] = None
+) -> None:
+    """Batch process penetration events AND position tracking in single file write.
+
+    PERF: This function combines record_penetration logic with sync_snapshot to eliminate
+    redundant file I/O. Instead of N+1 writes per cycle (N penetrations + 1 sync), we do 1 write.
+
+    Args:
+        aircraft_list: Current VATSIM aircraft
+        features: P-56 zone shapes
+        ts: Timestamp
+        penetration_events: List of new penetration events to record (batched)
+        positions_by_cid: Position history for trajectory tracking
+    """
+    # PERF: Load data once at the start
+    data = _load()
+    current: Dict[str, Any] = data.setdefault("current_inside", {})
+    events: List[Dict[str, Any]] = data.setdefault("events", [])
+
+    # Process all penetration events first (record_penetration logic inlined)
+    if penetration_events:
+        for event in penetration_events:
+            cid = event.get("cid") or event.get("identifier")
+            if not cid:
+                cid = f"NOCID-{int(time.time())}"
+                event["cid"] = cid
+
+            # If already marked inside, skip duplicate
+            state = current.get(str(cid))
+            if state and state.get("inside"):
+                continue
+
+            event_copy = dict(event)
+            event_copy.setdefault("recorded_at", time.time())
+
+            # Deduplicate with last event for this CID
+            last_event = None
+            for e in reversed(events):
+                if str(e.get("cid")) == str(cid):
+                    last_event = e
+                    break
+
+            if last_event:
+                try:
+                    last_ts = float(last_event.get("recorded_at") or 0)
+                except Exception:
+                    last_ts = 0
+                if (event_copy.get("recorded_at", 0) - last_ts) <= DEDUPE_WINDOW_SECONDS:
+                    # Merge with existing event
+                    new_ts = event_copy.get("latest_ts")
+                    if new_ts is not None:
+                        prev_ts = last_event.get("latest_ts")
+                        try:
+                            new_ts_f = float(new_ts)
+                            prev_ts_f = float(prev_ts) if prev_ts is not None else None
+                            if prev_ts_f is None or new_ts_f > prev_ts_f:
+                                last_event["latest_ts"] = new_ts
+                        except Exception:
+                            pass
+                    if event_copy.get("pre_positions") and not last_event.get("pre_positions"):
+                        last_event["pre_positions"] = event_copy.get("pre_positions")
+                    current[str(cid)] = {
+                        "inside": True,
+                        "p56_buster": True,
+                        "outside_count": 0,
+                        "last_seen": event_copy.get("latest_ts") or event_copy.get("recorded_at"),
+                        "last_position": event_copy.get("latest_position"),
+                        "flight_plan": event_copy.get("flight_plan", {}),
+                        "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
+                        "name": event_copy.get("name")
+                    }
+                    continue
+
+            # New event - append to events list
+            events.append(event_copy)
+
+            # Seed intrusion_positions
+            seed_positions: List[Dict[str, Any]] = []
+            for p in (event_copy.get("pre_positions") or []):
+                if {"lat", "lon", "ts"}.issubset(p.keys()):
+                    seed_positions.append({
+                        "ts": p.get("ts"),
+                        "lat": p.get("lat"),
+                        "lon": p.get("lon"),
+                        "alt": p.get("alt"),
+                        "gs": p.get("gs"),
+                        "heading": p.get("heading"),
+                        "callsign": event_copy.get("callsign")
+                    })
+            lp = event_copy.get("latest_position")
+            ts_lp = event_copy.get("latest_ts") or event_copy.get("recorded_at")
+            if lp and ts_lp is not None:
+                seed_positions.append({
+                    "ts": ts_lp,
+                    "lat": lp.get("lat"),
+                    "lon": lp.get("lon"),
+                    "alt": event_copy.get("altitude") or event_copy.get("alt"),
+                    "gs": event_copy.get("groundspeed") or event_copy.get("gs"),
+                    "heading": event_copy.get("heading"),
+                    "callsign": event_copy.get("callsign")
+                })
+            event_copy["intrusion_positions"] = seed_positions
+
+            # Mark current inside
+            current[str(cid)] = {
+                "inside": True,
+                "p56_buster": True,
+                "outside_count": 0,
+                "last_seen": event_copy.get("latest_ts") or event_copy.get("recorded_at"),
+                "last_position": event_copy.get("latest_position"),
+                "flight_plan": event_copy.get("flight_plan", {}),
+                "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
+                "name": event_copy.get("name")
+            }
+
+    # Now continue with sync_snapshot logic (position tracking)
+    _sync_snapshot_positions(aircraft_list, features, ts, positions_by_cid, data, current, events)
+
+    # PERF: Single write at the end for all changes
+    _atomic_write(data)
+
+
+def _sync_snapshot_positions(
+    aircraft_list: List[Dict[str, Any]],
+    features: List,
+    ts: Optional[float],
+    positions_by_cid: Optional[Dict[str, List]],
+    data: Dict[str, Any],
+    current: Dict[str, Any],
+    events: List[Dict[str, Any]]
+) -> None:
+    """Helper to update positions without file I/O (extracted from sync_snapshot)."""
+    # Build map by cid
+    ac_map: Dict[str, Dict[str, Any]] = {}
+    for a in aircraft_list:
+        cid = a.get("cid")
+        if cid:
+            ac_map[str(cid)] = a
+
+    # For each tracked CID with p56_buster flag, update positions
+    for cid, state in list(current.items()):
+        p56_buster = state.get("p56_buster", False)
+        if not p56_buster:
+            continue
+
+        # Find the last event for this CID
+        last_event = None
+        for e in reversed(events):
+            if str(e.get("cid")) == cid:
+                last_event = e
+                break
+
+        if not last_event:
+            current[cid]["p56_buster"] = False
+            continue
+
+        # Check if aircraft is currently inside P-56
+        a = ac_map.get(str(cid))
+        currently_inside = False
+        if a:
+            pt = point_from_aircraft(a)
+            if pt:
+                for shp, props in features:
+                    try:
+                        if getattr(shp, "contains", lambda x: False)(pt) or getattr(shp, "intersects", lambda x: False)(pt):
+                            currently_inside = True
+                            break
+                    except Exception:
+                        continue
+
+        # Append current position to intrusion tracking
+        intrusion_positions = last_event.get("intrusion_positions") or []
+
+        if a:
+            pt = point_from_aircraft(a)
+            if pt:
+                pos_entry = {
+                    "ts": ts or time.time(),
+                    "lat": pt.y,
+                    "lon": pt.x,
+                    "alt": a.get("altitude") or a.get("alt"),
+                    "gs": a.get("groundspeed") or a.get("gs"),
+                    "heading": a.get("heading"),
+                    "callsign": a.get("callsign")
+                }
+
+                # Only append if different from last position
+                if not intrusion_positions or (pos_entry["ts"] - intrusion_positions[-1]["ts"]) >= 1:
+                    intrusion_positions.append(pos_entry)
+
+                    # Apply safety cap of 200 positions
+                    if len(intrusion_positions) > 200:
+                        intrusion_positions = intrusion_positions[-200:]
+
+                    last_event["intrusion_positions"] = intrusion_positions
+
+            # Update current_inside state
+            if currently_inside:
+                current[cid]["inside"] = True
+                current[cid]["last_seen"] = ts or time.time()
+                current[cid]["outside_count"] = 0
+            else:
+                outside_count = state.get("outside_count", 0) + 1
+                current[cid]["outside_count"] = outside_count
+                current[cid]["inside"] = False
+                current[cid]["last_seen"] = ts or time.time()
+
+                if outside_count >= 10:
+                    current[cid]["p56_buster"] = False
+                    last_event["exit_confirmed_at"] = ts or time.time()
+                    if not last_event.get("exit_detected_at"):
+                        last_event["exit_detected_at"] = ts or time.time()
+        elif not a:
+            outside_count = state.get("outside_count", 0) + 1
+            current[cid]["outside_count"] = outside_count
+            if outside_count >= 10:
+                current[cid]["p56_buster"] = False
+                if last_event and not last_event.get("exit_confirmed_at"):
+                    last_event["exit_confirmed_at"] = ts or time.time()
+
+    # Clean up stale entries from current_inside
+    now = ts or time.time()
+    stale_threshold = 300
+    stale_cids = []
+    for cid, state in current.items():
+        if not state.get("p56_buster", False):
+            last_seen = state.get("last_seen", 0)
+            if (now - last_seen) > stale_threshold:
+                stale_cids.append(cid)
+
+    for cid in stale_cids:
+        del current[cid]
 
 
 def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optional[float] = None, positions_by_cid: Optional[Dict[str, List]] = None) -> None:
@@ -244,6 +494,7 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
     features: list of (shapely_shape, props)
     positions_by_cid: dict of cid to list of position dicts
     """
+    # PERF: Load data once at the start instead of in record_penetration
     data = _load()
     current: Dict[str, Any] = data.setdefault("current_inside", {})
     events: List[Dict[str, Any]] = data.setdefault("events", [])
