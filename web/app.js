@@ -643,7 +643,6 @@
       }
     } catch(e){ console.warn('Failed to load overlays', e); }
   }
-  }
 
   function pointInLayer(lat, lon, layer){
     if(!layer) return false;
