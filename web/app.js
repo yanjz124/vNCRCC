@@ -2674,31 +2674,33 @@
       // Fetch aircraft first for fastest initial render
       // Pass current VSO range to backend for server-side filtering
       const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
-      // Prefer the consolidated dashboard so we get aircraft + p56 + vip + controllers in one shot
-      const dash = await fetchDashboard(range_nm, false);
+      // Use the fully consolidated dashboard endpoint with history included
+      const dash = await fetchDashboard(range_nm, true);
       let aircraft = null;
+      let historyData = null;
       if(dash && dash.aircraft && Array.isArray(dash.aircraft.list)){
         aircraft = dash.aircraft.list;
+        // Extract history from dashboard response (already filtered by range)
+        historyData = dash.history || null;
       } else {
         // fallback to separate aircraft endpoint
         aircraft = await fetchAllAircraft(range_nm);
       }
       const t1 = performance.now();
-      console.log(`[PERF] Fetched aircraft snapshot (range=${range_nm}nm) in ${((t1-t0)/1000).toFixed(2)}s`);
+      console.log(`[PERF] Fetched consolidated dashboard (range=${range_nm}nm) in ${((t1-t0)/1000).toFixed(2)}s`);
 
-      // Render immediately without waiting for history
+      // Render with history from consolidated response
       const extras = dash ? { p56: dash.p56 || null, vip: dash.vip || null, controllers: dash.controllers || null } : null;
-      await refresh(aircraft, null, extras);
+      await refresh(aircraft, historyData, extras);
       const t2 = performance.now();
-      console.log(`[PERF] Initial refresh() (no history) took ${((t2-t1)/1000).toFixed(2)}s (total: ${((t2-t0)/1000).toFixed(2)}s)`);
+      console.log(`[PERF] Initial refresh() (with history) took ${((t2-t1)/1000).toFixed(2)}s (total: ${((t2-t0)/1000).toFixed(2)}s)`);
 
-      // Start history fetch in background if needed
-      if(visiblePaths.size > 0){
-        fetchHistoryData().then(historyData => {
-          if(historyData){
-            updateVisiblePaths(historyData).catch(()=>{});
-          }
-        }).catch(()=>{});
+      // History already included in dashboard response - no separate fetch needed
+      // If there are visible paths not in the consolidated response, update them separately
+      if(visiblePaths.size > 0 && historyData){
+        try{
+          await updateVisiblePaths(historyData);
+        }catch(e){}
       }
 
       // Calculate total delay from VATSIM update to client display
