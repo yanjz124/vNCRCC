@@ -299,8 +299,7 @@ function initCharts() {
 // Fetch and update metrics
 async function updateMetrics() {
   try {
-    const metricsUrl = `${window.location.protocol}//api.vncrcc.org/api/metrics`;
-    const resp = await fetch(metricsUrl);
+    const resp = await fetch('/api/metrics');
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     
     const data = await resp.json();

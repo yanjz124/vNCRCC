@@ -1,8 +1,8 @@
 // Simple dashboard app that queries the API endpoints and renders lists + map.
 (function(){
-  // Use DNS-only api subdomain to bypass CloudFlare buffering
-  // Always use api.vncrcc.org for now (api.p56buster.club Argo Tunnel not configured)
-  const API_ROOT = `${window.location.protocol}//api.vncrcc.org/api/v1`;
+  // TEMPORARY: Revert to main domain until api.vncrcc.org DNS is fixed
+  // api.vncrcc.org points to broken CloudFlare Argo Tunnel causing timeouts
+  const API_ROOT = window.location.origin + '/api/v1';
   const DCA = [38.8514403, -77.0377214];
   const DEFAULT_RANGE_NM = 300;
   const REFRESH = 15000;
@@ -2745,8 +2745,7 @@
   // Fetch and display build version/timestamp
   async function fetchBuildInfo(){
     try{
-      const versionUrl = `${window.location.protocol}//api.vncrcc.org/api/version`;
-      const resp = await fetchWithBackoff(versionUrl);
+      const resp = await fetchWithBackoff('/api/version');
       const data = await resp.json();
       if(data.version){
         el('build-version').textContent = data.version;
