@@ -38,6 +38,7 @@ class VatsimClient:
         self.interval = interval
         self.latest: Optional[Dict[str, Any]] = None
         self.latest_ts: Optional[float] = None
+        self.latest_delay: Optional[float] = None  # VATSIM data age/staleness
         self._callbacks: List[Callable[[Dict[str, Any], float], None]] = []
         self._task: Optional[asyncio.Task] = None
         self._session: Optional[aiohttp.ClientSession] = None
@@ -139,15 +140,24 @@ class VatsimClient:
             async with self._lock:
                 self.latest = data
                 self.latest_ts = ts
-            
+                self.latest_delay = vatsim_age_seconds
+
             # Log with staleness info
             if vatsim_age_seconds is not None:
-                logger.info("VATSIM fetch success: %d aircraft, fetch took %.2fs, data age %.1fs", 
+                logger.info("VATSIM fetch success: %d aircraft, fetch took %.2fs, data age %.1fs",
                            count, fetch_duration, vatsim_age_seconds)
             else:
-                logger.info("VATSIM fetch success: %d aircraft at %.0f, fetch took %.2fs", 
+                logger.info("VATSIM fetch success: %d aircraft at %.0f, fetch took %.2fs",
                            count, ts, fetch_duration)
-            
+
+            # Record delay to metrics if available
+            if vatsim_age_seconds is not None:
+                try:
+                    from .metrics import METRICS
+                    METRICS.record_delay(vatsim_age_seconds, source="vatsim")
+                except Exception:
+                    pass  # Don't let metrics recording fail the fetch
+
             # call registered callbacks (run them sync to keep ordering)
             callback_start = time.time()
             for cb in list(self._callbacks):
