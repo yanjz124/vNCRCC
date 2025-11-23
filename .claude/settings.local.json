@@ -4,7 +4,11 @@
       "Bash(git commit:*)",
       "Bash(curl:*)",
       "Bash(python:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(python3:*)",
+      "Bash(scp:*)",
+      "Bash(md5sum:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": []
