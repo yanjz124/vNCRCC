@@ -53,10 +53,11 @@ async def list_aircraft(request: Request) -> Dict[str, Any]:
     # Return latest VATSIM snapshot for real-time data
     snap = storage.STORAGE.get_latest_snapshot() if storage.STORAGE else None
     if snap:
-        aircraft = snap.get("pilots") or snap.get("aircraft") or []
+        data = snap.get("data", {})
+        aircraft = data.get("pilots") or data.get("aircraft") or []
         return {
             "aircraft": aircraft,
-            "vatsim_update_timestamp": snap.get("general", {}).get("update_timestamp"),
+            "vatsim_update_timestamp": data.get("general", {}).get("update_timestamp"),
             "fetched_at": snap.get("fetched_at")
         }
     return {"aircraft": []}
@@ -75,7 +76,8 @@ async def aircraft_history(
     # Get latest snapshot for fresh aircraft data
     snap = storage.STORAGE.get_latest_snapshot() if storage.STORAGE else None
     fetched_at = snap.get("fetched_at") if snap else None
-    vatsim_ts = snap.get("general", {}).get("update_timestamp") if snap else None
+    data = snap.get("data", {}) if snap else {}
+    vatsim_ts = data.get("general", {}).get("update_timestamp") if snap else None
 
     # If no range filter specified, return full history with timestamp
     if range_nm is None:
@@ -97,7 +99,7 @@ async def aircraft_history(
     # Filter history to only include aircraft within range
     filtered_history = {}
     history_data = full_history.get("history", {})
-    current_aircraft = snap.get("pilots") or snap.get("aircraft") or [] if snap else []
+    current_aircraft = data.get("pilots") or data.get("aircraft") or []
 
     # Build set of CIDs that are currently within range
     cids_in_range = set()
