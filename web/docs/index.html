@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vNCRCC API Documentation</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f5f5f5;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px 20px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    header p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+
+    .domain-info {
+      background: white;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .domain-info h2 {
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .domain-info code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+
+    nav {
+      background: white;
+      padding: 20px;
+      margin-bottom: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 20px;
+      z-index: 100;
+    }
+
+    nav h3 {
+      margin-bottom: 15px;
+      color: #667eea;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    nav a {
+      color: #667eea;
+      text-decoration: none;
+      padding: 8px 16px;
+      background: #f4f4f4;
+      border-radius: 5px;
+      transition: all 0.2s;
+    }
+
+    nav a:hover {
+      background: #667eea;
+      color: white;
+    }
+
+    .section {
+      background: white;
+      padding: 30px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .section h2 {
+      color: #667eea;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f4f4f4;
+    }
+
+    .endpoint {
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      border-left: 4px solid #667eea;
+    }
+
+    .endpoint-header {
+      margin-bottom: 15px;
+    }
+
+    .method {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-right: 10px;
+      font-size: 0.85rem;
+    }
+
+    .method.get {
+      background: #61affe;
+      color: white;
+    }
+
+    .method.post {
+      background: #49cc90;
+      color: white;
+    }
+
+    .path {
+      font-family: 'Courier New', monospace;
+      font-size: 1.1rem;
+      color: #333;
+    }
+
+    .description {
+      margin: 15px 0;
+      color: #666;
+    }
+
+    .params, .response {
+      margin-top: 15px;
+    }
+
+    .params h4, .response h4 {
+      color: #555;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+    }
+
+    .param {
+      margin: 8px 0;
+      padding: 8px;
+      background: white;
+      border-radius: 4px;
+    }
+
+    .param-name {
+      font-family: 'Courier New', monospace;
+      color: #667eea;
+      font-weight: bold;
+    }
+
+    .param-type {
+      color: #999;
+      font-size: 0.85rem;
+      margin-left: 10px;
+    }
+
+    .param-desc {
+      margin-top: 5px;
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .required {
+      color: #e74c3c;
+      font-size: 0.8rem;
+      margin-left: 5px;
+    }
+
+    .optional {
+      color: #95a5a6;
+      font-size: 0.8rem;
+      margin-left: 5px;
+    }
+
+    pre {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+    }
+
+    code {
+      font-family: 'Courier New', monospace;
+    }
+
+    .rate-limit {
+      display: inline-block;
+      background: #fff3cd;
+      color: #856404;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      margin-left: 10px;
+    }
+
+    .note {
+      background: #e8f4fd;
+      border-left: 4px solid #2196F3;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+
+    .note strong {
+      color: #1976D2;
+    }
+
+    .warning {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+
+    .warning strong {
+      color: #856404;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      margin-top: 40px;
+    }
+
+    @media (max-width: 768px) {
+      header h1 {
+        font-size: 1.8rem;
+      }
+
+      nav ul {
+        flex-direction: column;
+      }
+
+      .container {
+        padding: 10px;
+      }
+
+      .section {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>vNCRCC API Documentation</h1>
+      <p>Real-time VATSIM aircraft tracking and monitoring for the Washington DC region</p>
+    </header>
+
+    <div class="domain-info">
+      <h2>API Access</h2>
+      <p>The API is available on two domains:</p>
+      <ul style="margin-top: 10px; margin-left: 20px;">
+        <li><strong>Primary:</strong> <code>api.vncrcc.org/api/</code></li>
+        <li><strong>Alternative:</strong> <code>api.p56buster.club/api/</code></li>
+      </ul>
+      <p style="margin-top: 10px;">Documentation is available at <code>/docs/</code> on both domains.</p>
+    </div>
+
+    <nav>
+      <h3>Quick Navigation</h3>
+      <ul>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#base">Base Endpoints</a></li>
+        <li><a href="#aircraft">Aircraft</a></li>
+        <li><a href="#controllers">Controllers</a></li>
+        <li><a href="#airspace">Airspace (SFRA/FRZ)</a></li>
+        <li><a href="#p56">P56 Monitoring</a></li>
+        <li><a href="#vip">VIP Aircraft</a></li>
+        <li><a href="#vso">VSO</a></li>
+        <li><a href="#geo">Geography</a></li>
+        <li><a href="#metrics">Metrics</a></li>
+      </ul>
+    </nav>
+
+    <section id="overview" class="section">
+      <h2>Overview</h2>
+      <p>The vNCRCC API provides real-time access to VATSIM aircraft tracking data for the Washington DC region. The API monitors special airspace zones including the SFRA (Special Flight Rules Area), FRZ (Flight Restricted Zone), and P-56 Presidential restricted areas.</p>
+
+      <div class="note">
+        <strong>Note:</strong> All API endpoints return JSON responses. Data is cached server-side and updated approximately every 15 seconds from VATSIM.
+      </div>
+
+      <h3 style="margin-top: 25px; margin-bottom: 15px;">Rate Limiting</h3>
+      <p>Most endpoints are rate-limited to prevent abuse. Common limits are:</p>
+      <ul style="margin-left: 20px; margin-top: 10px;">
+        <li><strong>30 requests/minute</strong> - Most data endpoints</li>
+        <li><strong>6 requests/minute</strong> - Heavy computation endpoints (VSO, admin actions)</li>
+        <li><strong>60 requests/minute</strong> - Elevation lookups</li>
+      </ul>
+
+      <h3 style="margin-top: 25px; margin-bottom: 15px;">Response Caching</h3>
+      <p>Precomputed endpoints (aircraft, SFRA, FRZ, P56) support HTTP caching with ETag headers for efficient bandwidth usage. Responses include <code>Cache-Control</code> headers allowing 10-second browser/CDN caching.</p>
+    </section>
+
+    <section id="base" class="section">
+      <h2>Base Endpoints</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/health</span>
+          <span class="rate-limit">No limit</span>
+        </div>
+        <div class="description">
+          Health check endpoint for monitoring service availability.
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "status": "ok"
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/version</span>
+          <span class="rate-limit">6/min</span>
+        </div>
+        <div class="description">
+          Get the current deployment version (git commit hash and timestamp).
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "version": "abc1234",
+  "timestamp": 1700000000,
+  "status": "deployed"
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/metrics</span>
+          <span class="rate-limit">No limit</span>
+        </div>
+        <div class="description">
+          Get high-level server metrics including active users and resource usage.
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "timestamp": 1700000000.0,
+  "uptime_seconds": 86400,
+  "active_users": 15,
+  "request_rate": {...},
+  "resources": {...}
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="aircraft" class="section">
+      <h2>Aircraft Endpoints</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/aircraft/latest</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get the latest raw VATSIM snapshot data (unfiltered).
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "data": {
+    "pilots": [...],
+    "general": {...}
+  },
+  "fetched_at": 1700000000.0
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/aircraft/list</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get filtered aircraft list. By default returns aircraft within 300nm of DCA. Uses precomputed cache for fast response.
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">range_nm</span>
+            <span class="param-type">float</span>
+            <span class="optional">optional</span>
+            <div class="param-desc">Filter aircraft by distance from DCA in nautical miles</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "aircraft": [
+    {
+      "cid": 1234567,
+      "callsign": "UAL123",
+      "latitude": 38.8514,
+      "longitude": -77.0377,
+      "altitude": 5000,
+      "groundspeed": 250,
+      "heading": 180,
+      "flight_plan": {...}
+    }
+  ],
+  "vatsim_update_timestamp": "20231115120000",
+  "computed_at": 1700000000.0
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/aircraft/list/history</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get aircraft with position history trails. Returns historical positions for tracked aircraft.
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">range_nm</span>
+            <span class="param-type">float</span>
+            <span class="optional">optional</span>
+            <div class="param-desc">Filter aircraft by distance from DCA in nautical miles</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "history": {
+    "1234567": [
+      {"lat": 38.85, "lon": -77.03, "alt": 5000, "ts": 1700000000}
+    ]
+  },
+  "fetched_at": 1700000000.0,
+  "vatsim_update_timestamp": "20231115120000"
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="controllers" class="section">
+      <h2>Controllers</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/controllers/</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get currently active ZDC (Washington Center) controllers from vNAS. Filters for positions at PCT, DCA, NYG, ZDC, and ADW facilities.
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "controllers": [
+    {
+      "cid": 1234567,
+      "callsign": "ZDC_CTR",
+      "frequency": "132.850",
+      "facility": "ZDC",
+      "rating": 7
+    }
+  ],
+  "count": 1
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="airspace" class="section">
+      <h2>Airspace Monitoring (SFRA/FRZ)</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/sfra/</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get aircraft currently inside the DC SFRA (Special Flight Rules Area). Only includes aircraft at or below 17,999 ft.
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">name</span>
+            <span class="param-type">string</span>
+            <span class="optional">optional, default: "sfra"</span>
+            <div class="param-desc">Keyword to find the SFRA GeoJSON file</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "aircraft": [
+    {
+      "aircraft": {...},
+      "matched_props": {"name": "SFRA"},
+      "dca": {
+        "radial_range": "DCA180015",
+        "bearing": 180,
+        "range_nm": 15.5
+      }
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/frz/</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get aircraft currently inside the DC FRZ (Flight Restricted Zone). Only includes aircraft at or below 17,999 ft.
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">name</span>
+            <span class="param-type">string</span>
+            <span class="optional">optional, default: "frz"</span>
+            <div class="param-desc">Keyword to find the FRZ GeoJSON file</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "aircraft": [
+    {
+      "aircraft": {...},
+      "matched_props": {"name": "FRZ"},
+      "dca": {
+        "radial_range": "DCA090013",
+        "bearing": 90,
+        "range_nm": 13.2
+      }
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="p56" class="section">
+      <h2>P-56 Presidential TFR Monitoring</h2>
+
+      <div class="warning">
+        <strong>Warning:</strong> P-56 monitoring detects unauthorized airspace penetrations. Admin endpoints require authentication.
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/p56/</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get current P-56 airspace breaches. Returns aircraft that crossed into P-56 zones based on trajectory analysis between snapshots.
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">name</span>
+            <span class="param-type">string</span>
+            <span class="optional">optional, default: "p56"</span>
+            <div class="param-desc">Keyword to find the P-56 GeoJSON file</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "breaches": [
+    {
+      "identifier": "1234567",
+      "callsign": "N12345",
+      "cid": 1234567,
+      "prev_position": {"lon": -77.03, "lat": 38.85},
+      "latest_position": {"lon": -77.04, "lat": 38.86},
+      "prev_ts": 1700000000.0,
+      "latest_ts": 1700000015.0,
+      "zones": ["P-56A"],
+      "evidence": {...},
+      "flight_plan": {...}
+    }
+  ],
+  "history": {
+    "events": [...],
+    "current_inside": [...]
+  }
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/p56/incidents</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get historical P-56 incidents logged to the database.
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">limit</span>
+            <span class="param-type">integer</span>
+            <span class="optional">optional, default: 100</span>
+            <div class="param-desc">Maximum number of incidents to return</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "incidents": [
+    {
+      "detected_at": 1700000000.0,
+      "callsign": "N12345",
+      "cid": 1234567,
+      "lat": 38.86,
+      "lon": -77.04,
+      "altitude": 3000,
+      "zone": "P-56A",
+      "evidence": "{...}"
+    }
+  ],
+  "count": 1
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/v1/p56/clear</span>
+          <span class="rate-limit">6/min</span>
+        </div>
+        <div class="description">
+          Clear all P-56 history (events and current_inside). Requires admin password.
+        </div>
+        <div class="params">
+          <h4>Request Body:</h4>
+          <pre><code>{
+  "password": "your-admin-password"
+}</code></pre>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "status": "ok",
+  "cleared": true
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/v1/p56/purge</span>
+          <span class="rate-limit">6/min</span>
+        </div>
+        <div class="description">
+          Purge specific P-56 events from history. Requires admin password. Used to remove false positives.
+        </div>
+        <div class="params">
+          <h4>Request Body:</h4>
+          <pre><code>{
+  "password": "your-admin-password",
+  "keys": ["1234567:1700000000.0"],
+  // OR
+  "items": [
+    {"cid": "1234567", "recorded_at": 1700000000.0}
+  ]
+}</code></pre>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "status": "ok",
+  "result": {
+    "purged": 1
+  }
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="vip" class="section">
+      <h2>VIP Aircraft Tracking</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/vip/</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get currently active VIP aircraft (Air Force One, Marine One, etc.) on the VATSIM network. Scans globally with no range restriction.
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "aircraft": [
+    {
+      "cid": 1234567,
+      "callsign": "AF1",
+      "latitude": 38.8514,
+      "longitude": -77.0377,
+      "altitude": 35000,
+      "flight_plan": {...}
+    }
+  ],
+  "count": 1,
+  "fetched_at": 1700000000.0
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="vso" class="section">
+      <h2>VSO (Virtual Special Operations)</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/vso/</span>
+          <span class="rate-limit">6/min</span>
+        </div>
+        <div class="description">
+          Get aircraft within specified range of DCA, optionally filtered by affiliation patterns in flight plan remarks.
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">range_nm</span>
+            <span class="param-type">integer</span>
+            <span class="optional">optional, default: 60</span>
+            <div class="param-desc">Maximum range from DCA in nautical miles</div>
+          </div>
+          <div class="param">
+            <span class="param-name">affiliations</span>
+            <span class="param-type">string</span>
+            <span class="optional">optional</span>
+            <div class="param-desc">Comma-separated list of patterns to match in remarks (e.g., "vusaf.us,vuscg,usnv")</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "aircraft": [
+    {
+      "aircraft": {...},
+      "dca": {
+        "radial_range": "DCA270045",
+        "bearing": 270,
+        "range_nm": 45.3
+      },
+      "matched_affiliations": ["vusaf.us"],
+      "position_history": [...]
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="geo" class="section">
+      <h2>Geography & Elevation</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/geo/</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get GeoJSON features for specified geographic zones (SFRA, FRZ, P-56, etc.).
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">name</span>
+            <span class="param-type">string</span>
+            <span class="required">required</span>
+            <div class="param-desc">Keyword to find geo files (e.g., "sfra", "frz", "p56")</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [...]
+      },
+      "properties": {...}
+    }
+  ]
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/elevation/</span>
+          <span class="rate-limit">60/min</span>
+        </div>
+        <div class="description">
+          Get ground elevation at specified coordinates using local raster data. Results are cached for 6 hours.
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">lat</span>
+            <span class="param-type">float</span>
+            <span class="required">required</span>
+            <div class="param-desc">Latitude in decimal degrees</div>
+          </div>
+          <div class="param">
+            <span class="param-name">lon</span>
+            <span class="param-type">float</span>
+            <span class="required">required</span>
+            <div class="param-desc">Longitude in decimal degrees</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "elevation_m": 25.5,
+  "cached": false,
+  "source": "local-raster"
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/incidents/</span>
+          <span class="rate-limit">6/min</span>
+        </div>
+        <div class="description">
+          Get all logged incidents (SFRA, FRZ, P-56 violations).
+        </div>
+        <div class="params">
+          <h4>Query Parameters:</h4>
+          <div class="param">
+            <span class="param-name">limit</span>
+            <span class="param-type">integer</span>
+            <span class="optional">optional, default: 100</span>
+            <div class="param-desc">Maximum number of incidents to return</div>
+          </div>
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "incidents": [...],
+  "count": 10
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="metrics" class="section">
+      <h2>Metrics & Monitoring</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/status/</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get system status including surge mode activation and processing metrics.
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "status": "operational",
+  "surge_mode_active": false,
+  "total_aircraft_on_network": 450,
+  "aircraft_processed": 120,
+  "configured_radius_nm": 300,
+  "effective_radius_nm": 300,
+  "last_update": 1700000000.0,
+  "message": "Surge mode reduces processing radius..."
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/metrics/</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get comprehensive system metrics including active users, request rates, errors, and resource usage.
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "timestamp": 1700000000.0,
+  "uptime_seconds": 86400,
+  "active_users": 15,
+  "request_rate": {
+    "1min": 5.2,
+    "5min": 4.8
+  },
+  "error_rate": {...},
+  "delay": {...},
+  "resources": {
+    "cpu_percent": 15.5,
+    "memory_percent": 42.3,
+    "disk_usage_percent": 55.1
+  },
+  "endpoints": {...},
+  "p56_purges": [...]
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/metrics/delay</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Get detailed VATSIM data staleness/delay metrics with time-series history for graphing.
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "1min": {
+    "avg": 2.5,
+    "min": 1.2,
+    "max": 5.3,
+    "p50": 2.3,
+    "p95": 4.8
+  },
+  "5min": {...},
+  "history": [
+    {"timestamp": 1700000000, "delay": 2.5},
+    ...
+  ]
+}</code></pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/v1/metrics/vatsim-health</span>
+          <span class="rate-limit">30/min</span>
+        </div>
+        <div class="description">
+          Diagnostic endpoint for VATSIM data pipeline health monitoring.
+        </div>
+        <div class="response">
+          <h4>Response:</h4>
+          <pre><code>{
+  "server_time": 1700000000.0,
+  "fetcher_running": true,
+  "last_fetch_ts": 1699999995.0,
+  "vatsim_data_age": 2.5,
+  "time_since_last_fetch": 5.0,
+  "fetcher_status": "healthy",
+  "latest_snapshot_ts": 1699999995.0,
+  "time_since_snapshot": 5.0
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Common Response Fields</h2>
+
+      <h3 style="margin-top: 20px; margin-bottom: 15px;">Aircraft Object</h3>
+      <p>Most endpoints return aircraft objects with the following common fields:</p>
+      <pre><code>{
+  "cid": 1234567,              // VATSIM CID (Controller ID)
+  "callsign": "UAL123",        // Aircraft callsign
+  "name": "John Doe",          // Pilot name
+  "latitude": 38.8514,         // Current latitude
+  "longitude": -77.0377,       // Current longitude
+  "altitude": 5000,            // Altitude in feet
+  "groundspeed": 250,          // Ground speed in knots
+  "heading": 180,              // Heading in degrees (0-360)
+  "flight_plan": {             // Flight plan (if filed)
+    "departure": "KDCA",
+    "arrival": "KJFK",
+    "route": "...",
+    "remarks": "..."
+  }
+}</code></pre>
+
+      <h3 style="margin-top: 25px; margin-bottom: 15px;">Timestamp Fields</h3>
+      <ul style="margin-left: 20px; margin-top: 10px;">
+        <li><code>fetched_at</code> - Unix timestamp when data was fetched from VATSIM</li>
+        <li><code>computed_at</code> - Unix timestamp when precomputation occurred</li>
+        <li><code>vatsim_update_timestamp</code> - VATSIM's update timestamp (format: "YYYYMMDDHHmmss")</li>
+      </ul>
+
+      <h3 style="margin-top: 25px; margin-bottom: 15px;">DCA Radial/Range Format</h3>
+      <p>Many endpoints include position relative to DCA (Ronald Reagan Washington National Airport):</p>
+      <pre><code>{
+  "radial_range": "DCA180015",  // Compact format: bearing (180°), range (15nm)
+  "bearing": 180,               // Bearing from DCA in degrees
+  "range_nm": 15.5              // Distance from DCA in nautical miles
+}</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>Example Usage</h2>
+
+      <h3 style="margin-bottom: 15px;">JavaScript (Fetch API)</h3>
+      <pre><code>// Get aircraft within 50nm of DCA
+const response = await fetch('https://api.vncrcc.org/api/v1/aircraft/list?range_nm=50');
+const data = await response.json();
+console.log(`Found ${data.aircraft.length} aircraft`);
+
+// Get P-56 breaches
+const p56Response = await fetch('https://api.vncrcc.org/api/v1/p56/');
+const p56Data = await p56Response.json();
+console.log(`Active breaches: ${p56Data.breaches.length}`);</code></pre>
+
+      <h3 style="margin-top: 25px; margin-bottom: 15px;">Python (requests)</h3>
+      <pre><code>import requests
+
+# Get aircraft list
+response = requests.get('https://api.vncrcc.org/api/v1/aircraft/list',
+                       params={'range_nm': 50})
+data = response.json()
+print(f"Found {len(data['aircraft'])} aircraft")
+
+# Get SFRA traffic
+sfra = requests.get('https://api.vncrcc.org/api/v1/sfra/').json()
+print(f"Aircraft in SFRA: {len(sfra['aircraft'])}")</code></pre>
+
+      <h3 style="margin-top: 25px; margin-bottom: 15px;">curl</h3>
+      <pre><code># Get system status
+curl https://api.vncrcc.org/api/v1/status/
+
+# Get VIP aircraft
+curl https://api.vncrcc.org/api/v1/vip/
+
+# Get elevation at coordinates
+curl "https://api.vncrcc.org/api/v1/elevation/?lat=38.8514&lon=-77.0377"</code></pre>
+    </section>
+
+    <footer>
+      <p>vNCRCC API Documentation | For support, visit the project repository</p>
+      <p style="margin-top: 10px; font-size: 0.9rem;">Last updated: November 2024</p>
+    </footer>
+  </div>
+</body>
+</html>
