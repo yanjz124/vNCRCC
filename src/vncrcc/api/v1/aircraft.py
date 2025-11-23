@@ -74,14 +74,20 @@ async def aircraft_history(
 
     full_history = get_history()
 
-    # If no range filter specified, return full history
-    if range_nm is None:
-        return full_history
-
-    # Create cache key from range and aircraft list timestamp
+    # Get aircraft list timestamp for sync checking
     from ...precompute import get_cached
     cached = get_cached("aircraft_list")
     aircraft_ts = cached.get("computed_at", 0) if cached else 0
+    vatsim_ts = cached.get("vatsim_update_timestamp") if cached else None
+
+    # If no range filter specified, return full history with timestamp
+    if range_nm is None:
+        result = dict(full_history)
+        result["computed_at"] = aircraft_ts
+        result["vatsim_update_timestamp"] = vatsim_ts
+        return result
+
+    # Create cache key from range and aircraft list timestamp (already fetched above)
     cache_key = f"{range_nm}:{aircraft_ts}"
 
     # Return cached result if still valid (within 5 seconds)
@@ -109,11 +115,20 @@ async def aircraft_history(
                     cids_in_range.add(cid)
 
     # Filter history to only include aircraft in range
+    # AND filter out positions newer than aircraft list timestamp to prevent desync
     for cid, positions in history_data.items():
         if cid in cids_in_range:
-            filtered_history[cid] = positions
+            # Only include positions up to the aircraft list timestamp
+            # This prevents showing "future" history when data is stale
+            sync_positions = [p for p in positions if p.get("ts", 0) <= aircraft_ts]
+            if sync_positions:  # Only add if we have valid positions
+                filtered_history[cid] = sync_positions
 
-    result = {"history": filtered_history}
+    result = {
+        "history": filtered_history,
+        "computed_at": aircraft_ts,
+        "vatsim_update_timestamp": vatsim_ts
+    }
 
     # Cache the result
     _HISTORY_CACHE = result
