@@ -216,6 +216,8 @@
   const visiblePaths = new Set();
   // Track current aircraft CIDs to detect when they disconnect/go out of range
   let currentAircraftCids = new Set();
+  // Cache full history data from consolidated dashboard for instant display
+  let cachedHistoryData = null;
   // Cache last known position history for incremental updates
   const lastKnownHistory = {};
 
@@ -436,12 +438,22 @@
       setMarkerHalo(cidKey, false);
       // Hidden flight path
     } else {
-      // Show path - fetch history and draw polyline on BOTH maps
+      // Show path - use cached history for instant display
       try {
-        const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
-        const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
-        const data = await response.json();
-        const history = data.history?.[cidKey];
+        // Use cached history data from consolidated dashboard for instant display
+        let history = null;
+        if (cachedHistoryData && cachedHistoryData.data) {
+          history = cachedHistoryData.data[cidKey];
+        }
+
+        // Fallback to fetch if not in cache (shouldn't happen normally)
+        if (!history) {
+          console.log(`[DEBUG] History for ${cidKey} not in cache, fetching...`);
+          const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
+          const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
+          const data = await response.json();
+          history = data.history?.[cidKey];
+        }
 
         if (history && history.length > 1) {
           // Create lat/lng points from history
@@ -2688,6 +2700,8 @@
         aircraft = dash.aircraft.list;
         // Extract history from dashboard response (already filtered by range)
         historyData = dash.history || null;
+        // Cache the history data for instant display when clicking aircraft
+        cachedHistoryData = historyData;
       } else {
         // fallback to separate aircraft endpoint
         aircraft = await fetchAllAircraft(range_nm);
