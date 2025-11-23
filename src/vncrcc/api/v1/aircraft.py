@@ -50,18 +50,16 @@ async def latest_aircraft(request: Request) -> Dict[str, Any]:
 @router.get("/list")
 @limiter.limit("30/minute")
 async def list_aircraft(request: Request) -> Dict[str, Any]:
-    # Return pre-computed trimmed aircraft list from cache for instant response
-    from ...precompute import get_cached
-    cached = get_cached("aircraft_list")
-    if cached:
+    # Return latest VATSIM snapshot for real-time data
+    snap = storage.STORAGE.get_latest_snapshot() if storage.STORAGE else None
+    if snap:
+        aircraft = snap.get("pilots") or snap.get("aircraft") or []
         return {
-            "aircraft": cached.get("aircraft", []),
-            "vatsim_update_timestamp": cached.get("vatsim_update_timestamp"),
-            "computed_at": cached.get("computed_at")
+            "aircraft": aircraft,
+            "vatsim_update_timestamp": snap.get("general", {}).get("update_timestamp"),
+            "fetched_at": snap.get("fetched_at")
         }
-    # Fallback to full snapshot if cache not available
-    aircraft_list = storage.STORAGE.list_aircraft() if storage.STORAGE else []
-    return {"aircraft": aircraft_list}
+    return {"aircraft": []}
 
 
 @router.get("/list/history")
@@ -74,21 +72,20 @@ async def aircraft_history(
 
     full_history = get_history()
 
-    # Get aircraft list timestamp for sync checking
-    from ...precompute import get_cached
-    cached = get_cached("aircraft_list")
-    aircraft_ts = cached.get("computed_at", 0) if cached else 0
-    vatsim_ts = cached.get("vatsim_update_timestamp") if cached else None
+    # Get latest snapshot for fresh aircraft data
+    snap = storage.STORAGE.get_latest_snapshot() if storage.STORAGE else None
+    fetched_at = snap.get("fetched_at") if snap else None
+    vatsim_ts = snap.get("general", {}).get("update_timestamp") if snap else None
 
     # If no range filter specified, return full history with timestamp
     if range_nm is None:
         result = dict(full_history)
-        result["computed_at"] = aircraft_ts
+        result["fetched_at"] = fetched_at
         result["vatsim_update_timestamp"] = vatsim_ts
         return result
 
-    # Create cache key from range and aircraft list timestamp (already fetched above)
-    cache_key = f"{range_nm}:{aircraft_ts}"
+    # Create cache key from range and snapshot timestamp
+    cache_key = f"{range_nm}:{fetched_at}"
 
     # Return cached result if still valid (within 5 seconds)
     now = time.time()
@@ -100,7 +97,7 @@ async def aircraft_history(
     # Filter history to only include aircraft within range
     filtered_history = {}
     history_data = full_history.get("history", {})
-    current_aircraft = cached.get("aircraft", []) if cached else []
+    current_aircraft = snap.get("pilots") or snap.get("aircraft") or [] if snap else []
 
     # Build set of CIDs that are currently within range
     cids_in_range = set()
@@ -115,18 +112,13 @@ async def aircraft_history(
                     cids_in_range.add(cid)
 
     # Filter history to only include aircraft in range
-    # AND filter out positions newer than aircraft list timestamp to prevent desync
     for cid, positions in history_data.items():
         if cid in cids_in_range:
-            # Only include positions up to the aircraft list timestamp
-            # This prevents showing "future" history when data is stale
-            sync_positions = [p for p in positions if p.get("ts", 0) <= aircraft_ts]
-            if sync_positions:  # Only add if we have valid positions
-                filtered_history[cid] = sync_positions
+            filtered_history[cid] = positions
 
     result = {
         "history": filtered_history,
-        "computed_at": aircraft_ts,
+        "fetched_at": fetched_at,
         "vatsim_update_timestamp": vatsim_ts
     }
 
