@@ -50,7 +50,16 @@ async def latest_aircraft(request: Request) -> Dict[str, Any]:
 @router.get("/list")
 @limiter.limit("30/minute")
 async def list_aircraft(request: Request) -> Dict[str, Any]:
-    # Return latest VATSIM snapshot for real-time data
+    # Return pre-computed trimmed aircraft list from cache for fast response
+    from ...precompute import get_cached
+    cached = get_cached("aircraft_list")
+    if cached:
+        return {
+            "aircraft": cached.get("aircraft", []),
+            "vatsim_update_timestamp": cached.get("vatsim_update_timestamp"),
+            "computed_at": cached.get("computed_at")
+        }
+    # Fallback: return full snapshot if cache not available (slow but complete)
     snap = storage.STORAGE.get_latest_snapshot() if storage.STORAGE else None
     if snap:
         data = snap.get("data", {})
