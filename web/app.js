@@ -2669,10 +2669,6 @@
           }
         }catch(e){}
       }
-      
-      await refresh(aircraft, historyData);
-      const t2 = performance.now();
-      console.log(`[PERF] refresh() took ${((t2-t1)/1000).toFixed(2)}s (total: ${((t2-t0)/1000).toFixed(2)}s)`);
     }catch(e){ console.error('pollAircraftThenRefresh error', e); }
   }
   
