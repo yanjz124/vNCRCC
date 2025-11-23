@@ -720,6 +720,24 @@
     return j.aircraft || [];
   }
 
+  // New: fetch consolidated dashboard payload from backend.
+  // Returns the full dashboard JSON or null on error.
+  async function fetchDashboard(rangeNm, includeHistory=false){
+    try{
+      const qs = [];
+      if(rangeNm != null) qs.push(`range_nm=${encodeURIComponent(rangeNm)}`);
+      if(includeHistory) qs.push(`include_history=true`);
+      const url = `${API_ROOT}/dashboard${qs.length?('?'+qs.join('&')):''}`;
+      const res = await fetchWithBackoff(url);
+      if(!res.ok) return null;
+      const j = await res.json();
+      // propagate VATSIM timestamp if present
+      if(j.aircraft && j.aircraft.vatsim_update_timestamp) window.vatsimUpdateTimestamp = j.aircraft.vatsim_update_timestamp;
+      else if(j.timestamp) window.vatsimUpdateTimestamp = j.timestamp;
+      return j;
+    }catch(e){ return null; }
+  }
+
   async function maybeElevation(lat, lon){
     const key = `${lat.toFixed(4)}:${lon.toFixed(4)}`;
     if(elevCache[key]) return elevCache[key];
@@ -1056,7 +1074,7 @@
     }
   }
 
-  async function refresh(aircraftSnapshot, historyData){
+  async function refresh(aircraftSnapshot, historyData, dashboardExtras){
     try{
     const r0 = performance.now();
     setPermalink();
@@ -1135,11 +1153,22 @@
     if(!window.ctrlsCache) window.ctrlsCache = { data: { controllers: [], count: 0 }, timestamp: 0 };
     
     const r2 = performance.now();
-    // Parallelize P56 and VIP calls (fetch both every time with aircraft data)
-    const [p56json, vipjson] = await Promise.all([
-      fetchWithBackoff(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}}).catch(()=>({breaches:[],history:{}})),
-      fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}))
-    ]);
+    // Parallelize P56 and VIP calls unless the caller provided dashboardExtras
+    let p56json = null; let vipjson = null;
+    if(dashboardExtras && (dashboardExtras.p56 || dashboardExtras.vip || dashboardExtras.controllers)){
+      p56json = dashboardExtras.p56 || { breaches: [], history: {} };
+      vipjson = dashboardExtras.vip || { aircraft: [], count: 0 };
+      // If controllers provided, prime the controllers cache for immediate render
+      if(dashboardExtras.controllers){
+        try{ window.ctrlsCache = window.ctrlsCache || { data: { controllers: [], count: 0 }, timestamp: 0 }; window.ctrlsCache.data.controllers = dashboardExtras.controllers; window.ctrlsCache.timestamp = Date.now(); }catch(e){}
+      }
+    }else{
+      const results = await Promise.all([
+        fetchWithBackoff(`${API_ROOT}/p56/`).then(r=>r.ok?r.json():{breaches:[],history:{}}).catch(()=>({breaches:[],history:{}})),
+        fetchWithBackoff(`${API_ROOT}/vip/`).then(r=>r.ok?r.json():{aircraft:[],count:0}).catch(()=>({aircraft:[],count:0}))
+      ]);
+      p56json = results[0]; vipjson = results[1];
+    }
     const r3 = performance.now();
     console.log(`[PERF] Parallel API calls took ${((r3-r2)/1000).toFixed(2)}s`);
     
@@ -2629,12 +2658,21 @@
       // Fetch aircraft first for fastest initial render
       // Pass current VSO range to backend for server-side filtering
       const range_nm = parseFloat(el('vso-range').value || DEFAULT_RANGE_NM);
-      const aircraft = await fetchAllAircraft(range_nm);
+      // Prefer the consolidated dashboard so we get aircraft + p56 + vip + controllers in one shot
+      const dash = await fetchDashboard(range_nm, false);
+      let aircraft = null;
+      if(dash && dash.aircraft && Array.isArray(dash.aircraft.list)){
+        aircraft = dash.aircraft.list;
+      } else {
+        // fallback to separate aircraft endpoint
+        aircraft = await fetchAllAircraft(range_nm);
+      }
       const t1 = performance.now();
       console.log(`[PERF] Fetched aircraft snapshot (range=${range_nm}nm) in ${((t1-t0)/1000).toFixed(2)}s`);
 
       // Render immediately without waiting for history
-      await refresh(aircraft, null);
+      const extras = dash ? { p56: dash.p56 || null, vip: dash.vip || null, controllers: dash.controllers || null } : null;
+      await refresh(aircraft, null, extras);
       const t2 = performance.now();
       console.log(`[PERF] Initial refresh() (no history) took ${((t2-t1)/1000).toFixed(2)}s (total: ${((t2-t0)/1000).toFixed(2)}s)`);
 

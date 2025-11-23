@@ -71,7 +71,7 @@ class SmartCacheMiddleware(BaseHTTPMiddleware):
         
         # Cache precomputed API data endpoints (updates every 15s, safe to cache for 10s)
         cacheable_prefixes = ("/api/v1/aircraft/", "/api/v1/sfra/", "/api/v1/frz/", 
-                             "/api/v1/p56/", "/api/v1/vip/", "/api/v1/controllers/")
+                     "/api/v1/p56/", "/api/v1/vip/", "/api/v1/controllers/", "/api/v1/dashboard")
         
         if any(path.startswith(prefix) for prefix in cacheable_prefixes):
             # Allow browser/CDN caching for 10 seconds
