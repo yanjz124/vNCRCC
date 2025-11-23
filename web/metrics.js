@@ -299,7 +299,10 @@ function initCharts() {
 // Fetch and update metrics
 async function updateMetrics() {
   try {
-    const resp = await fetch('/api/metrics');
+    const hostname = window.location.hostname;
+    const apiHost = hostname.includes('p56buster') ? 'api.p56buster.club' : 'api.vncrcc.org';
+    const metricsUrl = `${window.location.protocol}//${apiHost}/api/metrics`;
+    const resp = await fetch(metricsUrl);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     
     const data = await resp.json();

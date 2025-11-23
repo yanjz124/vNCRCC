@@ -1,6 +1,9 @@
 // Simple dashboard app that queries the API endpoints and renders lists + map.
 (function(){
-  const API_ROOT = window.location.origin + '/api/v1';
+  // Use DNS-only api subdomain to bypass CloudFlare buffering
+  const hostname = window.location.hostname;
+  const apiHost = hostname.includes('p56buster') ? 'api.p56buster.club' : 'api.vncrcc.org';
+  const API_ROOT = `${window.location.protocol}//${apiHost}/api/v1`;
   const DCA = [38.8514403, -77.0377214];
   const DEFAULT_RANGE_NM = 300;
   const REFRESH = 15000;
@@ -2743,7 +2746,10 @@
   // Fetch and display build version/timestamp
   async function fetchBuildInfo(){
     try{
-      const resp = await fetchWithBackoff('/api/version');
+      const hostname = window.location.hostname;
+      const apiHost = hostname.includes('p56buster') ? 'api.p56buster.club' : 'api.vncrcc.org';
+      const versionUrl = `${window.location.protocol}//${apiHost}/api/version`;
+      const resp = await fetchWithBackoff(versionUrl);
       const data = await resp.json();
       if(data.version){
         el('build-version').textContent = data.version;
