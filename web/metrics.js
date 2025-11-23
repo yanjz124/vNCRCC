@@ -445,6 +445,25 @@ async function updateMetrics() {
   }
 }
 
+// Handle window resize to make charts responsive
+function handleResize() {
+  if (usersChart) usersChart.resize();
+  if (requestsChart) requestsChart.resize();
+  if (resourcesChart) resourcesChart.resize();
+  if (delayChart) delayChart.resize();
+  if (errorChart) errorChart.resize();
+  if (uptimeChart) uptimeChart.resize();
+  if (diskChart) diskChart.resize();
+  if (aircraftChart) aircraftChart.resize();
+}
+
+// Debounce resize handler to avoid excessive calls
+let resizeTimeout;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(handleResize, 250);
+});
+
 // Initialize
 (async function init() {
   // Check authentication
@@ -455,13 +474,13 @@ async function updateMetrics() {
       return;
     }
   }
-  
+
   // Initialize charts
   initCharts();
-  
+
   // Initial load
   await updateMetrics();
-  
+
   // Auto-refresh every 15 seconds (reduce load)
   setInterval(updateMetrics, 15000);
 })();

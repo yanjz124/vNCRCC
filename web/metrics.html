@@ -52,8 +52,19 @@
     }
     .chart-container {
       position: relative;
-      height: 250px;
+      height: min(250px, 30vh);
       margin-top: 12px;
+    }
+    /* Adjust chart height for smaller screens */
+    @media (max-width: 1024px) {
+      .chart-container {
+        height: min(220px, 35vh);
+      }
+    }
+    @media (max-width: 640px) {
+      .chart-container {
+        height: min(200px, 40vh);
+      }
     }
     .status-good { color: #4ade80; }
     .status-warning { color: #fbbf24; }
