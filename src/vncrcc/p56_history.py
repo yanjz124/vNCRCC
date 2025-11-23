@@ -221,19 +221,9 @@ def record_penetration(event: Dict[str, Any], skip_write: bool = False) -> None:
 
     events.append(event_copy)
 
-    # Seed unified intrusion_positions with any pre_positions plus the initial latest_position
+    # Seed intrusion_positions with ONLY the initial position inside P56 (not pre_positions)
+    # pre_positions are kept separate and should not be duplicated here
     seed_positions: List[Dict[str, Any]] = []
-    for p in (event_copy.get("pre_positions") or []):
-        if {"lat", "lon", "ts"}.issubset(p.keys()):
-            seed_positions.append({
-                "ts": p.get("ts"),
-                "lat": p.get("lat"),
-                "lon": p.get("lon"),
-                "alt": p.get("alt"),
-                "gs": p.get("gs"),
-                "heading": p.get("heading"),
-                "callsign": event_copy.get("callsign")
-            })
     lp = event_copy.get("latest_position")
     ts_lp = event_copy.get("latest_ts") or event_copy.get("recorded_at")
     if lp and ts_lp is not None:
@@ -355,19 +345,9 @@ def sync_snapshot_with_penetrations(
             # New event - append to events list
             events.append(event_copy)
 
-            # Seed intrusion_positions
+            # Seed intrusion_positions with ONLY the initial position inside P56 (not pre_positions)
+            # pre_positions are kept separate and should not be duplicated here
             seed_positions: List[Dict[str, Any]] = []
-            for p in (event_copy.get("pre_positions") or []):
-                if {"lat", "lon", "ts"}.issubset(p.keys()):
-                    seed_positions.append({
-                        "ts": p.get("ts"),
-                        "lat": p.get("lat"),
-                        "lon": p.get("lon"),
-                        "alt": p.get("alt"),
-                        "gs": p.get("gs"),
-                        "heading": p.get("heading"),
-                        "callsign": event_copy.get("callsign")
-                    })
             lp = event_copy.get("latest_position")
             ts_lp = event_copy.get("latest_ts") or event_copy.get("recorded_at")
             if lp and ts_lp is not None:
