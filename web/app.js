@@ -1,9 +1,8 @@
 // Simple dashboard app that queries the API endpoints and renders lists + map.
 (function(){
   // Use DNS-only api subdomain to bypass CloudFlare buffering
-  const hostname = window.location.hostname;
-  const apiHost = hostname.includes('p56buster') ? 'api.p56buster.club' : 'api.vncrcc.org';
-  const API_ROOT = `${window.location.protocol}//${apiHost}/api/v1`;
+  // Always use api.vncrcc.org for now (api.p56buster.club Argo Tunnel not configured)
+  const API_ROOT = `${window.location.protocol}//api.vncrcc.org/api/v1`;
   const DCA = [38.8514403, -77.0377214];
   const DEFAULT_RANGE_NM = 300;
   const REFRESH = 15000;
@@ -2746,9 +2745,7 @@
   // Fetch and display build version/timestamp
   async function fetchBuildInfo(){
     try{
-      const hostname = window.location.hostname;
-      const apiHost = hostname.includes('p56buster') ? 'api.p56buster.club' : 'api.vncrcc.org';
-      const versionUrl = `${window.location.protocol}//${apiHost}/api/version`;
+      const versionUrl = `${window.location.protocol}//api.vncrcc.org/api/version`;
       const resp = await fetchWithBackoff(versionUrl);
       const data = await resp.json();
       if(data.version){
