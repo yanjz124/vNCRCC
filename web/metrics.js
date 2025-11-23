@@ -111,7 +111,7 @@ async function authenticate() {
 }
 
 // Initialize charts
-let usersChart, requestsChart, resourcesChart, delayChart;
+let usersChart, requestsChart, resourcesChart, delayChart, errorChart;
 
 // Historical data for line charts
 const historyLimit = 60; // Keep last 60 data points
@@ -120,6 +120,7 @@ const requestsHistory = [];
 const cpuHistory = [];
 const memoryHistory = [];
 const delayHistory = [];
+const errorHistory = [];
 const timeLabels = [];
 
 function initCharts() {
@@ -222,6 +223,23 @@ function initCharts() {
     },
     options: { ...chartDefaults }
   });
+
+  // Error Rate Chart
+  errorChart = new Chart(document.getElementById('error-chart'), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{
+        label: 'Errors/min',
+        data: errorHistory,
+        borderColor: '#fb923c',
+        backgroundColor: 'rgba(251, 146, 60, 0.1)',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: { ...chartDefaults }
+  });
 }
 
 // Fetch and update metrics
@@ -287,6 +305,7 @@ async function updateMetrics() {
     cpuHistory.push(cpuPct);
     memoryHistory.push(memPct);
     delayHistory.push(currentDelay);
+    errorHistory.push(parseFloat(errorRate));
 
     // Keep only last N points
     if (timeLabels.length > historyLimit) {
@@ -296,6 +315,7 @@ async function updateMetrics() {
       cpuHistory.shift();
       memoryHistory.shift();
       delayHistory.shift();
+      errorHistory.shift();
     }
 
     // Update line charts
@@ -303,6 +323,7 @@ async function updateMetrics() {
     requestsChart.update('none');
     resourcesChart.update('none');
     delayChart.update('none');
+    errorChart.update('none');
 
     // Update endpoints table
     const endpoints = data.endpoints || {};
