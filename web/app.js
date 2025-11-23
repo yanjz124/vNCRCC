@@ -2711,7 +2711,13 @@
   // initial load
   setPermalink();
   fetchBuildInfo();
-  loadOverlays().then(()=>pollAircraftThenRefresh()).then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
+  // PERF: Start controller fetch immediately (don't wait for offset)
+  fetchControllersBackground();
+  // PERF: Load overlays and aircraft in parallel (don't wait for overlays to start data fetch)
+  Promise.all([
+    loadOverlays(),
+    pollAircraftThenRefresh()
+  ]).then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
   // ensure maps reflow on window resize
   window.addEventListener('resize', ()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
   // Expose rerenderTable globally for background fetcher
