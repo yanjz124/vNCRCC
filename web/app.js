@@ -749,6 +749,10 @@
       const res = await fetchWithBackoff(url);
       if(!res.ok) return null;
       const j = await res.json();
+      // Log backend processing time vs network time for delay investigation
+      if(j.processing_time_ms){
+        console.log(`[DEBUG] Backend processed dashboard in ${j.processing_time_ms.toFixed(1)}ms`);
+      }
       // propagate VATSIM timestamp if present
       if(j.aircraft && j.aircraft.vatsim_update_timestamp) window.vatsimUpdateTimestamp = j.aircraft.vatsim_update_timestamp;
       else if(j.timestamp) window.vatsimUpdateTimestamp = j.timestamp;
@@ -1178,7 +1182,7 @@
       vipjson = dashboardExtras.vip || { aircraft: [], count: 0 };
       // If controllers provided, prime the controllers cache for immediate render
       if(dashboardExtras.controllers){
-        try{ window.ctrlsCache = window.ctrlsCache || { data: { controllers: [], count: 0 }, timestamp: 0 }; window.ctrlsCache.data.controllers = dashboardExtras.controllers; window.ctrlsCache.timestamp = Date.now(); }catch(e){}
+        try{ window.ctrlsCache = { data: dashboardExtras.controllers, timestamp: Date.now() }; }catch(e){}
       }
     }else{
       const results = await Promise.all([
@@ -2858,10 +2862,10 @@
   }
   
   scheduleNextPoll(REFRESH);
-  
-  // Fetch controllers immediately on page load, then schedule background updates
-  fetchControllersBackground().then(() => {
-    scheduleControllersBackgroundFetch(60000); // Continue updating every 60s
-  });
+
+  // Controllers now fetched from consolidated dashboard - no need for separate background fetch
+  // fetchControllersBackground().then(() => {
+  //   scheduleControllersBackgroundFetch(60000);
+  // });
 
 })();
