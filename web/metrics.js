@@ -111,7 +111,7 @@ async function authenticate() {
 }
 
 // Initialize charts
-let usersChart, requestsChart, resourcesChart, endpointsChart, delayChart;
+let usersChart, requestsChart, resourcesChart, delayChart;
 
 // Historical data for line charts
 const historyLimit = 60; // Keep last 60 data points
@@ -206,33 +206,6 @@ function initCharts() {
     }
   });
 
-  // Endpoints Chart (horizontal bar)
-  endpointsChart = new Chart(document.getElementById('endpoints-chart'), {
-    type: 'bar',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Requests (5 min)',
-        data: [],
-        backgroundColor: 'rgba(74, 144, 226, 0.6)',
-        borderColor: '#4a90e2',
-        borderWidth: 1
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: { ticks: { color: '#9fb9d8' }, grid: { color: 'rgba(74, 144, 226, 0.1)' } },
-        y: { ticks: { color: '#9fb9d8', font: { size: 10 } }, grid: { display: false } }
-      }
-    }
-  });
-
   // VATSIM Delay Chart
   delayChart = new Chart(document.getElementById('delay-chart'), {
     type: 'line',
@@ -296,16 +269,6 @@ async function updateMetrics() {
       diskElem.textContent = diskFree.toFixed(1);
       diskElem.className = 'metric-value ' + (diskPct > 90 ? 'status-danger' : diskPct > 80 ? 'status-warning' : 'status-good');
     }
-    
-    // Network I/O
-    const netElem = document.getElementById('network-io');
-    if (data.resources?.error || !data.resources?.network) {
-      netElem.textContent = 'N/A';
-    } else {
-      const bytesSent = (data.resources.network.bytes_sent || 0) / (1024 * 1024); // Convert to MB
-      const bytesRecv = (data.resources.network.bytes_recv || 0) / (1024 * 1024);
-      netElem.textContent = `${bytesSent.toFixed(0)} / ${bytesRecv.toFixed(0)}`;
-    }
 
     // VATSIM Data Age
     const delayData = data.delay?.['1min'] || {};
@@ -340,18 +303,9 @@ async function updateMetrics() {
     requestsChart.update('none');
     resourcesChart.update('none');
     delayChart.update('none');
-    
-    // Update endpoints bar chart
-    const endpoints = data.endpoints || {};
-    const sortedEndpoints = Object.entries(endpoints)
-      .sort((a, b) => b[1].requests_5min - a[1].requests_5min)
-      .slice(0, 10); // Top 10
-    
-    endpointsChart.data.labels = sortedEndpoints.map(([path]) => path.replace('/api/v1', ''));
-    endpointsChart.data.datasets[0].data = sortedEndpoints.map(([, stats]) => stats.requests_5min);
-    endpointsChart.update('none');
-    
+
     // Update endpoints table
+    const endpoints = data.endpoints || {};
     const tbody = document.getElementById('endpoints-tbody');
     tbody.innerHTML = '';
     Object.entries(endpoints)
