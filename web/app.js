@@ -32,6 +32,22 @@
     const until = getSharedCooldownUntil();
     if(until > now){ const err = new Error('In shared cooldown'); err.code='COOLDOWN'; err.retryAt=until; throw err; }
     const resp = await fetch(url, opts);
+    // Check for server-side force-reload header. If present and different from
+    // the token we previously saw, store it and trigger a reload so clients
+    // pick up updated JS/assets. This only affects clients running the
+    // updated script that contains this logic.
+    try{
+      const reloadToken = resp.headers.get && resp.headers.get('X-Force-Reload');
+      if(reloadToken){
+        const prev = localStorage.getItem('vncrcc.reloadToken') || '';
+        if(prev !== reloadToken){
+          try{ localStorage.setItem('vncrcc.reloadToken', reloadToken); }catch(e){}
+          // Give other handlers a moment, then reload page to fetch new assets
+          setTimeout(()=>{ try{ location.reload(); }catch(e){ /* ignore */ } }, 150);
+          const err = new Error('Force reload requested by server'); err.code = 'FORCE_RELOAD'; throw err;
+        }
+      }
+    }catch(e){ /* ignore header read errors */ }
     if(resp.status === 429){
       const ra = resp.headers.get('Retry-After');
       const parsed = parseRetryAfter(ra);

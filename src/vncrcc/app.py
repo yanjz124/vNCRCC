@@ -94,6 +94,18 @@ class SmartCacheMiddleware(BaseHTTPMiddleware):
                         return FastAPIResponse(status_code=304, headers={"ETag": etag})
             except Exception:
                 pass  # Fallback to normal response if ETag generation fails
+        # Optional: if an operator has requested a forced client reload, add
+        # the token as a lightweight header so updated clients can reload.
+        try:
+            token_path = os.environ.get("VNCRCC_RELOAD_TOKEN_FILE", "/tmp/vncrcc_reload_token")
+            if os.path.exists(token_path):
+                with open(token_path, "r") as tf:
+                    token = tf.read().strip()
+                if token:
+                    response.headers["X-Force-Reload"] = token
+        except Exception:
+            # Don't fail request on reload header problems
+            pass
         else:
             # Disable caching for metrics, health, version, etc.
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
