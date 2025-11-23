@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Request
 from typing import Any, Dict, Optional
+import time
 
 from ... import storage
 from ...aircraft_history import get_history
@@ -10,6 +11,11 @@ router = APIRouter(prefix="/aircraft")
 # DCA coordinates for distance filtering
 DCA_LAT = 38.8514403
 DCA_LON = -77.0377214
+
+# Cache for filtered history to avoid recomputing on every request
+_HISTORY_CACHE: Optional[Dict[str, Any]] = None
+_HISTORY_CACHE_KEY: Optional[str] = None
+_HISTORY_CACHE_TIME: float = 0
 
 
 def _haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -63,21 +69,32 @@ async def aircraft_history(
     request: Request,
     range_nm: Optional[float] = Query(None, description="Filter by distance from DCA in nautical miles")
 ) -> Dict[str, Any]:
+    global _HISTORY_CACHE, _HISTORY_CACHE_KEY, _HISTORY_CACHE_TIME
+
     full_history = get_history()
-    
+
     # If no range filter specified, return full history
     if range_nm is None:
         return full_history
-    
+
+    # Create cache key from range and aircraft list timestamp
+    from ...precompute import get_cached
+    cached = get_cached("aircraft_list")
+    aircraft_ts = cached.get("computed_at", 0) if cached else 0
+    cache_key = f"{range_nm}:{aircraft_ts}"
+
+    # Return cached result if still valid (within 5 seconds)
+    now = time.time()
+    if (_HISTORY_CACHE is not None and
+        _HISTORY_CACHE_KEY == cache_key and
+        (now - _HISTORY_CACHE_TIME) < 5):
+        return _HISTORY_CACHE
+
     # Filter history to only include aircraft within range
     filtered_history = {}
     history_data = full_history.get("history", {})
-    
-    # Get current aircraft list to check which are in range
-    from ...precompute import get_cached
-    cached = get_cached("aircraft_list")
     current_aircraft = cached.get("aircraft", []) if cached else []
-    
+
     # Build set of CIDs that are currently within range
     cids_in_range = set()
     for ac in current_aircraft:
@@ -89,10 +106,17 @@ async def aircraft_history(
                 cid = str(ac.get("cid", ""))
                 if cid:
                     cids_in_range.add(cid)
-    
+
     # Filter history to only include aircraft in range
     for cid, positions in history_data.items():
         if cid in cids_in_range:
             filtered_history[cid] = positions
-    
-    return {"history": filtered_history}
+
+    result = {"history": filtered_history}
+
+    # Cache the result
+    _HISTORY_CACHE = result
+    _HISTORY_CACHE_KEY = cache_key
+    _HISTORY_CACHE_TIME = now
+
+    return result
