@@ -173,14 +173,20 @@ async def get_dashboard(
             "aircraft": []
         }
 
-    # 5. P56 events and current intrusions
-    p56_history = get_p56_history()
-
-    response["p56"] = {
-        "events": p56_history.get("events", []),
-        "current": p56_history.get("current_inside", {}),
-        "last_updated": p56_history.get("last_updated")
-    }
+    # 5. P56 breaches (match format of /api/v1/p56/ endpoint)
+    p56_cached = get_cached("p56")
+    if p56_cached:
+        response["p56"] = {
+            "breaches": p56_cached.get("aircraft", []),
+            "history": get_p56_history(),
+            "fetched_at": p56_cached.get("computed_at")
+        }
+    else:
+        # Fallback if no cache available
+        response["p56"] = {
+            "breaches": [],
+            "history": get_p56_history()
+        }
 
     # Add processing time
     response["processing_time_ms"] = round((time.time() - start_time) * 1000, 2)
