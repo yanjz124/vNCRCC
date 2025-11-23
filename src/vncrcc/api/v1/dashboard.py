@@ -5,7 +5,7 @@ import time
 
 from ... import storage
 from ...aircraft_history import get_history
-from ...p56_history import get_history as get_p56_history, get_current_intrusions
+from ...p56_history import get_history as get_p56_history
 from ...rate_limit import limiter
 
 router = APIRouter(prefix="/dashboard")
@@ -175,11 +175,10 @@ async def get_dashboard(
 
     # 5. P56 events and current intrusions
     p56_history = get_p56_history()
-    p56_current = get_current_intrusions()
 
     response["p56"] = {
         "events": p56_history.get("events", []),
-        "current": p56_current,
+        "current": p56_history.get("current_inside", {}),
         "last_updated": p56_history.get("last_updated")
     }
 
