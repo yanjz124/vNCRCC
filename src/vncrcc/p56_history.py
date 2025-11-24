@@ -456,11 +456,14 @@ def _sync_snapshot_positions(
                     last_event["intrusion_positions"] = intrusion_positions
 
             # Update current_inside state
-            # Always update name to most recent value
+            # Always update name to most recent value in ALL events for this CID
             current_name = a.get("name")
             if current_name:
                 current[cid]["name"] = current_name
-                last_event["name"] = current_name
+                # Update name in ALL events for this CID, not just the most recent one
+                for e in events:
+                    if str(e.get("cid")) == cid:
+                        e["name"] = current_name
 
             if currently_inside:
                 current[cid]["inside"] = True
@@ -587,13 +590,16 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                     
                     # Update the event with captured positions
                     last_event["intrusion_positions"] = intrusion_positions
-            
+
             # Update current_inside state
-            # Always update name to most recent value
+            # Always update name to most recent value in ALL events for this CID
             current_name = a.get("name")
             if current_name:
                 current[cid]["name"] = current_name
-                last_event["name"] = current_name
+                # Update name in ALL events for this CID, not just the most recent one
+                for e in events:
+                    if str(e.get("cid")) == cid:
+                        e["name"] = current_name
 
             if currently_inside:
                 # Still inside - reset exit confirmation counter
