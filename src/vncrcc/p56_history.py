@@ -472,12 +472,13 @@ def _sync_snapshot_positions(
                     if not last_event.get("exit_detected_at"):
                         last_event["exit_detected_at"] = ts or time.time()
         elif not a:
-            outside_count = state.get("outside_count", 0) + 1
-            current[cid]["outside_count"] = outside_count
-            if outside_count >= 10:
-                current[cid]["p56_buster"] = False
-                if last_event and not last_event.get("exit_confirmed_at"):
-                    last_event["exit_confirmed_at"] = ts or time.time()
+            # Aircraft disconnected - immediately remove from current_inside
+            # No need to wait 10 cycles since the aircraft is gone from VATSIM
+            if last_event and not last_event.get("exit_confirmed_at"):
+                last_event["exit_confirmed_at"] = ts or time.time()
+            # Mark for immediate removal by deleting from current_inside
+            del current[cid]
+            continue
 
     # Clean up stale entries from current_inside
     now = ts or time.time()
@@ -603,13 +604,13 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                         # Mark first exit detection time (when counter started)
                         last_event["exit_detected_at"] = ts or time.time()
         elif not a:
-            # Aircraft disconnected - stop tracking after 10 cycles
-            outside_count = state.get("outside_count", 0) + 1
-            current[cid]["outside_count"] = outside_count
-            if outside_count >= 10:
-                current[cid]["p56_buster"] = False
-                if last_event and not last_event.get("exit_confirmed_at"):
-                    last_event["exit_confirmed_at"] = ts or time.time()
+            # Aircraft disconnected - immediately remove from current_inside
+            # No need to wait 10 cycles since the aircraft is gone from VATSIM
+            if last_event and not last_event.get("exit_confirmed_at"):
+                last_event["exit_confirmed_at"] = ts or time.time()
+            # Mark for immediate removal by deleting from current_inside
+            del current[cid]
+            continue
 
     # Clean up stale entries from current_inside
     # Remove any entries where p56_buster=False and last_seen is older than 5 minutes
