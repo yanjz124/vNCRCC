@@ -456,6 +456,12 @@ def _sync_snapshot_positions(
                     last_event["intrusion_positions"] = intrusion_positions
 
             # Update current_inside state
+            # Always update name to most recent value
+            current_name = a.get("name")
+            if current_name:
+                current[cid]["name"] = current_name
+                last_event["name"] = current_name
+
             if currently_inside:
                 current[cid]["inside"] = True
                 current[cid]["last_seen"] = ts or time.time()
@@ -583,6 +589,12 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                     last_event["intrusion_positions"] = intrusion_positions
             
             # Update current_inside state
+            # Always update name to most recent value
+            current_name = a.get("name")
+            if current_name:
+                current[cid]["name"] = current_name
+                last_event["name"] = current_name
+
             if currently_inside:
                 # Still inside - reset exit confirmation counter
                 current[cid]["inside"] = True
@@ -594,7 +606,7 @@ def sync_snapshot(aircraft_list: List[Dict[str, Any]], features: List, ts: Optio
                 current[cid]["outside_count"] = outside_count
                 current[cid]["inside"] = False
                 current[cid]["last_seen"] = ts or time.time()
-                
+
                 # After 10 consecutive outside positions, stop tracking (confirmed exit)
                 if outside_count >= 10:
                     current[cid]["p56_buster"] = False
