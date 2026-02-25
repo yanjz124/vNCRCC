@@ -932,7 +932,8 @@
         else if (squawk === '7777') squawkClass = 'squawk-7777';
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-        return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
+        const zoneStr = (ci.zones || []).join(', ') || 'P-56';
+        return `<td>${ci.callsign || ''}</td><td>${zoneStr}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
       }, ci => `p56-current:${ci.cid||ci.callsign||''}`);
     } else if (tbodyId === 'p56-events-tbody') {
       const tbodyEvents = el('p56-events-tbody');
@@ -963,15 +964,16 @@
         const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
         const dep = (evt.flight_plan && (evt.flight_plan.departure || evt.flight_plan.depart)) || '';
         const arr = (evt.flight_plan && (evt.flight_plan.arrival || evt.flight_plan.arr)) || '';
-        tr.innerHTML = `<td>${evt.callsign || ''}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${evt.name || ''}</td><td>${evt.cid || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
+        const evtZone = (evt.zones || []).join(', ') || 'P-56';
+        tr.innerHTML = `<td>${evt.callsign || ''}</td><td>${evtZone}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${evt.name || ''}</td><td>${evt.cid || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
         const fpDiv = document.createElement('tr');
         fpDiv.className = 'flight-plan';
         try{
           const evtTable = tbodyEvents.closest('table');
-          const ncols = evtTable ? evtTable.querySelectorAll('thead th').length : 7;
+          const ncols = evtTable ? evtTable.querySelectorAll('thead th').length : 8;
           fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="${ncols}">${formatFlightPlan(evt)}</td>`;
         }catch(e){
-          fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="7">${formatFlightPlan(evt)}</td>`;
+          fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="8">${formatFlightPlan(evt)}</td>`;
         }
         const evtKey = `${evt.cid||''}:${evt.recorded_at||''}`;
         tr.dataset.fpKey = evtKey;
@@ -1513,7 +1515,8 @@
       else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
     const assigned = ci.flight_plan?.assigned_transponder || '';
     const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
-    return `<td>${ci.callsign || ''}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
+    const zoneStr = (ci.zones || []).join(', ') || 'P-56';
+    return `<td>${ci.callsign || ''}</td><td>${zoneStr}</td><td>${acType}</td><td>${ci.name || ''}</td><td>${ci.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
   }, ci => `p56-current:${ci.cid||ci.callsign||''}`, { hideEquipment: true });
 
     // P56 events (intrusion log) - default sort: most recent on top
@@ -1546,16 +1549,17 @@
       const dep = (evt.flight_plan && (evt.flight_plan.departure || evt.flight_plan.depart)) || '';
       const arr = (evt.flight_plan && (evt.flight_plan.arrival || evt.flight_plan.arr)) || '';
       // For P56 event log we no longer display a Status column; render core columns
-      tr.innerHTML = `<td>${evt.callsign || ''}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${evt.name || ''}</td><td>${evt.cid || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
+      const evtZone = (evt.zones || []).join(', ') || 'P-56';
+      tr.innerHTML = `<td>${evt.callsign || ''}</td><td>${evtZone}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${evt.name || ''}</td><td>${evt.cid || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
       const fpDiv = document.createElement('tr');
       fpDiv.className = 'flight-plan';
       // colspan will be adjusted by renderTable when used; here we compute from header
         try{
         const evtTable = tbodyEvents.closest('table');
-        const ncols = evtTable ? evtTable.querySelectorAll('thead th').length : 7;
+        const ncols = evtTable ? evtTable.querySelectorAll('thead th').length : 8;
         fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="${ncols}">${formatFlightPlan(evt)}</td>`;
       }catch(e){
-        fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="7">${formatFlightPlan(evt)}</td>`;
+        fpDiv.innerHTML = `<td class="flight-plan-cell" colspan="8">${formatFlightPlan(evt)}</td>`;
       }
       // attach persistence key for this event so expanded state survives refresh
       const evtKey = `${evt.cid||''}:${evt.recorded_at||''}`;

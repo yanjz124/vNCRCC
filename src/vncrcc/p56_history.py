@@ -212,7 +212,8 @@ def record_penetration(event: Dict[str, Any], skip_write: bool = False) -> None:
                 "last_position": event_copy.get("latest_position"),
                 "flight_plan": event_copy.get("flight_plan", {}),
                 "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
-                "name": event_copy.get("name")
+                "name": event_copy.get("name"),
+                "zones": event_copy.get("zones", [])
             }
             # PERF: Only write if not batching with sync_snapshot
             if not skip_write:
@@ -247,7 +248,8 @@ def record_penetration(event: Dict[str, Any], skip_write: bool = False) -> None:
         "last_position": event_copy.get("latest_position"),
         "flight_plan": event_copy.get("flight_plan", {}),
         "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
-        "name": event_copy.get("name")
+        "name": event_copy.get("name"),
+        "zones": event_copy.get("zones", [])
     }
 
     # PERF: Only write if not batching with sync_snapshot
@@ -338,7 +340,8 @@ def sync_snapshot_with_penetrations(
                         "last_position": event_copy.get("latest_position"),
                         "flight_plan": event_copy.get("flight_plan", {}),
                         "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
-                        "name": event_copy.get("name")
+                        "name": event_copy.get("name"),
+                        "zones": event_copy.get("zones", [])
                     }
                     continue
 
@@ -371,7 +374,8 @@ def sync_snapshot_with_penetrations(
                 "last_position": event_copy.get("latest_position"),
                 "flight_plan": event_copy.get("flight_plan", {}),
                 "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
-                "name": event_copy.get("name")
+                "name": event_copy.get("name"),
+                "zones": event_copy.get("zones", [])
             }
 
     # Now continue with sync_snapshot logic (position tracking)

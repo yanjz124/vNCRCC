@@ -4,7 +4,7 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "P-56"
+        "name": "P-56A"
       },
       "geometry": {
         "type": "Polygon",
@@ -362,7 +362,7 @@
     {
       "type": "Feature",
       "properties": {
-        "name": "P-56"
+        "name": "P-56B"
       },
       "geometry": {
         "type": "Polygon",
