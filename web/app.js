@@ -2841,32 +2841,68 @@
     }, baseMs);
   }
   
-  // run periodic polling with jitter and shared cooldown awareness
-  // Adaptive polling: reduce frequency when tab is not visible to save server resources
+  // SSE real-time updates (with polling fallback)
+  let sseActive = false;
+  let sseRetryCount = 0;
+  const MAX_SSE_RETRIES = 5;
+
+  function initSSE(){
+    try{
+      const evtSrc = new EventSource(API_ROOT + '/stream');
+
+      evtSrc.addEventListener('update', async (ev) => {
+        try{
+          const dash = JSON.parse(ev.data);
+          sseActive = true;
+          sseRetryCount = 0;
+
+          let aircraft = null;
+          let historyData = cachedHistoryData; // reuse cached history
+          if(dash.aircraft && Array.isArray(dash.aircraft.list)){
+            aircraft = dash.aircraft.list;
+            if(dash.aircraft.vatsim_update_timestamp) window.vatsimUpdateTimestamp = dash.aircraft.vatsim_update_timestamp;
+          }
+          if(aircraft){
+            const extras = { p56: dash.p56||null, vip: dash.vip||null, controllers: dash.controllers||null };
+            await refresh(aircraft, historyData, extras);
+          }
+        }catch(e){ console.warn('[SSE] Failed to process update', e); }
+      });
+
+      evtSrc.onerror = () => {
+        sseActive = false;
+        sseRetryCount++;
+        if(sseRetryCount > MAX_SSE_RETRIES){
+          console.warn('[SSE] Max retries exceeded, closing');
+          evtSrc.close();
+        }
+      };
+      evtSrc.onopen = () => { console.log('[SSE] Connected'); sseRetryCount = 0; };
+    }catch(e){ console.warn('[SSE] EventSource not supported', e); }
+  }
+  initSSE();
+
+  // Adaptive polling: reduce frequency when tab is not visible or SSE is active
   let isPageVisible = !document.hidden;
-  const INACTIVE_MULTIPLIER = 1.5; // Poll 50% slower when tab hidden (15s → 22.5s)
-  const PREFETCH_ADVANCE_MS = 2000; // Start fetching 2 seconds before poll is due
-  
+  const INACTIVE_MULTIPLIER = 1.5;
+
   document.addEventListener('visibilitychange', () => {
     isPageVisible = !document.hidden;
-    console.log(`Page visibility changed: ${isPageVisible ? 'visible' : 'hidden'}`);
   });
-  
+
   function scheduleNextPoll(baseMs){
     const now = Date.now();
     const cooldownRemaining = Math.max(0, getSharedCooldownUntil() - now);
-    
-    // Increase poll interval when page is hidden to reduce server load
-    const effectiveDelay = isPageVisible ? baseMs : baseMs * INACTIVE_MULTIPLIER;
+
+    // When SSE is active, polling is just a safety net — reduce frequency
+    const sseMultiplier = sseActive ? 3.0 : 1.0;
+    const effectiveDelay = (isPageVisible ? baseMs : baseMs * INACTIVE_MULTIPLIER) * sseMultiplier;
     const delay = Math.max(withJitter(effectiveDelay), cooldownRemaining);
-    
-    // Prefetch removed - VIP and P56 are now fetched in parallel with aircraft data
-    
+
     window.setTimeout(async ()=>{
       try {
         await pollAircraftThenRefresh();
       } catch (e) {
-        // If rate-limited, honor the stored cooldown next tick
         console.warn('Poll error', e);
       } finally {
         try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){}
@@ -2874,12 +2910,7 @@
       }
     }, delay);
   }
-  
-  scheduleNextPoll(REFRESH);
 
-  // Controllers now fetched from consolidated dashboard - no need for separate background fetch
-  // fetchControllersBackground().then(() => {
-  //   scheduleControllersBackgroundFetch(60000);
-  // });
+  scheduleNextPoll(REFRESH);
 
 })();

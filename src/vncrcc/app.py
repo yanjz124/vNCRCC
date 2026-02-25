@@ -16,9 +16,11 @@ from .storage import STORAGE
 from .aircraft_history import update_history_batch
 from .vatsim_client import VatsimClient
 from .api import router as api_router
-from .precompute import precompute_all
+from .precompute import precompute_all, build_dashboard_payload
 from .rate_limit import limiter
 from .metrics import METRICS
+from .snapshot_buffer import push as _push_snapshot
+from .broadcast import BROADCASTER
 import asyncio
 
 
@@ -135,34 +137,64 @@ FETCHER = VatsimClient(CFG.get("vatsim_url", "https://data.vatsim.net/v3/vatsim-
 _WRITE_JSON_HISTORY = os.getenv("VNCRCC_WRITE_JSON_HISTORY", "0").strip() == "1"
 _TRACK_POSITIONS = os.getenv("VNCRCC_TRACK_POSITIONS", "0").strip() == "1"
 
+# Dedup: skip processing when VATSIM data hasn't changed
+_last_processed_vatsim_ts = None
+
 
 def _on_fetch(data: dict, ts: float) -> None:
+    global _last_processed_vatsim_ts
+
+    # DEDUP: Skip entire callback if VATSIM data hasn't changed
     try:
-        sid = STORAGE.save_snapshot(data, ts)
+        vatsim_ts_str = (data.get("general") or {}).get("update_timestamp")
+        if vatsim_ts_str and vatsim_ts_str == _last_processed_vatsim_ts:
+            logger.debug("Skipping duplicate VATSIM data (update_timestamp=%s)", vatsim_ts_str)
+            return
+        _last_processed_vatsim_ts = vatsim_ts_str
+    except Exception:
+        pass
+
+    try:
         aircraft = (data.get("pilots") or data.get("aircraft") or [])
         count = len(aircraft)
         timestamp_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
-        logger.info("Saved snapshot %s with %d aircraft at %s", sid, count, timestamp_str)
+        logger.info("Processing %d aircraft at %s", count, timestamp_str)
 
-        # Offload heavy work to background threads to avoid blocking the event loop
+        # Push to in-memory ring buffer BEFORE background tasks (sync, instant)
+        _push_snapshot(data, ts)
+
         async def _bg():
             loop = asyncio.get_running_loop()
 
-            # PERF FIX: Run precompute FIRST to cache aircraft_list, then history update
-            # This breaks the circular dependency (precompute needs old history, updates need new aircraft_list)
+            # Run save_snapshot and precompute CONCURRENTLY
+            save_future = loop.run_in_executor(None, STORAGE.save_snapshot, data, ts)
+
             try:
                 await loop.run_in_executor(None, precompute_all, data, ts)
             except Exception:
-                logger.exception("Background tasks failed")
+                logger.exception("Precompute failed")
 
-            # Now update aircraft history using the freshly cached aircraft_list
+            # Broadcast to SSE clients immediately after precompute
+            try:
+                payload = build_dashboard_payload()
+                if payload:
+                    await BROADCASTER.notify(payload)
+            except Exception:
+                logger.exception("SSE broadcast failed")
+
+            # Wait for save to finish (don't lose data, but doesn't block precompute)
+            try:
+                sid = await save_future
+                logger.info("Saved snapshot %s", sid)
+            except Exception:
+                logger.exception("save_snapshot failed")
+
+            # Update aircraft history using the freshly cached aircraft_list
             if _WRITE_JSON_HISTORY:
-                # Only track history for aircraft in the filtered/cached list (within range)
                 from .precompute import get_cached
                 cached = get_cached("aircraft_list")
                 filtered_aircraft = cached.get("aircraft", []) if cached else []
 
-                # Build set of CIDs that are in the filtered list
                 filtered_cids = set()
                 history_updates = {}
                 for ac in filtered_aircraft:
@@ -187,10 +219,9 @@ def _on_fetch(data: dict, ts: float) -> None:
                     except Exception:
                         continue
                 if history_updates:
-                    # Update history after precompute completes
                     await loop.run_in_executor(None, update_history_batch, history_updates, filtered_cids)
-            
-            # Fetch and cache controllers (runs after VATSIM processing)
+
+            # Fetch and cache controllers
             try:
                 from .precompute import fetch_and_cache_controllers
                 await fetch_and_cache_controllers(ts)
@@ -200,16 +231,13 @@ def _on_fetch(data: dict, ts: float) -> None:
         try:
             asyncio.get_running_loop().create_task(_bg())
         except Exception:
-            # if not in an event loop (unlikely), run synchronously as last resort
             try:
+                STORAGE.save_snapshot(data, ts)
                 precompute_all(data, ts)
             except Exception:
                 logger.exception("Precompute failed (sync fallback)")
     except Exception:
         logger.exception("Error during fetch callback (_on_fetch)")
-
-
-# (NoCacheMiddleware is defined above - removed duplicate)
 
 
 @app.on_event("startup")

@@ -121,16 +121,17 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
 
     PERF: All P56 history file I/O now batched into single write at end.
     """
-    from .storage import STORAGE
+    from .snapshot_buffer import get_latest as _get_buffered_snapshots
     from shapely.geometry import LineString, Point
     from .p56_history import sync_snapshot_with_penetrations
     import os
 
     shapes = find_geo_by_keyword("p56")
-    if not shapes or not STORAGE:
+    if not shapes:
         return []
 
-    snaps = STORAGE.get_latest_snapshots(2)
+    # Use in-memory ring buffer instead of DB query (eliminates I/O from critical path)
+    snaps = _get_buffered_snapshots(2)
     if len(snaps) < 2:
         return []
 
@@ -485,4 +486,37 @@ async def fetch_and_cache_controllers(ts: float) -> None:
         logger.warning(f"Failed to fetch controllers: {e}")
 
 
-__all__ = ["precompute_all", "get_cached", "clear_cache", "fetch_and_cache_controllers"]
+def build_dashboard_payload() -> Optional[Dict[str, Any]]:
+    """Build the full dashboard payload from cached precompute data.
+
+    Called once after precompute_all completes. The result is broadcast
+    to SSE clients and avoids per-request assembly.
+    Excludes history (changes slowly, cached on frontend from polling).
+    """
+    aircraft_cached = _CACHE.get("aircraft_list")
+    if not aircraft_cached:
+        return None
+
+    from .p56_history import get_history as get_p56_history
+
+    p56_cached = _CACHE.get("p56")
+
+    return {
+        "aircraft": {
+            "list": aircraft_cached.get("aircraft", []),
+            "vatsim_update_timestamp": aircraft_cached.get("vatsim_update_timestamp"),
+            "computed_at": aircraft_cached.get("computed_at"),
+            "count": aircraft_cached.get("total_count", 0),
+        },
+        "controllers": _CACHE.get("controllers", {"controllers": [], "count": 0}),
+        "vip": _CACHE.get("vip", {"aircraft": []}),
+        "p56": {
+            "breaches": p56_cached.get("aircraft", []) if p56_cached else [],
+            "history": get_p56_history(),
+            "fetched_at": p56_cached.get("computed_at") if p56_cached else None,
+        },
+        "timestamp": aircraft_cached.get("computed_at", 0),
+    }
+
+
+__all__ = ["precompute_all", "get_cached", "clear_cache", "fetch_and_cache_controllers", "build_dashboard_payload"]
