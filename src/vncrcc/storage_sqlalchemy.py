@@ -1,4 +1,3 @@
-import json
 import os
 import time
 from typing import Any, Dict, List, Optional
@@ -155,8 +154,9 @@ class Storage:
                 result = conn.execute(insert(self.snapshots).values(fetched_at=fetched_at, raw_json=data))
                 conn.commit()
                 sid = int(result.inserted_primary_key[0]) if result.inserted_primary_key else 0
-                # save aircraft positions
-                self._save_aircraft_positions(conn, data, fetched_at)
+                # Only track positions if enabled (expensive on Pi)
+                if os.getenv("VNCRCC_TRACK_POSITIONS", "0").strip() == "1":
+                    self._save_aircraft_positions(conn, data, fetched_at)
                 # cleanup old snapshots
                 self._cleanup_old_snapshots(conn)
                 return sid
@@ -190,7 +190,10 @@ class Storage:
     def get_latest_snapshots(self, n: int = 2) -> List[Dict[str, Any]]:
         return self.list_snapshots(limit=n)
 
-    def _cleanup_old_snapshots(self, conn, keep_recent: int = 100) -> None:
+    # Counter for periodic VACUUM (every ~100 cycles ≈ ~25 minutes)
+    _cleanup_counter: int = 0
+
+    def _cleanup_old_snapshots(self, conn, keep_recent: int = 5) -> None:
         # Keep only most recent N snapshots
         try:
             # Delete older snapshots not in the newest N
@@ -206,6 +209,18 @@ class Storage:
             conn.commit()
         except Exception:
             pass
+
+        # Periodic VACUUM to reclaim disk space (every ~100 save cycles)
+        Storage._cleanup_counter += 1
+        if Storage._cleanup_counter >= 100:
+            Storage._cleanup_counter = 0
+            try:
+                # VACUUM must run outside a transaction
+                raw_conn = self.engine.raw_connection()
+                raw_conn.execute("VACUUM")
+                raw_conn.close()
+            except Exception:
+                pass
 
     def _save_aircraft_positions(self, conn, data: Dict[str, Any], timestamp: float) -> None:
         aircraft = data.get("pilots") or data.get("aircraft") or []
@@ -312,6 +327,10 @@ class Storage:
         return out
 
     def list_aircraft(self) -> List[Dict[str, Any]]:
+        """Return latest aircraft snapshot without per-CID history lookups.
+
+        Avoids N+1 queries. Use `/api/v1/aircraft/list/history` for histories.
+        """
         snap = self.get_latest_snapshot()
         if not snap:
             return []
@@ -319,12 +338,6 @@ class Storage:
         if not data:
             return []
         aircraft = data.get("pilots") or data.get("aircraft") or []
-        for ac in aircraft:
-            cid = ac.get("cid")
-            if cid is not None:
-                ac["position_history"] = self.get_aircraft_position_history(cid, 10)
-            else:
-                ac["position_history"] = []
         return aircraft
 
     # classifications helpers

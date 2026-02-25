@@ -1,8 +1,10 @@
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from collections import defaultdict
+
+logger = logging.getLogger("vncrcc.sfra_history")
 
 HISTORY_PATH = Path.cwd() / "data" / "sfra_history.json"
 
@@ -24,10 +26,9 @@ def _load() -> Dict[str, Any]:
 def _atomic_write(data: Dict[str, Any]):
     _ensure_parent()
     try:
-        HISTORY_PATH.write_text(json.dumps(data, indent=2, sort_keys=True, default=str))
-        print(f"SFRA history written to {HISTORY_PATH}")
+        HISTORY_PATH.write_text(json.dumps(data, separators=(',', ':'), default=str))
     except Exception as e:
-        print(f"Error writing SFRA history: {e}")
+        logger.error("Error writing SFRA history: %s", e)
 
 
 def get_history() -> Dict[str, Any]:
@@ -50,5 +51,4 @@ def update_history(cid: str, position: Dict[str, Any]) -> None:
     # Keep only last 10
     history[cid] = history[cid][-10:]
 
-    print(f"Updated SFRA history for {cid}: now {len(history[cid])} positions")
     _atomic_write(data)

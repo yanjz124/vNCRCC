@@ -100,7 +100,7 @@ class MetricsTracker:
     def get_resource_usage(self) -> dict:
         """Get current system resource usage."""
         try:
-            cpu_percent = psutil.cpu_percent(interval=0.1)
+            cpu_percent = psutil.cpu_percent(interval=0)
             memory = psutil.virtual_memory()
             disk = psutil.disk_usage('/')
             

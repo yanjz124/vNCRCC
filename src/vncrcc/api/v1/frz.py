@@ -5,41 +5,7 @@ from ... import storage
 from ...rate_limit import limiter
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
 from ...precompute import get_cached
-import math
-
-# DCA bullseye (lat, lon)
-DCA_BULL = (38.8514403, -77.0377214)
-
-
-def _dca_radial_range(lat: float, lon: float) -> dict:
-    """Return bearing (degrees) and distance (nautical miles) from DCA to (lat,lon).
-
-    Also return a compact string like 'DCA280010' (bearing 280 deg, range 10 nm).
-    """
-    lat1 = math.radians(DCA_BULL[0])
-    lon1 = math.radians(DCA_BULL[1])
-    lat2 = math.radians(lat)
-    lon2 = math.radians(lon)
-
-    dlon = lon2 - lon1
-    # initial bearing from point1 to point2
-    x = math.sin(dlon) * math.cos(lat2)
-    y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
-    brng = math.degrees(math.atan2(x, y))
-    brng = (brng + 360) % 360
-
-    # haversine distance
-    R_km = 6371.0
-    a = math.sin((lat2 - lat1) / 2.0) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2.0) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(max(0.0, 1 - a)))
-    dist_km = R_km * c
-    dist_nm = dist_km / 1.852
-
-    brng_i = int(round(brng)) % 360
-    dist_i = int(round(dist_nm))
-    compact = f"DCA{brng_i:03d}{dist_i:03d}"
-    # Return range_nm with one decimal place to match SFRA/VSO precision
-    return {"radial_range": compact, "bearing": brng_i, "range_nm": round(dist_nm, 1)}
+from ...geo_utils import dca_radial_range as _dca_radial_range
 
 router = APIRouter(prefix="/frz")
 

@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 from ... import storage
 from ...rate_limit import limiter
 from ...geo.loader import point_from_aircraft
-from .sfra import _dca_radial_range
+from ...geo_utils import dca_radial_range as _dca_radial_range
 
 router = APIRouter(prefix="/vso")
 

@@ -1,7 +1,10 @@
 import json
+import logging
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger("vncrcc.aircraft_history")
 
 HISTORY_PATH = Path.cwd() / "data" / "aircraft_history.json"
 
@@ -35,7 +38,7 @@ def _atomic_write(data: Dict[str, Any]):
         _HISTORY_CACHE = None
         _HISTORY_CACHE_MTIME = 0
     except Exception as e:
-        print(f"Error writing aircraft history: {e}")
+        logger.error("Error writing aircraft history: %s", e)
 
 
 def get_history() -> Dict[str, Any]:
@@ -115,7 +118,7 @@ def update_history_batch(updates: Dict[str, Dict[str, Any]], filtered_cids: set 
         for cid in cids_to_remove:
             del history[cid]
         if cids_to_remove:
-            print(f"Removed {len(cids_to_remove)} aircraft from history (out of range)")
+            logger.debug("Removed %d aircraft from history (out of range)", len(cids_to_remove))
 
     for cid, position in updates.items():
         if cid not in history:
@@ -130,6 +133,3 @@ def update_history_batch(updates: Dict[str, Dict[str, Any]], filtered_cids: set 
         history[cid] = history[cid][-10:]
 
     _atomic_write(data)
-    # PERF: Reduce log spam - this runs every 15s. Only log if significant changes.
-    if len(updates) > 50 or len(history) > 100:
-        print(f"Updated aircraft history: {len(updates)} updates, {len(history)} total tracked")

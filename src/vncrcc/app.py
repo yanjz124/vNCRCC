@@ -68,15 +68,17 @@ class SmartCacheMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         path = request.url.path
-        
+
         # Cache precomputed API data endpoints (updates every 15s, safe to cache for 10s)
-        cacheable_prefixes = ("/api/v1/aircraft/", "/api/v1/sfra/", "/api/v1/frz/", 
+        cacheable_prefixes = ("/api/v1/aircraft/", "/api/v1/sfra/", "/api/v1/frz/",
                      "/api/v1/p56/", "/api/v1/vip/", "/api/v1/controllers/", "/api/v1/dashboard")
-        
-        if any(path.startswith(prefix) for prefix in cacheable_prefixes):
+
+        is_cacheable = any(path.startswith(prefix) for prefix in cacheable_prefixes)
+
+        if is_cacheable:
             # Allow browser/CDN caching for 10 seconds
             response.headers["Cache-Control"] = "public, max-age=10, stale-while-revalidate=5"
-            
+
             # Add ETag based on latest snapshot timestamp for 304 support
             try:
                 from .storage import STORAGE
@@ -85,15 +87,20 @@ class SmartCacheMiddleware(BaseHTTPMiddleware):
                     ts = snap.get("fetched_at", 0)
                     etag = f'W/"{int(ts)}"'
                     response.headers["ETag"] = etag
-                    
+
                     # Check if client has current version
                     if_none_match = request.headers.get("If-None-Match", "")
                     if if_none_match == etag:
-                        # Client has current data, return 304 Not Modified
                         from fastapi.responses import Response as FastAPIResponse
                         return FastAPIResponse(status_code=304, headers={"ETag": etag})
             except Exception:
-                pass  # Fallback to normal response if ETag generation fails
+                pass
+        else:
+            # Disable caching for metrics, health, version, etc.
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+
         # Optional: if an operator has requested a forced client reload, add
         # the token as a lightweight header so updated clients can reload.
         try:
@@ -104,14 +111,8 @@ class SmartCacheMiddleware(BaseHTTPMiddleware):
                 if token:
                     response.headers["X-Force-Reload"] = token
         except Exception:
-            # Don't fail request on reload header problems
             pass
-        else:
-            # Disable caching for metrics, health, version, etc.
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-        
+
         return response
 
 app.add_middleware(MetricsMiddleware)

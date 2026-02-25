@@ -12,68 +12,78 @@ VNAS_CONTROLLERS_URL = "https://live.env.vnas.vatsim.net/data-feed/controllers.j
 TARGET_ARTCC = "ZDC"
 TARGET_FACILITIES = {"PCT", "DCA", "NYG", "ZDC", "ADW"}
 
+# Reusable client to avoid creating a new connection per fetch
+_client: Optional[httpx.AsyncClient] = None
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=10.0)
+    return _client
+
 
 async def fetch_zdc_controllers() -> List[Dict]:
     """
     Fetch active ZDC controllers from vNAS API.
-    
+
     Filters for artccId=ZDC and primaryFacilityId in {PCT, DCA, NYG, ZDC, ADW}.
     Returns simplified controller info for display.
     """
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(VNAS_CONTROLLERS_URL)
-            response.raise_for_status()
-            data = response.json()
-            
-            # Extract controllers array from wrapper
-            controllers_list = data.get("controllers", [])
-            
-            # Filter controllers
-            filtered = []
-            for controller in controllers_list:
-                artcc_id = controller.get("artccId")
-                facility_id = controller.get("primaryFacilityId")
-                
-                # Only include ZDC controllers at target facilities
-                # Accept if artccId is ZDC OR facility is in our list (to catch TRACON controllers)
-                if not (artcc_id == TARGET_ARTCC or facility_id in TARGET_FACILITIES):
-                    continue
-                
-                # Extract relevant info
-                vatsim_data = controller.get("vatsimData", {})
-                positions = controller.get("positions", [])
-                
-                # Get primary position info
-                primary_position = None
-                for pos in positions:
-                    if pos.get("isPrimary"):
-                        primary_position = pos
-                        break
-                
-                # If no primary, use first position
-                if not primary_position and positions:
-                    primary_position = positions[0]
-                
-                controller_info = {
-                    "cid": vatsim_data.get("cid"),
-                    "realName": vatsim_data.get("realName"),
-                    "callsign": vatsim_data.get("callsign"),
-                    "frequency": format_frequency(vatsim_data.get("primaryFrequency")),
-                    "facilityId": facility_id,
-                    "facilityName": primary_position.get("facilityName") if primary_position else None,
-                    "positionName": primary_position.get("positionName") if primary_position else None,
-                    "positionType": primary_position.get("positionType") if primary_position else None,
-                    "radioName": primary_position.get("radioName") if primary_position else None,
-                    "loginTime": controller.get("loginTime"),
-                    "rating": vatsim_data.get("userRating"),
-                }
-                
-                filtered.append(controller_info)
-            
-            logger.info(f"Fetched {len(filtered)} ZDC controllers from vNAS")
-            return filtered
-            
+        client = _get_client()
+        response = await client.get(VNAS_CONTROLLERS_URL)
+        response.raise_for_status()
+        data = response.json()
+
+        # Extract controllers array from wrapper
+        controllers_list = data.get("controllers", [])
+
+        # Filter controllers
+        filtered = []
+        for controller in controllers_list:
+            artcc_id = controller.get("artccId")
+            facility_id = controller.get("primaryFacilityId")
+
+            # Only include ZDC controllers at target facilities
+            # Accept if artccId is ZDC OR facility is in our list (to catch TRACON controllers)
+            if not (artcc_id == TARGET_ARTCC or facility_id in TARGET_FACILITIES):
+                continue
+
+            # Extract relevant info
+            vatsim_data = controller.get("vatsimData", {})
+            positions = controller.get("positions", [])
+
+            # Get primary position info
+            primary_position = None
+            for pos in positions:
+                if pos.get("isPrimary"):
+                    primary_position = pos
+                    break
+
+            # If no primary, use first position
+            if not primary_position and positions:
+                primary_position = positions[0]
+
+            controller_info = {
+                "cid": vatsim_data.get("cid"),
+                "realName": vatsim_data.get("realName"),
+                "callsign": vatsim_data.get("callsign"),
+                "frequency": format_frequency(vatsim_data.get("primaryFrequency")),
+                "facilityId": facility_id,
+                "facilityName": primary_position.get("facilityName") if primary_position else None,
+                "positionName": primary_position.get("positionName") if primary_position else None,
+                "positionType": primary_position.get("positionType") if primary_position else None,
+                "radioName": primary_position.get("radioName") if primary_position else None,
+                "loginTime": controller.get("loginTime"),
+                "rating": vatsim_data.get("userRating"),
+            }
+
+            filtered.append(controller_info)
+
+        logger.info(f"Fetched {len(filtered)} ZDC controllers from vNAS")
+        return filtered
+
     except httpx.HTTPError as e:
         logger.error(f"Error fetching controllers from vNAS: {e}")
         return []
@@ -89,5 +99,5 @@ def format_frequency(freq_hz: Optional[int]) -> Optional[str]:
     try:
         freq_mhz = freq_hz / 1_000_000
         return f"{freq_mhz:.3f}"
-    except:
+    except Exception:
         return None
