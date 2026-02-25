@@ -30,7 +30,8 @@ async function authenticate() {
         <div class="modal-body">
           <p style="color:#9fb9d8;margin-bottom:12px;">Enter admin password to view metrics dashboard.</p>
           <div style="position:relative;">
-            <input type="password" id="metrics-password" placeholder="Password" 
+            <label for="metrics-password" style="display:block;color:#9fb9d8;font-size:12px;margin-bottom:4px;">Password</label>
+            <input type="password" id="metrics-password" placeholder="Password"
                    style="width:100%;padding:8px;background:#0f1928;border:1px solid #4a90e2;color:#dfefff;border-radius:4px;font-size:14px;" />
             <button id="metrics-toggle-pwd" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:#9fb9d8;cursor:pointer;font-size:18px;" title="Show password">👁</button>
           </div>
@@ -47,22 +48,16 @@ async function authenticate() {
     const cancel = overlay.querySelector('#metrics-cancel');
     const togglePwd = overlay.querySelector('#metrics-toggle-pwd');
     
-    // Toggle password visibility
+    // Toggle password visibility (mouse + touch)
     let showPassword = false;
-    togglePwd.addEventListener('mousedown', () => {
-      showPassword = true;
-      input.type = 'text';
-    });
-    togglePwd.addEventListener('mouseup', () => {
-      showPassword = false;
-      input.type = 'password';
-    });
-    togglePwd.addEventListener('mouseleave', () => {
-      if (showPassword) {
-        showPassword = false;
-        input.type = 'password';
-      }
-    });
+    const showPwd = () => { showPassword = true; input.type = 'text'; };
+    const hidePwd = () => { if (showPassword) { showPassword = false; input.type = 'password'; } };
+    togglePwd.addEventListener('mousedown', showPwd);
+    togglePwd.addEventListener('mouseup', hidePwd);
+    togglePwd.addEventListener('mouseleave', hidePwd);
+    togglePwd.addEventListener('touchstart', showPwd, { passive: true });
+    togglePwd.addEventListener('touchend', hidePwd);
+    togglePwd.addEventListener('touchcancel', hidePwd);
     
     cancel.addEventListener('click', () => {
       overlay.remove();

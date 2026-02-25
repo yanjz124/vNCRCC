@@ -54,6 +54,7 @@ main{padding:12px}
 /* Generic button styles */
 .btn{background:#0d2538;border:1px solid #23303a;color:#dfefff;padding:6px 10px;border-radius:6px;cursor:pointer}
 .btn:hover{background:#11507a}
+.btn:focus-visible{outline:2px solid #5b9adb;outline-offset:2px}
 .controls-actions .btn{padding:6px 12px}
 .panel h2{color:#cfe6ff}
 /* Panel header layout: align title left and controls right */
@@ -394,3 +395,63 @@ table:has(#p56-leaderboard-tbody) th {
 /* P56 intrusion point labels */
 .p56-point-label-wrapper{pointer-events:none;}
 .p56-point-label{font-size:10px;color:#ffffff;background:rgba(0,0,0,0.35);padding:2px 4px;border-radius:3px;white-space:nowrap;font-weight:500;backdrop-filter:blur(2px);}
+
+/* Header home link (extracted from inline style) */
+.header-left > a{display:flex;align-items:center;text-decoration:none;cursor:pointer}
+
+/* Legend section headings (extracted from inline style) */
+.legend h4{margin:6px 0 4px 0;color:#dfefff}
+.legend h4:first-of-type{margin-top:0}
+
+/* Update time overlay (extracted from JS inline styles) */
+#update-time{position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.8);color:white;padding:5px;font-size:16px;z-index:1000}
+
+/* ===== MOBILE: Phone screens (<480px) ===== */
+@media (max-width:480px){
+	/* Truncate long title */
+	h1{font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 100px)}
+
+	/* Shrink header */
+	header{padding:8px 10px}
+	#logo-placeholder{width:40px;height:40px}
+
+	/* Reduce map height */
+	#maps-container{height:35vh}
+
+	/* Override 300px column min-widths to reduce scroll width */
+	#p56-table th:nth-child(n), #p56-table td:nth-child(n),
+	#sfra-table th:nth-child(n), #sfra-table td:nth-child(n),
+	#frz-table th:nth-child(n), #frz-table td:nth-child(n),
+	#vso-table th:nth-child(n), #vso-table td:nth-child(n),
+	#p56-events-table th:nth-child(n), #p56-events-table td:nth-child(n),
+	#p56-leaderboard-table th:nth-child(n), #p56-leaderboard-table td:nth-child(n){min-width:unset}
+
+	/* Reduce table base min-width */
+	.traffic-table{min-width:500px;font-size:0.78rem}
+
+	/* Stack P56 alert controls */
+	.p56-alert-controls{flex-direction:column;align-items:flex-start;gap:6px}
+
+	/* VSO controls wrap */
+	.vso-controls{flex-wrap:wrap}
+	.vso-controls input[type="number"]{width:60px}
+
+	/* Legend touch targets */
+	.legend .legend-check{min-height:36px;padding:4px 0}
+	.legend{padding:8px;right:8px;top:8px}
+
+	/* Admin button: meet 44px min tap target */
+	.admin-clear-btn{width:44px;height:44px;font-size:18px;line-height:42px}
+
+	/* P56 alert close: meet 44px min tap target */
+	.p56-alert-close{width:44px;height:44px;font-size:22px}
+
+	/* Reduce container padding */
+	.container{padding:0 6px}
+
+	/* Footer */
+	footer{padding:10px 12px;font-size:0.8rem}
+
+	/* Update-time: reposition to avoid legend overlap */
+	#update-time{font-size:12px;padding:3px 5px;right:auto;left:10px;top:10px}
+}

@@ -448,7 +448,6 @@
 
         // Fallback to fetch if not in cache (shouldn't happen normally)
         if (!history) {
-          console.log(`[DEBUG] History for ${cidKey} not in cache, fetching...`);
           const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
           const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
           const data = await response.json();
@@ -481,9 +480,7 @@
           setRowHighlight(cidKey, true);
           setMarkerHalo(cidKey, true);
 
-          console.log(`Shown flight path for ${cidKey} with ${points.length} points on both maps`);
         } else {
-          console.log(`No history data available for ${cidKey}`);
         }
       } catch (error) {
         console.error(`Failed to fetch history for ${cidKey}:`, error);
@@ -494,17 +491,9 @@
   // icon sizing
   const ICON_SIZE = 32; // px, slightly larger than before
 
-  // Create update time display in top right
+  // Create update time display (styled via CSS #update-time)
   const updateDiv = document.createElement('div');
   updateDiv.id = 'update-time';
-  updateDiv.style.position = 'absolute';
-  updateDiv.style.top = '10px';
-  updateDiv.style.right = '10px';
-  updateDiv.style.background = 'rgba(0,0,0,0.8)';
-  updateDiv.style.color = 'white';
-  updateDiv.style.padding = '5px';
-  updateDiv.style.fontSize = '16px';
-  updateDiv.style.zIndex = '1000';
   document.body.appendChild(updateDiv);
 
   function updateTimeDisplay() {
@@ -762,9 +751,6 @@
       if(!res.ok) return null;
       const j = await res.json();
       // Log backend processing time vs network time for delay investigation
-      if(j.processing_time_ms){
-        console.log(`[DEBUG] Backend processed dashboard in ${j.processing_time_ms.toFixed(1)}ms`);
-      }
       // propagate VATSIM timestamp if present
       if(j.aircraft && j.aircraft.vatsim_update_timestamp) window.vatsimUpdateTimestamp = j.aircraft.vatsim_update_timestamp;
       else if(j.timestamp) window.vatsimUpdateTimestamp = j.timestamp;
@@ -904,7 +890,6 @@
   // Fast table re-rendering using cached data (for sorting without full refresh)
   function rerenderTable(tbodyId) {
     if (!tableDataCache) {
-      console.log('No cached data, falling back to full refresh');
       refresh();
       return;
     }
@@ -1104,7 +1089,7 @@
         return `<td>${aff || '-'}</td><td>${ac.callsign || ''}</td><td>${acType}</td><td>${ac.name || ''}</td><td>${ac.cid || ''}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ac.altitude || 0)}</td><td>${Math.round(ac.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td><td>${statusText}</td>`;
       }, it => `vso:${(it.aircraft||{}).cid || (it.aircraft||{}).callsign || ''}`);
     } else {
-      console.log('No rerender logic for table:', tbodyId);
+      console.warn('No rerender logic for table:', tbodyId);
     }
   }
 
@@ -1258,7 +1243,7 @@
     // If overlays are not loaded (geo data not available), fall back to API for SFRA/FRZ lists
     // to ensure the UI populates even if client-side classification can't work.
     if (!overlays.p56.sfra || !overlays.p56.frz) {
-      console.log('Geo overlays not loaded, falling back to API for SFRA/FRZ lists');
+      console.warn('Geo overlays not loaded, falling back to API for SFRA/FRZ lists');
       const sfrajson = await fetchWithBackoff(`${API_ROOT}/sfra/`).then(r=>r.ok?r.json():{aircraft:[]}).catch(()=>({aircraft:[]}));
       const frzjson = await fetchWithBackoff(`${API_ROOT}/frz/`).then(r=>r.ok?r.json():{aircraft:[]}).catch(()=>({aircraft:[]}));
       sfraList.push(...(sfrajson.aircraft || []));
