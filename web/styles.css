@@ -144,37 +144,8 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 .traffic-table thead{position:sticky;top:0;z-index:10;display:block;width:100%;overflow-y:auto;scrollbar-gutter:stable}
 .traffic-table tbody{display:block;max-height:400px;overflow-y:auto;width:100%;scrollbar-gutter:stable}
 .traffic-table thead tr, .traffic-table tbody tr{display:table;width:100%;table-layout:fixed}
-.traffic-table th, .traffic-table td{padding:3px 4px;border-bottom:1px solid #23303a;text-align:center;word-wrap:break-word;white-space:normal;overflow:hidden;min-width:50px}
+.traffic-table th, .traffic-table td{padding:3px 4px;border-bottom:1px solid #23303a;text-align:center;word-wrap:break-word;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:36px}
 .traffic-table th{background:#0d2538;color:#cfe6ff;font-weight:600}
-/* Bearing, Range, Alt, GS, Dep, Arr columns get minimum 300px width */
-#p56-table th:nth-child(5), #p56-table td:nth-child(5),
-#p56-table th:nth-child(6), #p56-table td:nth-child(6),
-#p56-table th:nth-child(7), #p56-table td:nth-child(7),
-#p56-table th:nth-child(8), #p56-table td:nth-child(8),
-#p56-table th:nth-child(10), #p56-table td:nth-child(10),
-#p56-table th:nth-child(11), #p56-table td:nth-child(11),
-#sfra-table th:nth-child(5), #sfra-table td:nth-child(5),
-#sfra-table th:nth-child(6), #sfra-table td:nth-child(6),
-#sfra-table th:nth-child(7), #sfra-table td:nth-child(7),
-#sfra-table th:nth-child(8), #sfra-table td:nth-child(8),
-#sfra-table th:nth-child(10), #sfra-table td:nth-child(10),
-#sfra-table th:nth-child(11), #sfra-table td:nth-child(11),
-#frz-table th:nth-child(5), #frz-table td:nth-child(5),
-#frz-table th:nth-child(6), #frz-table td:nth-child(6),
-#frz-table th:nth-child(7), #frz-table td:nth-child(7),
-#frz-table th:nth-child(8), #frz-table td:nth-child(8),
-#frz-table th:nth-child(10), #frz-table td:nth-child(10),
-#frz-table th:nth-child(11), #frz-table td:nth-child(11),
-#vso-table th:nth-child(6), #vso-table td:nth-child(6),
-#vso-table th:nth-child(7), #vso-table td:nth-child(7),
-#vso-table th:nth-child(8), #vso-table td:nth-child(8),
-#vso-table th:nth-child(9), #vso-table td:nth-child(9),
-#vso-table th:nth-child(11), #vso-table td:nth-child(11),
-#vso-table th:nth-child(12), #vso-table td:nth-child(12) {min-width:300px}
-/* P56 Events: Aircraft, Dep, Arr columns */
-#p56-events-table th:nth-child(2), #p56-events-table td:nth-child(2),
-#p56-events-table th:nth-child(6), #p56-events-table td:nth-child(6),
-#p56-events-table th:nth-child(7), #p56-events-table td:nth-child(7) {min-width:300px}
 .traffic-table tbody tr:hover{background:#152026}
 .traffic-table .expandable{cursor:pointer}
 .traffic-table .flight-plan{display:none}
@@ -207,6 +178,9 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 	border-bottom:2px solid #23303a;
 }
 .traffic-table .squawk-vfr{color:#d1ecf1 !important} /* blue */
+/* VSO-remarked rows: subtle purple tint to distinguish from normal rows */
+.traffic-table tr.vso-row{background:rgba(138,92,246,0.12)}
+.traffic-table tr.vso-row:hover{background:rgba(138,92,246,0.22)}
 
 /* Status text colors to match map colors */
 .status-frz{color:#f0ad4e;font-weight:700}

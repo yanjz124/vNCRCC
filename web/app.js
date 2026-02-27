@@ -960,7 +960,7 @@
       }catch(e){/* ignore */}
       evtsLocal.forEach(evt => {
         const tr = document.createElement('tr');
-        tr.className = 'expandable';
+        tr.className = 'expandable' + (hasVsoRemarks(evt) ? ' vso-row' : '');
         const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
         const dep = (evt.flight_plan && (evt.flight_plan.departure || evt.flight_plan.depart)) || '';
         const arr = (evt.flight_plan && (evt.flight_plan.arrival || evt.flight_plan.arr)) || '';
@@ -1252,6 +1252,19 @@
       frzList.push(...(frzjson.aircraft || []));
     }
 
+  // Helper: check if an aircraft/item has VSO-matching remarks
+  const hasVsoRemarks = (item) => {
+    try {
+      const selectedAff = (el('custom-aff')?.dataset?.selected || '').split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.toLowerCase());
+      if (!selectedAff.length) return false;
+      const ac = item?.aircraft || item || {};
+      const fp = ac.flight_plan || {};
+      const rmk = (fp.remarks || fp.rmk || fp.remark || '').toLowerCase();
+      if (!rmk) return false;
+      return selectedAff.some(p => rmk.includes(p));
+    } catch(e) { return false; }
+  };
+
   const renderTable = (tbodyId, items, rowFn, keyFn, fpOptions) => {
       // Fast batched render: build HTML for all rows and attach a single delegated
       // click handler on the tbody. This avoids creating many DOM nodes and
@@ -1292,9 +1305,10 @@
         const key = (typeof keyFn === 'function') ? (() => { try{ return keyFn(item); }catch(e){return null} })() : null;
         const fpHtml = formatFlightPlan(item, fpOptions);
         const onGroundClass = item && item._onGround ? ' on-ground' : '';
+        const vsoClass = hasVsoRemarks(item) ? ' vso-row' : '';
         const fpShow = key && expandedSet.has(key) ? ' show' : '';
         const dataAttr = key ? ` data-fp-key="${String(key).replace(/"/g,'') }"` : '';
-        parts.push(`<tr class="expandable${onGroundClass}"${dataAttr}>${rowHtml}</tr>`);
+        parts.push(`<tr class="expandable${onGroundClass}${vsoClass}"${dataAttr}>${rowHtml}</tr>`);
         parts.push(`<tr class="flight-plan${fpShow}"${dataAttr}><td class="flight-plan-cell" colspan="${colspan}">${fpHtml}</td></tr>`);
         if(key) try{ presentKeys.add(key); }catch(e){}
       });
@@ -1383,9 +1397,10 @@
           try{ rowHtml = rowFn(item) || ''; }catch(err){ rowHtml = `<td colspan="${colspan}">Row error</td>`; }
           const fpHtml = formatFlightPlan(item, fpOptions);
           const onGroundClass = item && item._isOnGround ? ' on-ground' : '';
+          const vsoClass = hasVsoRemarks(item) ? ' vso-row' : '';
           const dataAttr = key ? ` data-fp-key="${String(key).replace(/"/g,'') }"` : '';
           const fpShow = key && expandedSet.has(key) ? ' show' : '';
-          parts.push(`<tr class="expandable${onGroundClass}"${dataAttr}>${rowHtml}</tr>`);
+          parts.push(`<tr class="expandable${onGroundClass}${vsoClass}"${dataAttr}>${rowHtml}</tr>`);
           parts.push(`<tr class="flight-plan${fpShow}"${dataAttr}><td class="flight-plan-cell" colspan="${colspan}">${fpHtml}</td></tr>`);
         });
       };
@@ -1543,7 +1558,7 @@
     }catch(e){/* ignore */}
     events.forEach(evt => {
       const tr = document.createElement('tr');
-      tr.className = 'expandable';
+      tr.className = 'expandable' + (hasVsoRemarks(evt) ? ' vso-row' : '');
       // include date + time in Zulu
       const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
       const dep = (evt.flight_plan && (evt.flight_plan.departure || evt.flight_plan.depart)) || '';
@@ -2021,8 +2036,8 @@
               // regular traffic tables: p56-tbody, sfra-tbody, frz-tbody
                 if(order){
                   if(col.includes('callsign')) sortConfig[tbodyId] = { key: (a)=> (a.callsign||'').toLowerCase(), order };
-                  else if(col.includes('type')) sortConfig[tbodyId] = { key: (a)=> ((a.flight_plan?.aircraft_faa || a.flight_plan?.aircraft_short || '')||'').toLowerCase(), order };
-                  else if(col.includes('name')) sortConfig[tbodyId] = { key: (a)=> (a.name||'').toLowerCase(), order };
+                  else if(col.includes('type') || col === 'a/c' || col.includes('aircraft')) sortConfig[tbodyId] = { key: (a)=> ((a.flight_plan?.aircraft_faa || a.flight_plan?.aircraft_short || '')||'').toLowerCase(), order };
+                  else if(col.includes('name') || col.includes('pilot')) sortConfig[tbodyId] = { key: (a)=> (a.name||'').toLowerCase(), order };
                   else if(col.includes('cid')) sortConfig[tbodyId] = { key: (a)=> Number(a.cid||0), order };
                   else if(col.includes('bullseye') || col.includes('dca')) {
                     // Sort bullseye by distance first (range), then bearing
@@ -2031,7 +2046,7 @@
                       return dca.range_nm * 1000 + dca.bearing; // distance is primary, bearing secondary
                     }, order };
                   }
-                  else if(col.includes('bearing')) sortConfig[tbodyId] = { key: (a)=> {
+                  else if(col.includes('bearing') || col === 'brg') sortConfig[tbodyId] = { key: (a)=> {
                     const dca = a.dca || computeDca(a.latitude||a.last_position?.lat, a.longitude||a.last_position?.lon);
                     return dca.bearing;
                   }, order };
@@ -2041,7 +2056,7 @@
                   }, order };
                   else if(col.includes('alt')) sortConfig[tbodyId] = { key: (a)=> Number(a.altitude||a.alt||0), order };
                   else if(col.includes('gs') || col.includes('ground')) sortConfig[tbodyId] = { key: (a)=> Number(a.groundspeed||a.gs||0), order };
-                  else if(col.includes('squawk')) sortConfig[tbodyId] = { key: (a)=> Number(a.transponder||0), order };
+                  else if(col.includes('squawk') || col === 'sqk') sortConfig[tbodyId] = { key: (a)=> Number(a.transponder||0), order };
                   else if(col.includes('assigned')) sortConfig[tbodyId] = { key: (a)=> Number(a.flight_plan?.assigned_transponder||0), order };
                   else if(col.includes('route') || col.includes('dep') || col.includes('arr') || col.includes('-')) {
                     sortConfig[tbodyId] = { key: (a)=> {
