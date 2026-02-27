@@ -489,7 +489,8 @@
   }
 
   // icon sizing
-  const ICON_SIZE = 32; // px, slightly larger than before
+  const ICON_SIZE = 32; // px, fallback for PNG
+  const ICON_SCALE = 1.5; // scale factor applied to all SVG aircraft icons
 
   // Aircraft icon width mapping - Source: VATSIM Radar (CC BY-NC 4.0)
   // https://github.com/VATSIM-Radar/vatsim-radar
@@ -1552,7 +1553,7 @@
   async function createPlaneIcon(color, heading, faaCode) {
     const iconInfo = getAircraftIconName(faaCode);
     const iconName = iconInfo.icon;
-    const size = iconInfo.width || ICON_SIZE;
+    const size = Math.round((iconInfo.width || ICON_SIZE) * ICON_SCALE);
     const cacheKey = iconName + '_' + color;
     try {
       if (!svgIconCache[cacheKey]) {
