@@ -113,9 +113,9 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
     """Detect P56 intrusions and record them using p56_history semantics.
 
     - Point-inside OR line-crossing between two consecutive snapshots
-    - 60s dedupe window per CID
-    - Continuous stay counts as one; re-entry within 60s merges
-    - Track up to 10 pre-positions and 1 post-position
+    - Re-entry within 5 position updates merges into same intrusion
+    - Continuous stay counts as one; zones accumulate across P-56A/B
+    - Track up to 5 pre-positions and 5 post-positions
 
     Returns list of breach dicts for caching.
 
@@ -270,14 +270,14 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
                 "heading": a.get("heading"),
             }
 
-            # Add pre_positions (up to 7 positions before the intrusion for better approach visualization)
+            # Add pre_positions (up to 5 positions before the intrusion)
             cid = str(a.get("cid") or "")
             if cid and cid in positions_by_cid:
                 positions = positions_by_cid[cid]
                 # Get positions before the intrusion timestamp
                 pre_positions = [p for p in positions if p["ts"] < latest_ts]
                 pre_positions.sort(key=lambda x: x["ts"], reverse=True)  # newest first
-                pre_positions = pre_positions[:7]  # Keep last 7 for better context
+                pre_positions = pre_positions[:5]  # Keep last 5
                 pre_positions.reverse()  # oldest first for display
                 if pre_positions:
                     event["pre_positions"] = pre_positions

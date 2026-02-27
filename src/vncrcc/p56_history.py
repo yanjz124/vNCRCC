@@ -6,8 +6,9 @@ from typing import Any, Dict, List, Optional
 from .geo.loader import point_from_aircraft
 
 HISTORY_PATH = Path.cwd() / "data" / "p56_history.json"
-# If two intrusions for the same CID occur within this many seconds, treat as one
-DEDUPE_WINDOW_SECONDS = 60
+# If an aircraft re-enters P56 within this many position updates after exiting,
+# treat as the same intrusion (not a new one).
+REENTRY_GRACE_UPDATES = 5
 
 # PERF: Cache for get_history() to avoid repeated file reads
 _HISTORY_CACHE: Optional[Dict[str, Any]] = None
@@ -164,58 +165,56 @@ def record_penetration(event: Dict[str, Any], skip_write: bool = False) -> None:
     event_copy = dict(event)
     event_copy.setdefault("recorded_at", time.time())
 
-    # Deduplicate: if the last recorded event for this CID is within the
-    # DEDUPE_WINDOW_SECONDS, merge the new data into that event instead of
-    # appending a new one so quick re-entries count as a single buster.
-    last_event = None
-    for e in reversed(events):
-        if str(e.get("cid")) == str(cid):
-            last_event = e
-            break
+    # Deduplicate: if the CID is still tracked (p56_buster=True) and within the
+    # grace period (outside_count < REENTRY_GRACE_UPDATES), merge re-entry into
+    # the existing event so quick re-entries count as a single buster.
+    if state and state.get("p56_buster") and state.get("outside_count", 0) < REENTRY_GRACE_UPDATES:
+        last_event = None
+        for e in reversed(events):
+            if str(e.get("cid")) == str(cid):
+                last_event = e
+                break
 
-    if last_event:
-        try:
-            last_ts = float(last_event.get("recorded_at") or 0)
-        except Exception:
-            last_ts = 0
-        if (event_copy.get("recorded_at", 0) - last_ts) <= DEDUPE_WINDOW_SECONDS:
-            # Merge useful fields from the incoming event into last_event.
-            # Preserve the original recorded_at (earliest detection).
-            # Update latest_ts if provided and is newer.
+        if last_event:
+            # Re-entry within grace period — merge into existing event
+            # Update latest_ts
             new_ts = event_copy.get("latest_ts")
             if new_ts is not None:
                 prev_ts = last_event.get("latest_ts")
-                new_ts_f = None
-                prev_ts_f = None
                 try:
                     new_ts_f = float(new_ts)
+                    prev_ts_f = float(prev_ts) if prev_ts is not None else None
+                    if prev_ts_f is None or new_ts_f > prev_ts_f:
+                        last_event["latest_ts"] = new_ts
                 except Exception:
-                    new_ts_f = None
-                try:
-                    if prev_ts is not None:
-                        prev_ts_f = float(prev_ts)
-                except Exception:
-                    prev_ts_f = None
-                if prev_ts_f is None or (new_ts_f is not None and new_ts_f > prev_ts_f):
-                    last_event["latest_ts"] = new_ts
-            # Merge pre_positions/post_positions if available and last_event doesn't have them
+                    pass
+            # Union zones (accumulate all zones visited)
+            existing_zones = set(last_event.get("zones", []))
+            existing_zones.update(event_copy.get("zones", []))
+            last_event["zones"] = sorted(existing_zones)
+            # Move post_positions back into intrusion_positions (they're mid-intrusion now)
+            post = last_event.pop("post_positions", [])
+            if post:
+                ip = last_event.get("intrusion_positions", [])
+                ip.extend(post)
+                last_event["intrusion_positions"] = ip
+            # Clear exit_detected_at since they re-entered
+            last_event.pop("exit_detected_at", None)
+            # Merge pre_positions if not already present
             if event_copy.get("pre_positions") and not last_event.get("pre_positions"):
-                last_event["pre_positions"] = event_copy.get("pre_positions")
-            if event_copy.get("post_positions") and not last_event.get("post_positions"):
-                last_event["post_positions"] = event_copy.get("post_positions")
-            # Ensure we still mark current inside with p56_buster flag
+                last_event["pre_positions"] = event_copy["pre_positions"]
+            # Reset current_inside state for continued tracking
             current[str(cid)] = {
                 "inside": True,
-                "p56_buster": True,  # Ensure flag is set for continued tracking
-                "outside_count": 0,  # Reset exit confirmation counter
+                "p56_buster": True,
+                "outside_count": 0,
                 "last_seen": event_copy.get("latest_ts") or event_copy.get("recorded_at"),
                 "last_position": event_copy.get("latest_position"),
                 "flight_plan": event_copy.get("flight_plan", {}),
                 "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
                 "name": event_copy.get("name"),
-                "zones": event_copy.get("zones", [])
+                "zones": last_event["zones"]
             }
-            # PERF: Only write if not batching with sync_snapshot
             if not skip_write:
                 _atomic_write(data)
             return
@@ -306,20 +305,16 @@ def sync_snapshot_with_penetrations(
             event_copy = dict(event)
             event_copy.setdefault("recorded_at", time.time())
 
-            # Deduplicate with last event for this CID
-            last_event = None
-            for e in reversed(events):
-                if str(e.get("cid")) == str(cid):
-                    last_event = e
-                    break
+            # Deduplicate: if CID is still tracked and within grace period, merge re-entry
+            if state and state.get("p56_buster") and state.get("outside_count", 0) < REENTRY_GRACE_UPDATES:
+                last_event = None
+                for e in reversed(events):
+                    if str(e.get("cid")) == str(cid):
+                        last_event = e
+                        break
 
-            if last_event:
-                try:
-                    last_ts = float(last_event.get("recorded_at") or 0)
-                except Exception:
-                    last_ts = 0
-                if (event_copy.get("recorded_at", 0) - last_ts) <= DEDUPE_WINDOW_SECONDS:
-                    # Merge with existing event
+                if last_event:
+                    # Re-entry within grace period — merge into existing event
                     new_ts = event_copy.get("latest_ts")
                     if new_ts is not None:
                         prev_ts = last_event.get("latest_ts")
@@ -330,8 +325,19 @@ def sync_snapshot_with_penetrations(
                                 last_event["latest_ts"] = new_ts
                         except Exception:
                             pass
+                    # Union zones
+                    existing_zones = set(last_event.get("zones", []))
+                    existing_zones.update(event_copy.get("zones", []))
+                    last_event["zones"] = sorted(existing_zones)
+                    # Move post_positions back into intrusion_positions
+                    post = last_event.pop("post_positions", [])
+                    if post:
+                        ip = last_event.get("intrusion_positions", [])
+                        ip.extend(post)
+                        last_event["intrusion_positions"] = ip
+                    last_event.pop("exit_detected_at", None)
                     if event_copy.get("pre_positions") and not last_event.get("pre_positions"):
-                        last_event["pre_positions"] = event_copy.get("pre_positions")
+                        last_event["pre_positions"] = event_copy["pre_positions"]
                     current[str(cid)] = {
                         "inside": True,
                         "p56_buster": True,
@@ -341,7 +347,7 @@ def sync_snapshot_with_penetrations(
                         "flight_plan": event_copy.get("flight_plan", {}),
                         "callsign": event_copy.get("callsign") or event_copy.get("flight_plan", {}).get("callsign"),
                         "name": event_copy.get("name"),
-                        "zones": event_copy.get("zones", [])
+                        "zones": last_event["zones"]
                     }
                     continue
 
@@ -419,52 +425,59 @@ def _sync_snapshot_positions(
             current[cid]["p56_buster"] = False
             continue
 
-        # Check if aircraft is currently inside P-56
+        # Check if aircraft is currently inside P-56, and which zone(s)
         a = ac_map.get(str(cid))
         currently_inside = False
+        current_zones: List[str] = []
+        pt = None
         if a:
             pt = point_from_aircraft(a)
             if pt:
                 for shp, props in features:
+                    zone_name = props.get("name") or props.get("id") or "P-56"
                     try:
                         if getattr(shp, "contains", lambda x: False)(pt) or getattr(shp, "intersects", lambda x: False)(pt):
                             currently_inside = True
-                            break
+                            current_zones.append(zone_name)
                     except Exception:
                         continue
 
-        # Append current position to intrusion tracking
-        intrusion_positions = last_event.get("intrusion_positions") or []
+        if a and pt:
+            pos_entry = {
+                "ts": ts or time.time(),
+                "lat": pt.y,
+                "lon": pt.x,
+                "alt": a.get("altitude") or a.get("alt"),
+                "gs": a.get("groundspeed") or a.get("gs"),
+                "heading": a.get("heading"),
+                "callsign": a.get("callsign")
+            }
 
-        if a:
-            pt = point_from_aircraft(a)
-            if pt:
-                pos_entry = {
-                    "ts": ts or time.time(),
-                    "lat": pt.y,
-                    "lon": pt.x,
-                    "alt": a.get("altitude") or a.get("alt"),
-                    "gs": a.get("groundspeed") or a.get("gs"),
-                    "heading": a.get("heading"),
-                    "callsign": a.get("callsign")
-                }
-
-                # Only append if different from last position
+            if currently_inside:
+                # Inside P56: append to intrusion_positions
+                intrusion_positions = last_event.get("intrusion_positions") or []
                 if not intrusion_positions or (pos_entry["ts"] - intrusion_positions[-1]["ts"]) >= 1:
                     intrusion_positions.append(pos_entry)
-
-                    # Apply safety cap of 200 positions
                     if len(intrusion_positions) > 200:
                         intrusion_positions = intrusion_positions[-200:]
-
                     last_event["intrusion_positions"] = intrusion_positions
 
-            # Update current_inside state
+                # Accumulate zones visited during this intrusion
+                event_zones = set(last_event.get("zones", []))
+                event_zones.update(current_zones)
+                last_event["zones"] = sorted(event_zones)
+                current[cid]["zones"] = last_event["zones"]
+            else:
+                # Outside P56 during grace period: append to post_positions
+                post_positions = last_event.get("post_positions") or []
+                if not post_positions or (pos_entry["ts"] - post_positions[-1]["ts"]) >= 1:
+                    post_positions.append(pos_entry)
+                    last_event["post_positions"] = post_positions
+
             # Always update name to most recent value in ALL events for this CID
             current_name = a.get("name")
             if current_name:
                 current[cid]["name"] = current_name
-                # Update name in ALL events for this CID, not just the most recent one
                 for e in events:
                     if str(e.get("cid")) == cid:
                         e["name"] = current_name
@@ -479,17 +492,16 @@ def _sync_snapshot_positions(
                 current[cid]["inside"] = False
                 current[cid]["last_seen"] = ts or time.time()
 
-                if outside_count >= 10:
+                if not last_event.get("exit_detected_at"):
+                    last_event["exit_detected_at"] = ts or time.time()
+
+                if outside_count >= REENTRY_GRACE_UPDATES:
                     current[cid]["p56_buster"] = False
                     last_event["exit_confirmed_at"] = ts or time.time()
-                    if not last_event.get("exit_detected_at"):
-                        last_event["exit_detected_at"] = ts or time.time()
         elif not a:
             # Aircraft disconnected - immediately remove from current_inside
-            # No need to wait 10 cycles since the aircraft is gone from VATSIM
             if last_event and not last_event.get("exit_confirmed_at"):
                 last_event["exit_confirmed_at"] = ts or time.time()
-            # Mark for immediate removal by deleting from current_inside
             del current[cid]
             continue
 

@@ -466,7 +466,7 @@
               opacity: 0.8,
               dashArray: '5, 5' // Dashed line
             });
-            
+
             // Mark this polyline with the CID for later removal
             polyline._flightPathCid = cidKey;
             pathLayer.addLayer(polyline);
@@ -481,6 +481,22 @@
           setMarkerHalo(cidKey, true);
 
         } else {
+        }
+
+        // Also draw P56 intrusion track (yellow) if this aircraft has intrusion data
+        const p56Events = tableDataCache?.p56json?.history?.events || [];
+        const p56Evt = p56Events.filter(e => String(e.cid) === cidKey).pop();
+        if (p56Evt) {
+          const positions = (p56Evt.pre_positions || []).concat(p56Evt.intrusion_positions || []).concat(p56Evt.post_positions || []);
+          if (positions.length > 1) {
+            const latlngs = positions.map(p => [p.lat, p.lon]);
+            [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
+              const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
+              polyline._flightPathCid = cidKey;
+              pathLayer.addLayer(polyline);
+            });
+            addIntrusionLabels(p56PathLayer, positions);
+          }
         }
       } catch (error) {
         console.error(`Failed to fetch history for ${cidKey}:`, error);
@@ -1838,7 +1854,7 @@
         if(expandedSet.has(evtKey)){
           fpDiv.classList.add('show');
           p56PathLayer.clearLayers();
-          const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || evt.post_positions || []);
+          const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
           if (positions.length > 1) {
             const latlngs = positions.map(p => [p.lat, p.lon]);
             const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
@@ -1852,7 +1868,7 @@
           fpDiv.classList.toggle('show');
           if(opening){
             p56PathLayer.clearLayers();
-            const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || evt.post_positions || []);
+            const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
             if (positions.length > 1) {
               const latlngs = positions.map(p => [p.lat, p.lon]);
               const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
@@ -2198,7 +2214,7 @@
                 const evt = evts.find(e => `${String(e.cid||'')}:${String(e.recorded_at||'')}` === key);
                 if(opening){
                   p56PathLayer.clearLayers(); sfraPathLayer.clearLayers();
-                  const positions = evt?.intrusion_positions || (evt?.pre_positions || []).concat(evt?.post_positions || []);
+                  const positions = (evt?.pre_positions || []).concat(evt?.intrusion_positions || []).concat(evt?.post_positions || []);
                   if(positions && positions.length > 1){
                     const latlngs = positions.map(p => [p.lat, p.lon]);
                     const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
@@ -2444,7 +2460,7 @@
           fpDiv.classList.add('show');
           p56PathLayer.clearLayers();
           sfraPathLayer.clearLayers();
-          const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || evt.post_positions || []);
+          const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
           if (positions.length > 1) {
             const latlngs = positions.map(p => [p.lat, p.lon]);
             const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
@@ -2463,7 +2479,7 @@
             // Draw path when opening
             p56PathLayer.clearLayers();
             sfraPathLayer.clearLayers();
-            const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || evt.post_positions || []);
+            const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
             if (positions.length > 1) {
               const latlngs = positions.map(p => [p.lat, p.lon]);
               const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
