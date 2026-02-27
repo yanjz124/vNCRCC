@@ -33,7 +33,7 @@
     const now = Date.now();
     const until = getSharedCooldownUntil();
     if(until > now){ const err = new Error('In shared cooldown'); err.code='COOLDOWN'; err.retryAt=until; throw err; }
-    const resp = await fetch(url, opts);
+    const resp = await fetch(url, { cache: 'no-store', ...opts });
     // Check for server-side force-reload header. If present and different from
     // the token we previously saw, store it and trigger a reload so clients
     // pick up updated JS/assets. This only affects clients running the
