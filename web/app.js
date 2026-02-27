@@ -491,6 +491,856 @@
   // icon sizing
   const ICON_SIZE = 32; // px, slightly larger than before
 
+  // Aircraft icon width mapping - Source: VATSIM Radar (CC BY-NC 4.0)
+  // https://github.com/VATSIM-Radar/vatsim-radar
+  const AIRCRAFT_ICONS = {
+    a10:12,
+    a124:35,
+    a139:12,
+    a149:12,
+    a169:12,
+    a189:12,
+    a20n:17,
+    a225:35,
+    a300:22,
+    a310:22,
+    a318:18,
+    a319:18,
+    a320:18,
+    a321:18,
+    a332:30,
+    a333:30,
+    a338:32,
+    a339:32,
+    a342:30,
+    a343:30,
+    a345:32,
+    a346:32,
+    a359:32,
+    a35k:32,
+    a388:35,
+    a3st:22,
+    a400:21,
+    a748:15,
+    aest:6,
+    an2:12,
+    an24:15,
+    as32:12,
+    as50:12,
+    at4x:12,
+    at7x:14,
+    atp:15,
+    b06:12,
+    b1:14,
+    b105:12,
+    b190:12,
+    b2:26,
+    b350:12,
+    b36t:12,
+    b37m:18,
+    b38m:18,
+    b39m:18,
+    b407:12,
+    b461:13,
+    b462:13,
+    b463:13,
+    b703:22,
+    b712:14,
+    b720:20,
+    b721:16,
+    b722:16,
+    b731:14,
+    b732:14,
+    b733:14,
+    b734:14,
+    b735:14,
+    b736:17,
+    b737:17,
+    b738:17,
+    b739:17,
+    b741:30,
+    b744:32,
+    b748:34,
+    b74s:30,
+    b752:19,
+    b753:19,
+    b762:24,
+    b763:24,
+    b764:26,
+    b772:31,
+    b773:31,
+    b77l:32,
+    b77w:32,
+    b788:30,
+    b789:30,
+    b78x:30,
+    ba11:14,
+    ball:17,
+    bcs1:18,
+    bcs3:18,
+    be20:12,
+    be35:12,
+    be36:12,
+    be58:6,
+    be60:12,
+    be9l:12,
+    blcf:32,
+    bn2p:12,
+    br23:12,
+    bt7:12,
+    c130:20,
+    c152:12,
+    c160:20,
+    c17:26,
+    c172:12,
+    c2:12,
+    c206:12,
+    c208:12,
+    c25b:12,
+    c25c:12,
+    c310:12,
+    c402:12,
+    c414:12,
+    c510:12,
+    c525:12,
+    c5m:34,
+    c68a:12,
+    c700:12,
+    c750:12,
+    c919:18,
+    cl2t:14,
+    cl30:12,
+    cl60:12,
+    conc:13,
+    cp10:12,
+    crj2:12,
+    crj7:12,
+    crj9:13,
+    crjx:13,
+    cs50:12,
+    da40:6,
+    da42:12,
+    da62:12,
+    dc10:25,
+    dc3:14,
+    dc6:18,
+    dc86:22,
+    dh88:12,
+    dh8a:13,
+    dh8c:14,
+    dh8d:14,
+    dhc2:12,
+    dhc6:12,
+    dhc7:14,
+    dimo:12,
+    dr40:12,
+    dv20:12,
+    e135:12,
+    e145:12,
+    e170:13,
+    e175:13,
+    e190:14,
+    e195:14,
+    e2:12,
+    e290:17,
+    e295:18,
+    e300:12,
+    e3cf:22,
+    e50p:12,
+    e55p:12,
+    e75s:13,
+    ec45:12,
+    eh10:12,
+    epic:12,
+    eufi:12,
+    evot:12,
+    f100:14,
+    f104:12,
+    f117:12,
+    f14:6,
+    f15:12,
+    f16:12,
+    f18:12,
+    f22:12,
+    f27:14,
+    f28:13,
+    f2th:12,
+    f35:12,
+    f70:14,
+    f900:12,
+    fa10:12,
+    fa20:12,
+    fa50:12,
+    fa6x:13,
+    fa7x:13,
+    fa8x:13,
+    fdct:12,
+    fox:12,
+    g109:24,
+    g2ca:12,
+    g91:12,
+    gl5t:14,
+    gl7t:16,
+    glex:14,
+    glf5:14,
+    glf6:15,
+    glid:12,
+    h160:12,
+    h47:12,
+    h60:12,
+    h64:12,
+    hawk:12,
+    hdjt:12,
+    hunt:12,
+    husk:12,
+    il18:19,
+    il20:19,
+    il22:12,
+    il76:25,
+    il96:30,
+    j328:12,
+    js41:12,
+    k35e:20,
+    kodi:12,
+    l101:24,
+    l39:12,
+    l410:12,
+    lanc:16,
+    lj35:12,
+    m20p:6,
+    md11:26,
+    md80:16,
+    me08:12,
+    me09:12,
+    me62:12,
+    mir2:12,
+    p180:12,
+    p212:12,
+    p28x:12,
+    p46t:12,
+    p51:6,
+    pa18:12,
+    pa24:12,
+    pa34:12,
+    pa38:12,
+    pa39:6,
+    pa44:12,
+    pc12:12,
+    pc21:12,
+    pc24:12,
+    pc6t:12,
+    pite:24,
+    pts1:12,
+    r22:6,
+    r44:9,
+    r66:12,
+    rfal:12,
+    rv10:12,
+    s12s:24,
+    s76:12,
+    s92:12,
+    savg:12,
+    sb20:12,
+    sb39:12,
+    sf34:12,
+    sf50:12,
+    sh36:12,
+    ship:20,
+    shrk:12,
+    sira:12,
+    spit:6,
+    sr22:12,
+    sr71:12,
+    star:12,
+    su27:12,
+    su95:14,
+    sw3:12,
+    t134:14,
+    t144:14,
+    t154:19,
+    tbm7:12,
+    tbm8:12,
+    tbm9:12,
+    tex2:12,
+    tl20:12,
+    tor:12,
+    tris:12,
+    twen:12,
+    u2:16,
+    uh1:12,
+    v10:12,
+    v22:13,
+    vamp:6,
+    vc10:23,
+    vipj:12,
+    visc:14,
+    vulc:15,
+    yk40:13,
+  };
+
+  // Map FAA aircraft type code to icon name and size
+  function getAircraftIconName(faaCode) {
+    if (!faaCode) return { icon: 'a320', width: AIRCRAFT_ICONS.a320 || 18 };
+    const faa = faaCode.toUpperCase().split('/')[0];
+    if (faa.startsWith('P28')) return { icon: 'p28x', width: AIRCRAFT_ICONS.p28x || 12 };
+    let iconName;
+    switch (faa) {
+      case 'IL38':
+        iconName = 'il18'; break;
+      case 'PTS2':
+        iconName = 'pts1'; break;
+      case 'FD2E':
+      case 'FDF2':
+      case 'FDMC':
+        iconName = 'fdct'; break;
+      case 'UH1Y':
+        iconName = 'uh1'; break;
+      case 'E6':
+        iconName = 'b703'; break;
+      case 'AS32':
+        iconName = 'as32'; break;
+      case 'B06T':
+        iconName = 'b06'; break;
+      case 'B427':
+      case 'B429':
+      case 'B430':
+        iconName = 'b407'; break;
+      case 'EN28':
+        iconName = 'g2ca'; break;
+      case 'ES11':
+      case 'EXEC':
+      case 'EXEJ':
+        iconName = 'r22'; break;
+      case 'FH11':
+        iconName = 'r66'; break;
+      case 'PSW4':
+        iconName = 'as50'; break;
+      case 'F18H':
+      case 'F18S':
+        iconName = 'f18'; break;
+      case 'C30J':
+        iconName = 'c130'; break;
+      case 'VF35':
+        iconName = 'f35'; break;
+      case 'C207':
+        iconName = 'c206'; break;
+      case 'FH27':
+        iconName = 'f27'; break;
+      case 'M20T':
+      case 'M20':
+        iconName = 'm20p'; break;
+      case 'CC19':
+        iconName = 'pa18'; break;
+      case 'SU30':
+      case 'SU32':
+      case 'SU33':
+      case 'SU34':
+      case 'SU35':
+      case 'SU37':
+        iconName = 'su27'; break;
+      case 'P208':
+        iconName = 'twen'; break;
+      case 'A33E':
+      case 'DISC':
+      case 'JS3J':
+      case 'JS3E':
+      case 'LS4':
+      case 'LS8':
+      case 'DG80':
+      case 'DG1T':
+        iconName = 'glid'; break;
+      case 'BT36':
+      case 'B36T':
+        iconName = 'be36'; break;
+      case 'K35R':
+        iconName = 'k35e'; break;
+      case 'E3TF':
+        iconName = 'e3cf'; break;
+      case 'C210':
+        iconName = 'c206'; break;
+      case 'B3XM':
+        iconName = 'b39m'; break;
+      case 'P8':
+        iconName = 'b738'; break;
+      case 'BE9T':
+        iconName = 'be9l'; break;
+      case 'S22T':
+        iconName = 'sr22'; break;
+      case 'C401':
+        iconName = 'c402'; break;
+      case 'EVOP':
+        iconName = 'evot'; break;
+      case 'TRI':
+        iconName = 'tris'; break;
+      case 'E750':
+      case 'E755':
+      case 'E75L':
+        iconName = 'e75s'; break;
+      case 'PITA':
+        iconName = 'pite'; break;
+      case 'A306':
+      case 'A30B':
+      case 'A30F':
+        iconName = 'a300'; break;
+      case 'A21N':
+        iconName = 'a321'; break;
+      case 'MD1F':
+        iconName = 'md11'; break;
+      case 'MD82':
+      case 'MD83':
+      case 'MD88':
+        iconName = 'md80'; break;
+      case 'B77F':
+        iconName = 'b77l'; break;
+      case 'B74F':
+        iconName = 'b74s'; break;
+      case 'B48F':
+        iconName = 'b748'; break;
+      case 'B742':
+      case 'B743':
+        iconName = 'b741'; break;
+      case 'BRAV':
+      case 'ECHO':
+      case 'GLST':
+        iconName = 'tbm7'; break;
+      case 'AW139':
+      case 'VH139':
+      case 'MH139':
+      case 'UH139':
+      case 'HH139':
+        iconName = 'a139'; break;
+      case 'AW149':
+        iconName = 'a149'; break;
+      case 'H169':
+      case 'AW169':
+        iconName = 'a169'; break;
+      case 'H189':
+      case 'AW189':
+        iconName = 'a189'; break;
+      case 'H225':
+      case 'EC225':
+        iconName = 'as32'; break;
+      case 'H135':
+      case 'H145':
+      case 'EC20':
+      case 'EC25':
+      case 'EC30':
+      case 'EC35':
+      case 'EC55':
+        iconName = 'ec45'; break;
+      case 'DA20':
+        iconName = 'dv20'; break;
+      case 'AW101':
+        iconName = 'eh10'; break;
+      case 'C700':
+        iconName = 'c750'; break;
+      case 'A109':
+      case 'A119':
+      case 'A129':
+      case 'A2RT':
+      case 'ALH':
+      case 'ALO2':
+      case 'ALO3':
+      case 'AS3B':
+      case 'AS55':
+      case 'AS65':
+      case 'B212':
+      case 'B214':
+      case 'B222':
+      case 'B230':
+      case 'B412':
+      case 'B47G':
+      case 'B47J':
+      case 'BK17':
+      case 'BRB2':
+      case 'BSTP':
+      case 'CH7':
+      case 'CHIF':
+      case 'DJIN':
+      case 'DYH2':
+      case 'ELTO':
+      case 'EXPL':
+      case 'FREL':
+      case 'GAZL':
+      case 'H12T':
+      case 'H269':
+      case 'H500':
+      case 'H53':
+      case 'H53S':
+      case 'HUCO':
+      case 'K126':
+      case 'K226':
+      case 'KA25':
+      case 'KA26':
+      case 'KA50':
+      case 'KA52':
+      case 'KA62':
+      case 'KMAX':
+      case 'LAMA':
+      case 'LR2T':
+      case 'LYNX':
+      case 'M74':
+      case 'MD52':
+      case 'MD60':
+      case 'MH20':
+      case 'MI10':
+      case 'MI2':
+      case 'MI24':
+      case 'MI26':
+      case 'MI28':
+      case 'MI34':
+      case 'MI38':
+      case 'MI8':
+      case 'NA40':
+      case 'NH90':
+      case 'PHIL':
+      case 'PUMA':
+      case 'R4':
+      case 'RMOU':
+      case 'RP1':
+      case 'RVAL':
+      case 'S274':
+      case 'S278':
+      case 'S330':
+      case 'S51':
+      case 'S52':
+      case 'S55P':
+      case 'S58P':
+      case 'S61':
+      case 'S61R':
+      case 'S62':
+      case 'S64':
+      case 'TIGR':
+      case 'UH12':
+      case 'ULTS':
+      case 'V500':
+      case 'W3':
+      case 'WASP':
+      case 'WG30':
+      case 'X2':
+      case 'X49':
+      case 'YNHL':
+      case 'ZA6':
+      case 'HELO':
+      case 'HELI':
+        iconName = 'b407'; break;
+      case 'B461':
+      case 'RJ70':
+      case 'RJ85':
+      case 'RJ1H':
+        iconName = 'b461'; break;
+      case 'C150':
+      case 'C162':
+        iconName = 'c152'; break;
+      case 'C175':
+      case 'C170':
+      case 'C182':
+      case 'C185':
+      case 'C180':
+        iconName = 'c172'; break;
+      case 'DH8A':
+      case 'DH8B':
+        iconName = 'dh8a'; break;
+      case 'B58T':
+        iconName = 'be58'; break;
+      case 'K100':
+        iconName = 'kodi'; break;
+      case 'SR22T':
+      case 'SR20':
+        iconName = 'sr22'; break;
+      case 'B60T':
+        iconName = 'be60'; break;
+      case 'GL6T':
+        iconName = 'gl5t'; break;
+      case 'AT42':
+      case 'AT43':
+      case 'AT45':
+      case 'AT46':
+        iconName = 'at4x'; break;
+      case 'AT72':
+      case 'AT73':
+      case 'AT75':
+      case 'AT76':
+        iconName = 'at7x'; break;
+      case 'A10':
+      case 'A124':
+      case 'A139':
+      case 'A149':
+      case 'A169':
+      case 'A189':
+      case 'A20N':
+      case 'A225':
+      case 'A310':
+      case 'A318':
+      case 'A319':
+      case 'A321':
+      case 'A332':
+      case 'A333':
+      case 'A338':
+      case 'A339':
+      case 'A342':
+      case 'A343':
+      case 'A345':
+      case 'A346':
+      case 'A359':
+      case 'A35K':
+      case 'A388':
+      case 'A3ST':
+      case 'A400':
+      case 'A748':
+      case 'AN2':
+      case 'AN24':
+      case 'AS50':
+      case 'ATP':
+      case 'B06':
+      case 'B1':
+      case 'B105':
+      case 'B190':
+      case 'B2':
+      case 'B350':
+      case 'B37M':
+      case 'B38M':
+      case 'B39M':
+      case 'B407':
+      case 'B462':
+      case 'B463':
+      case 'B703':
+      case 'B712':
+      case 'B720':
+      case 'B721':
+      case 'B722':
+      case 'B731':
+      case 'B732':
+      case 'B733':
+      case 'B734':
+      case 'B735':
+      case 'B736':
+      case 'B737':
+      case 'B738':
+      case 'B739':
+      case 'B741':
+      case 'B744':
+      case 'B748':
+      case 'B74S':
+      case 'B752':
+      case 'B753':
+      case 'B762':
+      case 'B763':
+      case 'B764':
+      case 'B772':
+      case 'B773':
+      case 'B77L':
+      case 'B77W':
+      case 'B788':
+      case 'B789':
+      case 'B78X':
+      case 'BA11':
+      case 'BALL':
+      case 'BCS1':
+      case 'BCS3':
+      case 'BE20':
+      case 'BE35':
+      case 'BE36':
+      case 'BE58':
+      case 'BE60':
+      case 'BE9L':
+      case 'BLCF':
+      case 'BN2P':
+      case 'BR23':
+      case 'BT7':
+      case 'C130':
+      case 'C152':
+      case 'C160':
+      case 'C17':
+      case 'C172':
+      case 'C2':
+      case 'C206':
+      case 'C208':
+      case 'C25B':
+      case 'C25C':
+      case 'C310':
+      case 'C402':
+      case 'C414':
+      case 'C510':
+      case 'C525':
+      case 'C5M':
+      case 'C68A':
+      case 'C750':
+      case 'C919':
+      case 'CL2T':
+      case 'CL30':
+      case 'CL60':
+      case 'CONC':
+      case 'CP10':
+      case 'CRJ2':
+      case 'CRJ7':
+      case 'CRJ9':
+      case 'CRJX':
+      case 'DA40':
+      case 'DA42':
+      case 'DA62':
+      case 'DC10':
+      case 'DC3':
+      case 'DC6':
+      case 'DC86':
+      case 'DH88':
+      case 'DH8C':
+      case 'DH8D':
+      case 'DHC2':
+      case 'DHC6':
+      case 'DHC7':
+      case 'DIMO':
+      case 'DR40':
+      case 'DV20':
+      case 'E135':
+      case 'E145':
+      case 'E170':
+      case 'E175':
+      case 'E190':
+      case 'E195':
+      case 'E2':
+      case 'E290':
+      case 'E295':
+      case 'E3CF':
+      case 'E50P':
+      case 'E55P':
+      case 'E75S':
+      case 'EC45':
+      case 'EH10':
+      case 'EPIC':
+      case 'EUFI':
+      case 'EVOT':
+      case 'F100':
+      case 'F104':
+      case 'F117':
+      case 'F14':
+      case 'F15':
+      case 'F16':
+      case 'F18':
+      case 'F22':
+      case 'F27':
+      case 'F28':
+      case 'F2TH':
+      case 'F35':
+      case 'F70':
+      case 'F900':
+      case 'FA10':
+      case 'FA20':
+      case 'FA50':
+      case 'FA6X':
+      case 'FA7X':
+      case 'FA8X':
+      case 'G109':
+      case 'G2CA':
+      case 'G91':
+      case 'GL5T':
+      case 'GL7T':
+      case 'GLEX':
+      case 'GLF5':
+      case 'GLF6':
+      case 'GLID':
+      case 'H160':
+      case 'H47':
+      case 'H60':
+      case 'H64':
+      case 'HAWK':
+      case 'HDJT':
+      case 'HUNT':
+      case 'HUSK':
+      case 'IL76':
+      case 'IL96':
+      case 'J328':
+      case 'JS41':
+      case 'K35E':
+      case 'KODI':
+      case 'L101':
+      case 'L39':
+      case 'L410':
+      case 'LANC':
+      case 'LJ35':
+      case 'M20P':
+      case 'MD11':
+      case 'ME08':
+      case 'ME09':
+      case 'ME62':
+      case 'MIR2':
+      case 'P180':
+      case 'P212':
+      case 'P46T':
+      case 'P51':
+      case 'PA18':
+      case 'PA24':
+      case 'PA34':
+      case 'PA38':
+      case 'PA44':
+      case 'PC12':
+      case 'PC21':
+      case 'PC24':
+      case 'PC6T':
+      case 'PITE':
+      case 'R22':
+      case 'R44':
+      case 'R66':
+      case 'RFAL':
+      case 'RV10':
+      case 'S12S':
+      case 'S92':
+      case 'SAVG':
+      case 'SB20':
+      case 'SB39':
+      case 'SF34':
+      case 'SF50':
+      case 'SH36':
+      case 'SHIP':
+      case 'SIRA':
+      case 'SPIT':
+      case 'SR22':
+      case 'SR71':
+      case 'STAR':
+      case 'SU27':
+      case 'SU95':
+      case 'T134':
+      case 'T144':
+      case 'T154':
+      case 'TBM7':
+      case 'TBM8':
+      case 'TBM9':
+      case 'TEX2':
+      case 'TL20':
+      case 'TOR':
+      case 'TRIS':
+      case 'TWEN':
+      case 'U2':
+      case 'V10':
+      case 'V22':
+      case 'VAMP':
+      case 'VC10':
+      case 'VIPJ':
+      case 'VISC':
+      case 'VULC':
+      case 'YK40':
+      case 'CS50':
+      case 'PA39':
+      case 'FOX':
+      case 'UH1':
+      case 'AEST':
+      case 'E300':
+      case 'FDCT':
+      case 'IL18':
+      case 'IL20':
+      case 'IL22':
+      case 'PTS1':
+      case 'S76':
+      case 'SHRK':
+      case 'SW3':
+        iconName = faa.toLowerCase(); break;
+      default:
+        iconName = 'a320'; break;
+    }
+    return { icon: iconName, width: AIRCRAFT_ICONS[iconName] || AIRCRAFT_ICONS.a320 || 18 };
+  }
+
+
   // Create update time display (styled via CSS #update-time)
   const updateDiv = document.createElement('div');
   updateDiv.id = 'update-time';
@@ -675,54 +1525,58 @@
     return false;
   }
 
-  // plane PNG caching + recolor-on-canvas
-  let planePngImage = null;
-  const planePngCache = {}; // color -> L.icon
+  // SVG aircraft icon system - replaces PNG-based plane_icon.png
+  // Loads type-specific SVGs from /static/aircraft/ and recolors by status
+  const svgRawCache = {}; // iconName -> Promise<string>
+  const svgIconCache = {}; // iconName_color -> data URL
 
-  function loadPlanePng(){
-    if(planePngImage) return Promise.resolve(planePngImage);
-    return new Promise((resolve, reject)=>{
-      const img = new Image();
-      img.crossOrigin = 'Anonymous';
-      img.onload = ()=>{ planePngImage = img; resolve(img); };
-      img.onerror = (e)=>{ reject(e); };
-      img.src = '/static/plane_icon.png?v=1';
-    });
+  function loadSvgText(iconName) {
+    if (svgRawCache[iconName]) return svgRawCache[iconName];
+    svgRawCache[iconName] = fetch('/static/aircraft/' + iconName + '.svg', { cache: 'force-cache' })
+      .then(r => { if (!r.ok) throw new Error('SVG ' + iconName + ' not found'); return r.text(); })
+      .catch(() => {
+        delete svgRawCache[iconName];
+        if (iconName !== 'a320') return loadSvgText('a320');
+        return '';
+      });
+    return svgRawCache[iconName];
   }
 
-  function tintImageToDataUrl(img, color, size){
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    // draw source image scaled to requested size
-    ctx.drawImage(img, 0, 0, size, size);
-    // tint: keep alpha, replace color by using source-in composite
-    ctx.globalCompositeOperation = 'source-in';
-    ctx.fillStyle = color;
-    ctx.fillRect(0,0,size,size);
-    return canvas.toDataURL('image/png');
+  function recolorSvg(svgText, bodyColor) {
+    return svgText
+      .replace(/fill="white"/g, 'fill="' + bodyColor + '"')
+      .replace(/fill="#fff"/gi, 'fill="' + bodyColor + '"')
+      .replace(/fill="#ffffff"/gi, 'fill="' + bodyColor + '"');
   }
 
-  async function createPlaneIcon(color, heading){
-    const size = ICON_SIZE;
-    try{
-      // ensure source image loaded and a recolored dataUrl exists for this color
-      if(!planePngCache[color]){
-        const img = await loadPlanePng();
-        const dataUrl = tintImageToDataUrl(img, color, size);
-        planePngCache[color] = dataUrl;
+  async function createPlaneIcon(color, heading, faaCode) {
+    const iconInfo = getAircraftIconName(faaCode);
+    const iconName = iconInfo.icon;
+    const size = iconInfo.width || ICON_SIZE;
+    const cacheKey = iconName + '_' + color;
+    try {
+      if (!svgIconCache[cacheKey]) {
+        const rawSvg = await loadSvgText(iconName);
+        if (!rawSvg) throw new Error('No SVG');
+        const coloredSvg = recolorSvg(rawSvg, color);
+        svgIconCache[cacheKey] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(coloredSvg);
       }
-      const dataUrl = planePngCache[color];
-      // compute rotation (0 = north/up); add offset if needed
+      const dataUrl = svgIconCache[cacheKey];
       const rot = ((Number(heading) || 0) + PLANE_ROTATION_OFFSET) % 360;
-      const html = `<div style="width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;transform-origin:center;"><img src="${dataUrl}" style="width:${size}px;height:${size}px;transform:rotate(${rot}deg);display:block;"/></div>`;
-      return L.divIcon({ className: 'plane-divicon', html: html, iconSize: [size,size], iconAnchor: [Math.round(size/2),Math.round(size/2)], popupAnchor: [0,-Math.round(size/2)] });
-    }catch(e){
-      // fallback to static PNG icon (no rotation)
-      return L.icon({ iconUrl: '/static/plane_icon.png?v=1', iconSize:[size,size], iconAnchor:[Math.round(size/2),Math.round(size/2)], popupAnchor:[0,-Math.round(size/2)] });
+      const html = '<div style="width:' + size + 'px;height:' + size + 'px;display:flex;align-items:center;justify-content:center;transform-origin:center;">' +
+        '<img src="' + dataUrl + '" style="width:' + size + 'px;height:' + size + 'px;transform:rotate(' + rot + 'deg);display:block;"/>' +
+        '</div>';
+      return L.divIcon({ className: 'plane-divicon', html: html, iconSize: [size, size], iconAnchor: [Math.round(size / 2), Math.round(size / 2)], popupAnchor: [0, -Math.round(size / 2)] });
+    } catch (e) {
+      return L.icon({ iconUrl: '/static/plane_icon.png?v=1', iconSize: [ICON_SIZE, ICON_SIZE], iconAnchor: [Math.round(ICON_SIZE / 2), Math.round(ICON_SIZE / 2)], popupAnchor: [0, -Math.round(ICON_SIZE / 2)] });
     }
   }
+
+  // Preload common aircraft SVGs for fast first render
+  const PRELOAD_ICONS = ['a320','b738','b737','b739','a321','a319','a20n','b77w','b788','b789',
+    'a332','a333','c172','c208','sr22','b350','crj7','crj9','e75s','e170','dh8d','b38m','a359','b744','b748'];
+  Promise.all(PRELOAD_ICONS.map(n => loadSvgText(n))).catch(() => {});
+
 
   async function fetchAllAircraft(rangeNm){
     // If range is specified, pass it to backend for server-side filtering
@@ -848,7 +1702,8 @@
                 if(marker){
                   if(typeof marker.setIcon === 'function'){
                     try{
-                      const icon = await createPlaneIcon(targetColor, heading);
+                      const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+                      const icon = await createPlaneIcon(targetColor, heading, acType);
                       marker.setIcon(icon);
                     }catch(e){ try{ marker.setStyle && marker.setStyle({ color: targetColor, fillColor: targetColor }); }catch(e){} }
                   } else {
@@ -1750,11 +2605,13 @@
             if(rec){
               // Existing marker: move + recolor/heading if changed
               if(rec.marker && lat!=null && lon!=null){ rec.marker.setLatLng([lat,lon]); }
+              const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
               const headingChanged = Math.abs((rec.heading||0) - heading) >= 5;
               const statusChanged = rec.statusClass !== statusClass;
-              if(headingChanged || statusChanged){
+              const typeChanged = rec.acType !== acType;
+              if(headingChanged || statusChanged || typeChanged){
                 try{
-                  const icon = await createPlaneIcon(color, heading).catch(()=>null);
+                  const icon = await createPlaneIcon(color, heading, acType).catch(()=>null);
                   if(icon && rec.marker.setIcon) rec.marker.setIcon(icon);
                 }catch(e){}
               }
@@ -1767,7 +2624,7 @@
                 }catch(e){}
                 rec.statusClass = statusClass;
               }
-              rec.heading = heading;
+              rec.heading = heading; rec.acType = acType;
               // Update tooltip with current data
               try{
                 const gsVal = Math.round(Number(ac.groundspeed||ac.gs||0));
@@ -1783,15 +2640,16 @@
               }catch(e){}
             }else{
               // New marker
+              const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
               let icon = null;
-              try{ icon = await createPlaneIcon(color, heading).catch(()=>null); }catch(e){ icon = null; }
+              try{ icon = await createPlaneIcon(color, heading, acType).catch(()=>null); }catch(e){ icon = null; }
               let marker = null;
               if(icon){ marker = L.marker([lat,lon], {icon}); } else { marker = L.circleMarker([lat,lon], {radius:6,color,fillColor:color,fillOpacity:0.8,weight:2}); }
               marker._flightPathCid = cid;
               const grp = ctx.groups[statusClass] || ctx.groups.vicinity;
               grp.addLayer(marker);
               marker.on('click', ()=> toggleFlightPath(cid, ctx.ctx));
-              store[cid] = { marker, heading, statusClass };
+              store[cid] = { marker, heading, statusClass, acType };
               // Tooltip with aircraft details
               try{
                 const gsVal = Math.round(Number(ac.groundspeed||ac.gs||0));
@@ -1836,7 +2694,8 @@
         let statusClass = isGround ? 'ground' : area;
         if(currentP56Cids.has(String(ac.cid || ''))){ statusClass = 'p56'; statusText = 'P-56'; }
         const color = statusClass==='frz'? '#f0ad4e' : statusClass==='p56'? '#d9534f' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
-        const icon = await createPlaneIcon(color, heading).catch(()=>null);
+        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
+        const icon = await createPlaneIcon(color, heading, acType).catch(()=>null);
         return { ac, lat, lon, heading, area, isGround, statusText, statusClass, color, icon };
       }catch(err){ return null; }
     });
