@@ -482,22 +482,6 @@
 
         } else {
         }
-
-        // Also draw P56 intrusion track (yellow) if this aircraft has intrusion data
-        const p56Events = tableDataCache?.p56json?.history?.events || [];
-        const p56Evt = p56Events.filter(e => String(e.cid) === cidKey).pop();
-        if (p56Evt) {
-          const positions = (p56Evt.pre_positions || []).concat(p56Evt.intrusion_positions || []).concat(p56Evt.post_positions || []);
-          if (positions.length > 1) {
-            const latlngs = positions.map(p => [p.lat, p.lon]);
-            [p56PathLayer, sfraPathLayer].forEach(pathLayer => {
-              const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-              polyline._flightPathCid = cidKey;
-              pathLayer.addLayer(polyline);
-            });
-            addIntrusionLabels(p56PathLayer, positions);
-          }
-        }
       } catch (error) {
         console.error(`Failed to fetch history for ${cidKey}:`, error);
       }
