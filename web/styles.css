@@ -213,6 +213,25 @@ footer{padding:12px 20px;background:#071016;color:#e6eef8;text-align:center}
 /* Make squawk column wrappable */
 #sfra-table td:nth-child(9), #frz-table td:nth-child(9), #vso-table td:nth-child(10), #p56-table td:nth-child(9) { white-space: normal; word-break: break-word; }
 
+/* SFRA & FRZ column widths: compact numeric cols, more space for A/C and Pilot */
+/* Columns: 1=Callsign 2=A/C 3=Pilot 4=CID 5=Brg 6=Range 7=Alt 8=GS 9=Sqk 10=Dep 11=Arr 12=Status */
+#sfra-table th:nth-child(2), #sfra-table td:nth-child(2),
+#frz-table th:nth-child(2), #frz-table td:nth-child(2){ width:10% }  /* A/C - wider */
+#sfra-table th:nth-child(3), #sfra-table td:nth-child(3),
+#frz-table th:nth-child(3), #frz-table td:nth-child(3){ width:12% }  /* Pilot - wider */
+#sfra-table th:nth-child(5), #sfra-table td:nth-child(5),
+#frz-table th:nth-child(5), #frz-table td:nth-child(5){ width:4% }   /* Brg - compact */
+#sfra-table th:nth-child(6), #sfra-table td:nth-child(6),
+#frz-table th:nth-child(6), #frz-table td:nth-child(6){ width:5.5% } /* Range - compact */
+#sfra-table th:nth-child(7), #sfra-table td:nth-child(7),
+#frz-table th:nth-child(7), #frz-table td:nth-child(7){ width:4% }   /* Alt - compact */
+#sfra-table th:nth-child(8), #sfra-table td:nth-child(8),
+#frz-table th:nth-child(8), #frz-table td:nth-child(8){ width:4% }   /* GS - compact */
+#sfra-table th:nth-child(10), #sfra-table td:nth-child(10),
+#frz-table th:nth-child(10), #frz-table td:nth-child(10){ width:5% }  /* Dep - compact */
+#sfra-table th:nth-child(11), #sfra-table td:nth-child(11),
+#frz-table th:nth-child(11), #frz-table td:nth-child(11){ width:5% }  /* Arr - compact */
+
 /* Highlight when a flight path is visible for an aircraft (subtle) */
 .row-path-highlight{background:rgba(240,173,78,0.03);box-shadow:inset 0 0 0 2px rgba(240,173,78,0.06);border-left:4px solid rgba(240,173,78,0.08)}
 

@@ -958,9 +958,11 @@
           });
         }
       }catch(e){/* ignore */}
+      const rerenderAcList = tableDataCache?.latest_ac || [];
       evtsLocal.forEach(evt => {
         const tr = document.createElement('tr');
-        tr.className = 'expandable' + (hasVsoRemarks(evt) ? ' vso-row' : '');
+        const evtIsVso = hasVsoRemarks(evt) || (() => { const ac = rerenderAcList.find(a => String(a.cid) === String(evt.cid)); return ac ? hasVsoRemarks(ac) : false; })();
+        tr.className = 'expandable' + (evtIsVso ? ' vso-row' : '');
         const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
         const dep = (evt.flight_plan && (evt.flight_plan.departure || evt.flight_plan.depart)) || '';
         const arr = (evt.flight_plan && (evt.flight_plan.arrival || evt.flight_plan.arr)) || '';
@@ -1558,7 +1560,8 @@
     }catch(e){/* ignore */}
     events.forEach(evt => {
       const tr = document.createElement('tr');
-      tr.className = 'expandable' + (hasVsoRemarks(evt) ? ' vso-row' : '');
+      const evtIsVso = hasVsoRemarks(evt) || (() => { const ac = latest_ac.find(a => String(a.cid) === String(evt.cid)); return ac ? hasVsoRemarks(ac) : false; })();
+      tr.className = 'expandable' + (evtIsVso ? ' vso-row' : '');
       // include date + time in Zulu
       const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
       const dep = (evt.flight_plan && (evt.flight_plan.departure || evt.flight_plan.depart)) || '';
@@ -1634,9 +1637,10 @@
       events.forEach(evt => {
         const cid = String(evt.cid || (evt.flight_plan && evt.flight_plan.cid) || '');
         if(!cid) return;
-        if(!lbMap[cid]) lbMap[cid] = { cid, callsigns: new Set(), names: new Set(), count: 0, first: evt.recorded_at || null, last: evt.recorded_at || null };
+        if(!lbMap[cid]) lbMap[cid] = { cid, callsigns: new Set(), names: new Set(), count: 0, first: evt.recorded_at || null, last: evt.recorded_at || null, hasVso: false };
         if(evt.callsign) lbMap[cid].callsigns.add(evt.callsign);
         if(evt.name) lbMap[cid].names.add(evt.name);
+        if(!lbMap[cid].hasVso && hasVsoRemarks(evt)) lbMap[cid].hasVso = true;
         lbMap[cid].count += 1;
         const t = evt.recorded_at || null;
         if(t){ if(!lbMap[cid].first || t < lbMap[cid].first) lbMap[cid].first = t; if(!lbMap[cid].last || t > lbMap[cid].last) lbMap[cid].last = t; }
@@ -1687,6 +1691,9 @@
           const first = r.first ? formatZuluEpoch(r.first, true) : '-';
           const last = r.last ? formatZuluEpoch(r.last, true) : '-';
           const tr = document.createElement('tr');
+          // Check VSO: any event had VSO remarks, or current aircraft has VSO remarks
+          const lbIsVso = r.hasVso || hasVsoRemarks(ac);
+          if(lbIsVso) tr.className = 'vso-row';
           // Show rank only if not a tied entry (first person in tie shows rank, rest show blank)
           const rankDisplay = r._isTied ? '' : r._rank;
           tr.innerHTML = `<td>${rankDisplay}</td><td>${r.cid}</td><td>${pilotName}</td><td class="lb-callsigns">${callsignHtml}</td><td>${r.count}</td><td>${first}</td><td>${last}</td>`;
