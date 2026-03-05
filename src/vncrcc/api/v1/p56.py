@@ -209,8 +209,8 @@ def _compute_p56_breaches(name: str) -> Dict[str, Any]:
             # don't let storage failures stop detection; continue
             pass
 
-        # Build pre_positions from cached aircraft history up to the first
-        # position found outside the P56 zones (walk backwards from newest).
+        # Build pre_positions from cached aircraft history: positions before
+        # the intrusion timestamp to show the approach path leading up to entry.
         pre_positions = []
         try:
             ac_hist = get_ac_history().get("history", {})
@@ -221,31 +221,17 @@ def _compute_p56_breaches(name: str) -> Dict[str, Any]:
             elif ident:
                 hist_key = str(ident)
             positions = ac_hist.get(hist_key, []) if hist_key else []
-            # Ensure positions are sorted oldest->newest by ts
-            positions = sorted([p for p in positions if p.get("ts")], key=lambda x: x["ts"]) if positions else []
-            # Walk backwards from newest until we encounter a point outside all zones
-            for p in reversed(positions):
-                try:
-                    pt = Point(p.get("lon") or p.get("x") or 0, p.get("lat") or p.get("y") or 0)
-                    inside_any = False
-                    for shp, props in features:
-                        try:
-                            if getattr(shp, "contains", lambda x: False)(pt) or getattr(shp, "intersects", lambda x: False)(pt):
-                                inside_any = True
-                                break
-                        except Exception:
-                            continue
-                    if not inside_any:
-                        # stop at the first position outside
-                        break
-                    pre_positions.append({"lon": float(p.get("lon") or p.get("x")), "lat": float(p.get("lat") or p.get("y")), "ts": p.get("ts")})
-                    # cap to last 10 to limit payload
-                    if len(pre_positions) >= 10:
-                        break
-                except Exception:
-                    continue
-            # pre_positions currently collected newest->oldest, reverse to oldest->newest
-            pre_positions = list(reversed(pre_positions))
+            # Get positions before the intrusion timestamp
+            before = [p for p in positions if p.get("ts") and p["ts"] < latest_ts]
+            before.sort(key=lambda x: x["ts"], reverse=True)  # newest first
+            before = before[:7]  # Keep last 7 for context
+            before.reverse()  # oldest first for display
+            pre_positions = [
+                {"lon": float(p.get("lon") or p.get("x") or 0),
+                 "lat": float(p.get("lat") or p.get("y") or 0),
+                 "ts": p.get("ts")}
+                for p in before
+            ]
         except Exception:
             pre_positions = []
 
