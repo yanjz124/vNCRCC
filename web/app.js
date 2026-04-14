@@ -2592,6 +2592,30 @@
         });
       });
 
+      // Reconciliation sweep: scrub orphan markers from every category group whose
+      // layer is not the canonical marker recorded in window.markersByCid for its
+      // CID. This cleans up duplicates created by pre-fix concurrent refreshes
+      // (which would otherwise linger until the aircraft disconnects) and is a
+      // cheap defense against any future divergence between layer groups and the
+      // canonical store.
+      ['p56','sfra'].forEach(ctx => {
+        const store = window.markersByCid[ctx];
+        const mapGroups = ctx === 'p56' ? p56MarkerGroups : sfraMarkerGroups;
+        categories.forEach(cat => {
+          const grp = mapGroups[cat];
+          if(!grp) return;
+          const toRemove = [];
+          grp.eachLayer(layer => {
+            const lcid = layer._flightPathCid;
+            if(!lcid) return; // leave unkeyed layers alone
+            const rec = store[lcid];
+            // Orphan if: no record OR record's canonical marker is a different ref.
+            if(!rec || rec.marker !== layer){ toRemove.push(layer); }
+          });
+          toRemove.forEach(l => { try{ grp.removeLayer(l); }catch(e){} });
+        });
+      });
+
       // Pre-compute per-aircraft derived state and pre-build icons in parallel.
       // This removes the `await createPlaneIcon` inside the per-aircraft loop,
       // which previously yielded the event loop mid-update and allowed concurrent
