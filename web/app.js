@@ -218,12 +218,41 @@
   let currentAircraftCids = new Set();
   // Cache full history data from consolidated dashboard for instant display
   let cachedHistoryData = null;
-  // Cache last known position history for incremental updates
-  const lastKnownHistory = {};
 
-  // Create path layers for flight path visualization
+  // Create path layers for flight path visualization.
+  // Separate the live "flight path" polylines (triggered by clicking an aircraft/row)
+  // from the historical "intrusion" polylines (triggered by clicking a P56 event row)
+  // so one doesn't clobber the other.
   const p56PathLayer = L.layerGroup().addTo(p56Map);
   const sfraPathLayer = L.layerGroup().addTo(sfraMap);
+  const p56IntrusionLayer = L.layerGroup().addTo(p56Map);
+  const sfraIntrusionLayer = L.layerGroup().addTo(sfraMap);
+  // Per-event intrusion sub-layer-groups, keyed by evtKey, so toggling one event
+  // doesn't wipe others (previous behavior called clearLayers on the whole layer).
+  const intrusionOverlaysByKey = new Map();
+
+  function drawIntrusionForEvent(evtKey, positions){
+    removeIntrusionForEvent(evtKey);
+    if(!positions || positions.length < 2) return;
+    const latlngs = positions.map(p => [p.lat, p.lon]);
+    const p56Group = L.layerGroup();
+    const sfraGroup = L.layerGroup();
+    p56Group.addLayer(L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 }));
+    sfraGroup.addLayer(L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 }));
+    addIntrusionLabels(p56Group, positions);
+    addIntrusionLabels(sfraGroup, positions);
+    p56IntrusionLayer.addLayer(p56Group);
+    sfraIntrusionLayer.addLayer(sfraGroup);
+    intrusionOverlaysByKey.set(evtKey, { p56Group, sfraGroup });
+  }
+
+  function removeIntrusionForEvent(evtKey){
+    const rec = intrusionOverlaysByKey.get(evtKey);
+    if(!rec) return;
+    try{ p56IntrusionLayer.removeLayer(rec.p56Group); }catch(e){}
+    try{ sfraIntrusionLayer.removeLayer(rec.sfraGroup); }catch(e){}
+    intrusionOverlaysByKey.delete(evtKey);
+  }
 
   // Helper: add small sampled labels for intrusion track points to a layer
   function addIntrusionLabels(layer, positions) {
@@ -329,7 +358,6 @@
           });
         });
         visiblePaths.delete(cidKey);
-        delete lastKnownHistory[cidKey];
         // Remove visual highlights
         highlightRowAndMarker(cidKey, false);
       });
@@ -370,9 +398,6 @@
             pathLayer.addLayer(polyline);
           }
         });
-        
-        // Update cache
-        lastKnownHistory[cidKey] = history;
       }
     } catch (error) {
       console.error('Failed to update visible paths:', error);
@@ -431,8 +456,6 @@
         });
       });
       visiblePaths.delete(cidKey);
-      // Clean up history cache
-      delete lastKnownHistory[cidKey];
       // remove visual highlights
       setRowHighlight(cidKey, false);
       setMarkerHalo(cidKey, false);
@@ -473,8 +496,6 @@
           });
 
           visiblePaths.add(cidKey);
-          // Cache the initial history for incremental updates
-          lastKnownHistory[cidKey] = history;
 
           // add visual highlights
           setRowHighlight(cidKey, true);
@@ -1679,9 +1700,18 @@
               }
               if(newOnGround !== ac._onGround){
                 ac._onGround = newOnGround;
-                // recompute status and move marker between groups if needed
-                const oldStatus = ac._status || classifyAircraft(ac, ac.latitude||ac.lat||ac.y, ac.longitude||ac.lon||ac.x, overlays);
-                const newStatus = ac._onGround ? 'ground' : classifyAircraft(ac, ac.latitude||ac.lat||ac.y, ac.longitude||ac.lon||ac.x, overlays);
+                // recompute status and move marker between groups if needed.
+                // classifyAircraft never returns 'ground' — derive it from _onGround,
+                // and preserve a P-56 lock so currently-intruding aircraft stay red.
+                const lat = ac.latitude||ac.lat||ac.y;
+                const lon = ac.longitude||ac.lon||ac.x;
+                const cidStr = String(ac.cid||'');
+                const isP56Locked = (typeof currentP56Cids !== 'undefined' && currentP56Cids.has && currentP56Cids.has(cidStr));
+                const oldStatus = ac._status || (ac._onGround ? 'ground' : classifyAircraft(ac, lat, lon, overlays));
+                let newStatus;
+                if(isP56Locked) newStatus = 'p56';
+                else if(ac._onGround) newStatus = 'ground';
+                else newStatus = classifyAircraft(ac, lat, lon, overlays);
                 if(oldStatus !== newStatus){
                   try{
                     const mP = ac._markerP56; const mS = ac._markerSFRA;
@@ -1695,22 +1725,28 @@
                     if(newGrpS && mS) newGrpS.addLayer(mS);
                   }catch(e){/* ignore group move errors */}
                 }
-                // update marker color/icon in-place
+                // update marker color/icon in-place on BOTH map markers
                 const statusToColor = s => s==='frz'? '#f0ad4e' : s==='p56'? '#d9534f' : s==='sfra'? '#0275d8' : s==='ground'? '#6c757d' : '#28a745';
                 const targetColor = statusToColor(newStatus);
                 const heading = ac.heading || 0;
-                const marker = ac._markerP56 || ac._markerSFRA;
-                if(marker){
-                  if(typeof marker.setIcon === 'function'){
-                    try{
-                      const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
-                      const icon = await createPlaneIcon(targetColor, heading, acType);
-                      marker.setIcon(icon);
-                    }catch(e){ try{ marker.setStyle && marker.setStyle({ color: targetColor, fillColor: targetColor }); }catch(e){} }
-                  } else {
-                    try{ marker.setStyle && marker.setStyle({ color: targetColor, fillColor: targetColor }); }catch(e){}
+                const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || '';
+                let icon = null;
+                try{ icon = await createPlaneIcon(targetColor, heading, acType); }catch(e){ icon = null; }
+                [ac._markerP56, ac._markerSFRA].forEach(marker => {
+                  if(!marker) return;
+                  if(icon && typeof marker.setIcon === 'function'){
+                    try{ marker.setIcon(icon); return; }catch(e){}
                   }
-                }
+                  try{ marker.setStyle && marker.setStyle({ color: targetColor, fillColor: targetColor }); }catch(e){}
+                });
+                // Keep the incremental store's statusClass in sync so the next refresh
+                // doesn't think status changed again and redundantly rebuild the icon.
+                try{
+                  const recP = window.markersByCid?.p56?.[cidStr];
+                  const recS = window.markersByCid?.sfra?.[cidStr];
+                  if(recP) recP.statusClass = newStatus;
+                  if(recS) recS.statusClass = newStatus;
+                }catch(e){}
                 ac._status = newStatus;
               }
             }catch(e){ console.error('Failed to apply background elevation result for', ac.callsign, e); }
@@ -1838,32 +1874,18 @@
         fpDiv.dataset.fpKey = evtKey;
         if(expandedSet.has(evtKey)){
           fpDiv.classList.add('show');
-          p56PathLayer.clearLayers();
           const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
-          if (positions.length > 1) {
-            const latlngs = positions.map(p => [p.lat, p.lon]);
-            const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-            p56PathLayer.addLayer(polyline);
-            addIntrusionLabels(p56PathLayer, positions);
-            addIntrusionLabels(sfraPathLayer, positions);
-          }
+          drawIntrusionForEvent(evtKey, positions);
         }
         tr.addEventListener('click', () => {
           const opening = !fpDiv.classList.contains('show');
           fpDiv.classList.toggle('show');
           if(opening){
-            p56PathLayer.clearLayers();
             const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
-            if (positions.length > 1) {
-              const latlngs = positions.map(p => [p.lat, p.lon]);
-              const polyline = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-              p56PathLayer.addLayer(polyline);
-              addIntrusionLabels(p56PathLayer, positions);
-              addIntrusionLabels(sfraPathLayer, positions);
-            }
+            drawIntrusionForEvent(evtKey, positions);
             expandedSet.add(evtKey); saveExpandedSet(expandedSet);
           }else{
-            p56PathLayer.clearLayers();
+            removeIntrusionForEvent(evtKey);
             expandedSet.delete(evtKey); saveExpandedSet(expandedSet);
           }
         });
@@ -1953,7 +1975,17 @@
     }
   }
 
+  let refreshInProgress = false;
+  let refreshQueued = null; // stores { aircraftSnapshot, historyData, dashboardExtras } for the most recent pending call
   async function refresh(aircraftSnapshot, historyData, dashboardExtras){
+    // Guard against concurrent refreshes: SSE + polling can both fire refresh, and
+    // the incremental marker loop contains awaits that would otherwise allow two
+    // refreshes to interleave and create duplicate markers.
+    if(refreshInProgress){
+      refreshQueued = { aircraftSnapshot, historyData, dashboardExtras };
+      return;
+    }
+    refreshInProgress = true;
     try{
     const r0 = performance.now();
     setPermalink();
@@ -2198,18 +2230,11 @@
                 const evts = tableDataCache?.events || [];
                 const evt = evts.find(e => `${String(e.cid||'')}:${String(e.recorded_at||'')}` === key);
                 if(opening){
-                  p56PathLayer.clearLayers(); sfraPathLayer.clearLayers();
                   const positions = (evt?.pre_positions || []).concat(evt?.intrusion_positions || []).concat(evt?.post_positions || []);
-                  if(positions && positions.length > 1){
-                    const latlngs = positions.map(p => [p.lat, p.lon]);
-                    const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-                    const polylineSFRA = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-                    p56PathLayer.addLayer(polylineP56);
-                    sfraPathLayer.addLayer(polylineSFRA);
-                    addIntrusionLabels(p56PathLayer, positions);
-                    addIntrusionLabels(sfraPathLayer, positions);
-                  }
-                }else{ p56PathLayer.clearLayers(); sfraPathLayer.clearLayers(); }
+                  drawIntrusionForEvent(key, positions);
+                }else{
+                  removeIntrusionForEvent(key);
+                }
               } else {
                 // other tables: keys like 'sfra:<cid>' or 'frz:<cid>' or 'p56-current:<cid>'
                 const parts = String(key).split(':');
@@ -2404,6 +2429,11 @@
     }
     const tbodyEvents = el('p56-events-tbody');
     tbodyEvents.innerHTML = '';
+    // Prune intrusion overlays whose event is no longer in the current list
+    try{
+      const liveKeys = new Set(events.map(e => `${e.cid||''}:${e.recorded_at||''}`));
+      Array.from(intrusionOverlaysByKey.keys()).forEach(k => { if(!liveKeys.has(k)) removeIntrusionForEvent(k); });
+    }catch(e){}
     // apply sorting here as we already do for renderTable
     try{
       const conf = sortConfig['p56-events-tbody'];
@@ -2443,42 +2473,18 @@
       // if it was expanded previously, show it and draw path
         if(expandedSet.has(evtKey)){
           fpDiv.classList.add('show');
-          p56PathLayer.clearLayers();
-          sfraPathLayer.clearLayers();
           const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
-          if (positions.length > 1) {
-            const latlngs = positions.map(p => [p.lat, p.lon]);
-            const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-            const polylineSFRA = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-            p56PathLayer.addLayer(polylineP56);
-            sfraPathLayer.addLayer(polylineSFRA);
-            addIntrusionLabels(p56PathLayer, positions);
-            addIntrusionLabels(sfraPathLayer, positions);
-          }
+          drawIntrusionForEvent(evtKey, positions);
         }
       tr.addEventListener('click', () => {
-        // Toggle flight-plan row
         const opening = !fpDiv.classList.contains('show');
         fpDiv.classList.toggle('show');
           if(opening){
-            // Draw path when opening
-            p56PathLayer.clearLayers();
-            sfraPathLayer.clearLayers();
             const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
-            if (positions.length > 1) {
-              const latlngs = positions.map(p => [p.lat, p.lon]);
-              const polylineP56 = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-              const polylineSFRA = L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 });
-              p56PathLayer.addLayer(polylineP56);
-              sfraPathLayer.addLayer(polylineSFRA);
-              addIntrusionLabels(p56PathLayer, positions);
-              addIntrusionLabels(sfraPathLayer, positions);
-            }
+            drawIntrusionForEvent(evtKey, positions);
             expandedSet.add(evtKey); saveExpandedSet(expandedSet);
           }else{
-            // If collapsing, remove the displayed path
-            p56PathLayer.clearLayers();
-            sfraPathLayer.clearLayers();
+            removeIntrusionForEvent(evtKey);
             expandedSet.delete(evtKey); saveExpandedSet(expandedSet);
           }
       });
@@ -2586,19 +2592,47 @@
         });
       });
 
-      // Update / create markers for current aircraft
-      for(const ac of filtered){
+      // Pre-compute per-aircraft derived state and pre-build icons in parallel.
+      // This removes the `await createPlaneIcon` inside the per-aircraft loop,
+      // which previously yielded the event loop mid-update and allowed concurrent
+      // refreshes to create duplicate markers.
+      const prep = filtered.map(ac => {
+        const cid = String(ac.cid||'');
+        if(!cid) return null;
+        const lat = ac.latitude || ac.lat || ac.y;
+        const lon = ac.longitude || ac.lon || ac.x;
+        const heading = ac.heading || 0;
+        const area = classifyAircraft(ac, lat, lon, overlays);
+        const isGround = ac._onGround;
+        let statusClass = isGround ? 'ground' : area;
+        if(currentP56Cids.has(cid)){ statusClass = 'p56'; }
+        const color = statusClass==='frz'? '#f0ad4e' : statusClass==='p56'? '#d9534f' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
+        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
+        // Decide whether we need a new/updated icon for either ctx.
+        const needIcon = (() => {
+          for(const ctx of ['p56','sfra']){
+            const rec = window.markersByCid[ctx][cid];
+            if(!rec) return true;
+            const headingChanged = Math.abs((rec.heading||0) - heading) >= 5;
+            const statusChanged = rec.statusClass !== statusClass;
+            const typeChanged = rec.acType !== acType;
+            if(headingChanged || statusChanged || typeChanged) return true;
+          }
+          return false;
+        })();
+        return { ac, cid, lat, lon, heading, area, isGround, statusClass, color, acType, needIcon };
+      }).filter(Boolean);
+
+      const icons = await Promise.all(prep.map(p => p.needIcon
+        ? createPlaneIcon(p.color, p.heading, p.acType).catch(()=>null)
+        : Promise.resolve(null)));
+
+      // Now the marker-update loop is synchronous — no awaits, no interleaving risk.
+      for(let i=0; i<prep.length; i++){
+        const p = prep[i];
+        const preppedIcon = icons[i];
         try{
-          const cid = String(ac.cid||'');
-          if(!cid) continue;
-          const lat = ac.latitude || ac.lat || ac.y;
-          const lon = ac.longitude || ac.lon || ac.x;
-          const heading = ac.heading || 0;
-          const area = classifyAircraft(ac, lat, lon, overlays);
-          const isGround = ac._onGround;
-          let statusClass = isGround ? 'ground' : area;
-          if(currentP56Cids.has(cid)){ statusClass = 'p56'; }
-          const color = statusClass==='frz'? '#f0ad4e' : statusClass==='p56'? '#d9534f' : statusClass==='sfra'? '#0275d8' : statusClass==='ground'? '#6c757d' : '#28a745';
+          const { ac, cid, lat, lon, heading, area, isGround, statusClass, color, acType } = p;
           const ctxs = [{ctx:'p56', groups:p56MarkerGroups},{ctx:'sfra', groups:sfraMarkerGroups}];
           for(const ctx of ctxs){
             const store = window.markersByCid[ctx.ctx];
@@ -2606,18 +2640,13 @@
             if(rec){
               // Existing marker: move + recolor/heading if changed
               if(rec.marker && lat!=null && lon!=null){ rec.marker.setLatLng([lat,lon]); }
-              const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
               const headingChanged = Math.abs((rec.heading||0) - heading) >= 5;
               const statusChanged = rec.statusClass !== statusClass;
               const typeChanged = rec.acType !== acType;
-              if(headingChanged || statusChanged || typeChanged){
-                try{
-                  const icon = await createPlaneIcon(color, heading, acType).catch(()=>null);
-                  if(icon && rec.marker.setIcon) rec.marker.setIcon(icon);
-                }catch(e){}
+              if((headingChanged || statusChanged || typeChanged) && preppedIcon){
+                try{ if(rec.marker.setIcon) rec.marker.setIcon(preppedIcon); }catch(e){}
               }
               if(statusChanged){
-                // Move marker between category groups
                 try{
                   const oldGrp = ctx.groups[rec.statusClass] || ctx.groups.vicinity;
                   const newGrp = ctx.groups[statusClass] || ctx.groups.vicinity;
@@ -2626,11 +2655,9 @@
                 rec.statusClass = statusClass;
               }
               rec.heading = heading; rec.acType = acType;
-              // Update tooltip with current data
               try{
                 const gsVal = Math.round(Number(ac.groundspeed||ac.gs||0));
                 const altVal = Math.round(Number(ac.altitude||ac.alt||0));
-                const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
                 const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
                 const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
                 const line1 = acType ? `<strong>${ac.callsign||''}</strong> <span class="ac-type">${acType}</span>` : `<strong>${ac.callsign||''}</strong>`;
@@ -2639,23 +2666,23 @@
                 const tooltipHtml = `<div class="ac-tooltip"><div>${line1}</div><div>${line2}</div>${line3 ? `<div>${line3}</div>` : ''}</div>`;
                 if(rec.marker.setTooltipContent) rec.marker.setTooltipContent(tooltipHtml);
               }catch(e){}
+              // Keep ac._markerP56/_markerSFRA in sync so the background elevation path
+              // operates on the same marker references as the incremental path.
+              if(ctx.ctx === 'p56') ac._markerP56 = rec.marker; else ac._markerSFRA = rec.marker;
+              ac._status = statusClass;
             }else{
               // New marker
-              const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
-              let icon = null;
-              try{ icon = await createPlaneIcon(color, heading, acType).catch(()=>null); }catch(e){ icon = null; }
               let marker = null;
-              if(icon){ marker = L.marker([lat,lon], {icon}); } else { marker = L.circleMarker([lat,lon], {radius:6,color,fillColor:color,fillOpacity:0.8,weight:2}); }
+              if(preppedIcon){ marker = L.marker([lat,lon], {icon: preppedIcon}); }
+              else { marker = L.circleMarker([lat,lon], {radius:6,color,fillColor:color,fillOpacity:0.8,weight:2}); }
               marker._flightPathCid = cid;
               const grp = ctx.groups[statusClass] || ctx.groups.vicinity;
               grp.addLayer(marker);
               marker.on('click', ()=> toggleFlightPath(cid, ctx.ctx));
               store[cid] = { marker, heading, statusClass, acType };
-              // Tooltip with aircraft details
               try{
                 const gsVal = Math.round(Number(ac.groundspeed||ac.gs||0));
                 const altVal = Math.round(Number(ac.altitude||ac.alt||0));
-                const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
                 const dep = (ac.flight_plan && (ac.flight_plan.departure || ac.flight_plan.depart)) || '';
                 const arr = (ac.flight_plan && (ac.flight_plan.arrival || ac.flight_plan.arr)) || '';
                 const line1 = acType ? `<strong>${ac.callsign||''}</strong> <span class="ac-type">${acType}</span>` : `<strong>${ac.callsign||''}</strong>`;
@@ -2664,9 +2691,10 @@
                 const tooltipHtml = `<div class="ac-tooltip"><div>${line1}</div><div>${line2}</div>${line3 ? `<div>${line3}</div>` : ''}</div>`;
                 marker.bindTooltip(tooltipHtml,{direction:'top',className:'fp-tooltip',sticky:true});
               }catch(e){}
+              if(ctx.ctx === 'p56') ac._markerP56 = marker; else ac._markerSFRA = marker;
+              ac._status = statusClass;
             }
           }
-          // Populate client-side lists (area based) for tables
           ac._airspace = area; ac._isOnGround = isGround;
           if(area === 'sfra') sfraList.push(ac); else if(area === 'frz') frzList.push(ac); else if(area === 'p56') p56List.push(ac); else airList.push(ac);
           if(isGround) groundList.push(ac);
@@ -2677,8 +2705,10 @@
       console.log(`[PERF] Incremental marker updates took ${((r9-r8)/1000).toFixed(2)}s`);
     } else {
       // Fallback: original full rebuild path
-  // clear per-category groups
+  // clear per-category groups and reset incremental store so a later switch
+  // back to incremental mode doesn't reuse stale marker references.
   categories.forEach(cat => { p56MarkerGroups[cat].clearLayers(); sfraMarkerGroups[cat].clearLayers(); });
+  window.markersByCid = { p56:{}, sfra:{} };
     // Starting marker creation
 
     // Parallelize icon creation for all aircraft to avoid sequential blocking
@@ -2713,6 +2743,11 @@
         grp.addLayer(markerP56); sgrp.addLayer(markerSFRA);
         markerP56.on('click',()=>toggleFlightPath(ac.cid,'p56')); markerSFRA.on('click',()=>toggleFlightPath(ac.cid,'sfra'));
         ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass;
+        // Seed the incremental store so a later switch to incremental mode
+        // reuses these markers instead of creating duplicates.
+        const acType = (ac.flight_plan && ac.flight_plan.aircraft_faa) || (ac.flight_plan && ac.flight_plan.aircraft_short) || ac.type || ac.aircraft_type || '';
+        window.markersByCid.p56[String(ac.cid||'')] = { marker: markerP56, heading, statusClass, acType };
+        window.markersByCid.sfra[String(ac.cid||'')] = { marker: markerSFRA, heading, statusClass, acType };
         ac._airspace = area; ac._isOnGround = isGround;
         if(area==='sfra') sfraList.push(ac); else if(area==='frz') frzList.push(ac); else if(area==='p56') p56List.push(ac); else airList.push(ac);
         if(isGround) groundList.push(ac);
@@ -3023,6 +3058,16 @@
       console.error('REFRESH ERROR:', err);
       console.error('Error stack:', err.stack);
       // Removed alert popup
+    }finally{
+      refreshInProgress = false;
+      // Drain the most-recent queued call, if any. Only the latest is kept so we
+      // don't pile up stale snapshots behind a slow refresh.
+      if(refreshQueued){
+        const q = refreshQueued;
+        refreshQueued = null;
+        // Fire-and-forget; this re-enters refresh() with the guard cleared.
+        refresh(q.aircraftSnapshot, q.historyData, q.dashboardExtras);
+      }
     }
   }
 
@@ -3671,51 +3716,15 @@
   // Expose rerenderTable globally for background fetcher
   window.rerenderTable = rerenderTable;
   
-  // Background fetcher for Controllers (offset from main poll to spread server load)
-  async function fetchControllersBackground(){
-    try {
-      console.log('[CONTROLLERS] Background fetch starting...');
-      const ctrlsjson = await fetchWithBackoff(`${API_ROOT}/controllers/`)
-        .then(r=>r.ok?r.json():{controllers:[],count:0})
-        .catch(()=>({controllers:[],count:0}));
-      
-      window.ctrlsCache = { data: ctrlsjson, timestamp: Date.now() };
-      
-      // Update UI if controllers count element exists and table needs refresh
-      const countEl = el('controllers-count');
-      const tbodyEl = el('controllers-tbody');
-      if(countEl){
-        const newCount = (ctrlsjson.controllers || []).length;
-        if(countEl.textContent !== String(newCount)){
-          countEl.textContent = newCount;
-          // If table exists and count changed, trigger table re-render
-          if(tbodyEl){
-            try{ rerenderTable('controllers-tbody'); }catch(e){}
-          }
-        }
-      }
-      console.log('[CONTROLLERS] Background fetch complete');
-    } catch (e) {
-      console.warn('[CONTROLLERS] Background fetch error', e);
-    }
-  }
-  
-  function scheduleControllersBackgroundFetch(baseMs){
-    const CONTROLLERS_INTERVAL = 60000; // 60 seconds
-    const CONTROLLERS_OFFSET = 7500; // Start 7.5s after page load (middle of main poll cycle)
-    
-    window.setTimeout(async ()=>{
-      if(isPageVisible){
-        await fetchControllersBackground();
-      }
-      scheduleControllersBackgroundFetch(CONTROLLERS_INTERVAL);
-    }, baseMs);
-  }
-  
+  // (Controllers are delivered via the consolidated dashboard endpoint; the
+  // standalone background fetcher that used to live here is no longer wired up.)
+
   // SSE real-time updates (with polling fallback)
   let sseActive = false;
   let sseRetryCount = 0;
+  let lastSseAt = 0;
   const MAX_SSE_RETRIES = 5;
+  const SSE_FRESH_MS = 15000; // if SSE delivered an update within this window, skip the poll entirely
 
   function initSSE(){
     try{
@@ -3735,6 +3744,7 @@
           }
           if(aircraft){
             const extras = { p56: dash.p56||null, vip: dash.vip||null, controllers: dash.controllers||null };
+            lastSseAt = Date.now();
             await refresh(aircraft, historyData, extras);
           }
         }catch(e){ console.warn('[SSE] Failed to process update', e); }
@@ -3772,7 +3782,13 @@
 
     window.setTimeout(async ()=>{
       try {
-        await pollAircraftThenRefresh();
+        // Skip the poll entirely if SSE delivered a fresh update recently.
+        // The poll is only a safety net for when SSE is unavailable/stalled.
+        if(sseActive && (Date.now() - lastSseAt) < SSE_FRESH_MS){
+          // SSE is fresh; no need to hit the dashboard endpoint.
+        } else {
+          await pollAircraftThenRefresh();
+        }
       } catch (e) {
         console.warn('Poll error', e);
       } finally {
