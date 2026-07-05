@@ -124,6 +124,7 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
     from .snapshot_buffer import get_latest as _get_buffered_snapshots
     from shapely.geometry import LineString, Point
     from .p56_history import sync_snapshot_with_penetrations
+    from . import position_history as _position_history
     import os
 
     shapes = find_geo_by_keyword("p56")
@@ -270,17 +271,20 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
                 "heading": a.get("heading"),
             }
 
-            # Add pre_positions (up to 5 positions before the intrusion)
+            # Add pre_positions: the approach track leading up to zone entry.
+            # Primary source is the in-memory position tracker (always on, no
+            # dependency on VNCRCC_WRITE_JSON_HISTORY). Fall back to the JSON
+            # history map when that flag is enabled and the tracker is cold
+            # (e.g. right after a restart).
             cid = str(a.get("cid") or "")
-            if cid and cid in positions_by_cid:
+            pre_positions = _position_history.get_pre_positions(cid, latest_ts, limit=7)
+            if not pre_positions and cid and cid in positions_by_cid:
                 positions = positions_by_cid[cid]
-                # Get positions before the intrusion timestamp
-                pre_positions = [p for p in positions if p["ts"] < latest_ts]
-                pre_positions.sort(key=lambda x: x["ts"], reverse=True)  # newest first
-                pre_positions = pre_positions[:5]  # Keep last 5
-                pre_positions.reverse()  # oldest first for display
-                if pre_positions:
-                    event["pre_positions"] = pre_positions
+                before = [p for p in positions if p["ts"] < latest_ts]
+                before.sort(key=lambda x: x["ts"])  # oldest first
+                pre_positions = before[-5:]
+            if pre_positions:
+                event["pre_positions"] = pre_positions
 
             # PERF: Collect event for batch processing
             penetration_events.append(event)
@@ -304,6 +308,14 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
             penetration_events=penetration_events,
             positions_by_cid=positions_by_cid if write_json_history else None
         )
+    except Exception:
+        pass
+
+    # Record this cycle's positions for every aircraft AFTER computing
+    # pre_positions, so next cycle's approach track is available. Done last so
+    # the tracker only holds prior-cycle fixes while an intrusion is evaluated.
+    try:
+        _position_history.record_snapshot(latest_ac, latest_ts)
     except Exception:
         pass
 
