@@ -44,7 +44,7 @@ import time
 
 from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
-from ...p56_history import get_history, record_penetration, sync_snapshot
+from ...p56_history import get_history, get_history_for_api, record_penetration, sync_snapshot
 from ...aircraft_history import get_history as get_ac_history
 from ...rate_limit import maybe_limit
 from shapely.geometry import Point
@@ -287,15 +287,52 @@ def _compute_p56_breaches(name: str) -> Dict[str, Any]:
 @router.get("/")
 @maybe_limit("30/minute")
 async def p56_breaches_route(request: Request, name: str = Query("p56", description="keyword to find the P56 geojson file, default 'p56'")) -> Dict[str, Any]:
+    # History is returned most-recent-first, and every event carries a flattened
+    # `track` (approach -> inside P-56 -> departure) so consumers such as the
+    # Discord bot can render the full path — including the pre-intrusion history —
+    # directly on a map.
+    history = get_history_for_api(include_track=True)
+
     # Return pre-computed result if available (instant response for all users)
     from ...precompute import get_cached
     cached = get_cached("p56")
-    if cached:
-        # Return cached aircraft list with history
-        return {"breaches": cached.get("aircraft", []), "history": get_history()}
-    
-    # Return empty result if cache not ready (avoids slow computation during startup)
-    return {"breaches": [], "history": get_history()}
+    breaches = _attach_tracks_to_breaches(cached.get("aircraft", []) if cached else [], history)
+
+    return {"breaches": breaches, "history": history}
+
+
+def _attach_tracks_to_breaches(breaches: List[Dict[str, Any]], history: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Enrich live breach alerts with the full trajectory from history.
+
+    Live breaches only carry the latest position of an aircraft that just
+    crossed into P-56. For each breach we look up the most recent matching
+    intrusion event (by CID) and attach its pre/intrusion/post positions plus
+    the flattened `track`, so an alert consumer has the path before the
+    intrusion without a second request. Breach dicts are copied so the shared
+    precompute cache is not mutated.
+    """
+    if not breaches:
+        return []
+    # Most recent event per CID (history events are already most-recent-first).
+    event_by_cid: Dict[str, Dict[str, Any]] = {}
+    for e in history.get("events", []):
+        cid = str(e.get("cid") or e.get("identifier") or "")
+        if cid and cid not in event_by_cid:
+            event_by_cid[cid] = e
+
+    enriched: List[Dict[str, Any]] = []
+    for b in breaches:
+        b2 = dict(b)
+        cid = str(b2.get("cid") or b2.get("identifier") or "")
+        ev = event_by_cid.get(cid)
+        if ev:
+            b2["pre_positions"] = ev.get("pre_positions", [])
+            b2["intrusion_positions"] = ev.get("intrusion_positions", [])
+            b2["post_positions"] = ev.get("post_positions", [])
+            b2["track"] = ev.get("track", [])
+            b2["recorded_at"] = ev.get("recorded_at")
+        enriched.append(b2)
+    return enriched
 
 
 # Expose a test-friendly function with the original name expected by tests

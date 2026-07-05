@@ -74,6 +74,68 @@ def get_history() -> Dict[str, Any]:
         return _load()
 
 
+def build_event_track(event: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Flatten an intrusion event's stored positions into a single ordered path.
+
+    Combines the three position buckets in chronological order so a consumer
+    (e.g. the Discord bot) can draw the whole trajectory on a map:
+
+        pre_positions        -> approach BEFORE entering P-56
+        intrusion_positions  -> track while inside P-56
+        post_positions       -> departure AFTER exiting P-56
+
+    Each bucket is already stored oldest-first. Every point is tagged with a
+    ``phase`` so the path can be styled (e.g. approach vs. inside the zone).
+    """
+    track: List[Dict[str, Any]] = []
+    for phase, key in (
+        ("pre", "pre_positions"),
+        ("intrusion", "intrusion_positions"),
+        ("post", "post_positions"),
+    ):
+        for p in event.get(key) or []:
+            lat = p.get("lat")
+            lon = p.get("lon")
+            if lat is None or lon is None:
+                continue
+            track.append({
+                "lat": lat,
+                "lon": lon,
+                "ts": p.get("ts"),
+                "alt": p.get("alt"),
+                "gs": p.get("gs"),
+                "heading": p.get("heading"),
+                "phase": phase,
+            })
+    return track
+
+
+def get_history_for_api(include_track: bool = True) -> Dict[str, Any]:
+    """Return history shaped for external API consumers.
+
+    - ``events`` are sorted most-recent-first (by recorded_at / latest_ts).
+    - When ``include_track`` is set, each event gains a flattened ``track``
+      containing the full approach + intrusion + departure path so callers can
+      render the trajectory directly.
+
+    A shallow copy is returned; the cached history is never mutated.
+    """
+    hist = get_history()
+    events = list(hist.get("events") or [])
+    events.sort(
+        key=lambda e: (e.get("recorded_at") or e.get("latest_ts") or 0),
+        reverse=True,
+    )
+    if include_track:
+        enriched: List[Dict[str, Any]] = []
+        for e in events:
+            e2 = dict(e)
+            e2["track"] = build_event_track(e)
+            enriched.append(e2)
+        events = enriched
+    return {"events": events, "current_inside": hist.get("current_inside", {})}
+
+
 def clear_history() -> None:
     """Clear all recorded P-56 events and current_inside state.
 
