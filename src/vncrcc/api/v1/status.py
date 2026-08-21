@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from typing import Any, Dict
 from ...rate_limit import limiter
 from ...precompute import get_cached
+from ...position_history import stats as _position_history_stats
 
 router = APIRouter(prefix="/status")
 
@@ -28,5 +29,9 @@ async def system_status(request: Request) -> Dict[str, Any]:
         "configured_radius_nm": cached.get("configured_radius_nm", 0),
         "effective_radius_nm": cached.get("effective_radius_nm", 0),
         "last_update": cached.get("computed_at", 0),
+        # Approach-track buffer that feeds P-56 pre_positions. Exposed so the
+        # depth of the rendered intrusion path is observable without guessing:
+        # `fixes` climbs toward aircraft * max_fixes as the tracker warms.
+        "position_history": _position_history_stats(),
         "message": "Surge mode reduces processing radius during high-traffic events to maintain performance"
     }
