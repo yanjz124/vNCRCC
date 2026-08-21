@@ -331,6 +331,12 @@ def _attach_tracks_to_breaches(breaches: List[Dict[str, Any]], history: Dict[str
             b2["post_positions"] = ev.get("post_positions", [])
             b2["track"] = ev.get("track", [])
             b2["recorded_at"] = ev.get("recorded_at")
+            # Carry the descriptive fields too, so a consumer rendering a live
+            # alert for an in-progress intrusion has everything it needs from
+            # this one entry and doesn't have to re-join against history.
+            for k in ("name", "flight_plan", "altitude", "groundspeed", "heading"):
+                if b2.get(k) is None and ev.get(k) is not None:
+                    b2[k] = ev.get(k)
         enriched.append(b2)
     return enriched
 

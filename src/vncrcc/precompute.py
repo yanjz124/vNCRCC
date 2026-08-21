@@ -277,12 +277,15 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
             # history map when that flag is enabled and the tracker is cold
             # (e.g. right after a restart).
             cid = str(a.get("cid") or "")
-            pre_positions = _position_history.get_pre_positions(cid, latest_ts, limit=7)
+            # limit=0 -> everything the tracker holds. The ring buffer length
+            # is the bound, so the approach path is as long as we have rather
+            # than an arbitrary 7 fixes.
+            pre_positions = _position_history.get_pre_positions(cid, latest_ts, limit=0)
             if not pre_positions and cid and cid in positions_by_cid:
                 positions = positions_by_cid[cid]
                 before = [p for p in positions if p["ts"] < latest_ts]
                 before.sort(key=lambda x: x["ts"])  # oldest first
-                pre_positions = before[-5:]
+                pre_positions = before
             if pre_positions:
                 event["pre_positions"] = pre_positions
 
