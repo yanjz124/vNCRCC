@@ -462,7 +462,7 @@ body > header:not(.masthead) .header-left{display:flex;align-items:center;gap:12
   .section-title{font-size:1.35rem}
   .tile-ident{font-size:1.4rem}
   .tile-link{font-size:1rem}
-  .traffic-table{min-width:680px;font-size:.92rem}
+  .traffic-table{min-width:820px;font-size:.92rem}
   #controllers-table, #p56-leaderboard-table, #p56-events-table{min-width:680px}
   .traffic-table tbody{max-height:60vh}
   .btn, .vso-controls input{min-height:40px}
