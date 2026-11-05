@@ -121,7 +121,9 @@ async def get_dashboard(
                         if cid:
                             cids_in_range.add(cid)
 
-            filtered_history = {cid: positions for cid, positions in history_data.items() if cid in cids_in_range}
+            # Last ~10 min per aircraft is plenty for a map trail; the full
+            # buffer is available from /aircraft/list/history on demand.
+            filtered_history = {cid: positions[-40:] for cid, positions in history_data.items() if cid in cids_in_range}
 
             response["history"] = {
                 "data": filtered_history,

@@ -54,9 +54,14 @@ def get_history() -> Dict[str, Any]:
     """
     global _HISTORY_CACHE, _HISTORY_CACHE_MTIME
 
+    # The JSON history is only written with VNCRCC_WRITE_JSON_HISTORY=1, which
+    # production doesn't set -- so clicked flight paths had no data at all.
+    # Serve the always-on in-memory tracker instead whenever the file is
+    # absent or empty (no disk I/O on this path).
     try:
-        if not HISTORY_PATH.exists():
-            return {}
+        if not HISTORY_PATH.exists() or HISTORY_PATH.stat().st_size == 0:
+            from .position_history import get_tracks
+            return {"history": get_tracks()}
 
         # Check if file has been modified since last cache
         current_mtime = HISTORY_PATH.stat().st_mtime

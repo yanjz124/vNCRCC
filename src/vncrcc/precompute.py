@@ -381,16 +381,12 @@ def _precompute_all_unlocked(data: Dict[str, Any], ts: float) -> None:
         aircraft = data.get("pilots") or data.get("aircraft") or []
         total_aircraft = len(aircraft)
         
-        # Dynamic radius adjustment for event surge protection
-        # When VATSIM has 500+ aircraft, reduce processing load by focusing on core area
+        # (An "event surge" rule used to cut the radius to 80 nm whenever the
+        # GLOBAL network had >500 pilots -- i.e. most of the day -- silently
+        # shrinking the VSO range. Trimming ~600 aircraft costs a few ms, so
+        # the configured radius always applies.)
         effective_radius = _TRIM_RADIUS_NM
-        if total_aircraft > 500:
-            effective_radius = min(_TRIM_RADIUS_NM, 80)  # Reduce to 80nm during mega events
-            logger.warning(f"EVENT SURGE: {total_aircraft} aircraft detected, reducing radius to {effective_radius}nm")
-        elif total_aircraft > 300:
-            effective_radius = min(_TRIM_RADIUS_NM, 150)  # Reduce to 150nm during large events
-            logger.info(f"High traffic detected: {total_aircraft} aircraft, reducing radius to {effective_radius}nm")
-        
+
         # Trim dataset to within configured radius of DCA to minimize processing
         if aircraft and effective_radius and effective_radius > 0:
             trimmed: List[Dict[str, Any]] = []

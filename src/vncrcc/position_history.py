@@ -139,3 +139,18 @@ def get_pre_positions(cid: str, before_ts: float, limit: int = 0) -> List[Dict[s
 
 def clear() -> None:
     _POSITIONS.clear()
+
+
+def get_tracks(last_n: int = 0) -> Dict[str, List[Dict[str, Any]]]:
+    """Compact per-aircraft tracks for map flight paths: {cid: [{lat, lon}]},
+    oldest first. ``last_n`` > 0 keeps only the most recent fixes.
+
+    Safe to call from the event loop while record_snapshot runs in an
+    executor thread (iterates over copies)."""
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for cid, buf in list(_POSITIONS.items()):
+        fixes = list(buf)
+        if last_n > 0:
+            fixes = fixes[-last_n:]
+        out[cid] = [{"lat": round(f["lat"], 5), "lon": round(f["lon"], 5)} for f in fixes]
+    return out

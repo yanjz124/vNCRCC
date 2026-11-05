@@ -64,6 +64,20 @@ class Storage:
 
         # Create engine and metadata
         self.engine: Engine = create_engine(url, future=True, connect_args=connect_args)
+        if url.startswith("sqlite:"):
+            from sqlalchemy import event
+
+            @event.listens_for(self.engine, "connect")
+            def _sqlite_pragmas(dbapi_conn, _record):
+                # WAL + NORMAL: no fsync per commit (only at checkpoints) and
+                # readers never block the writer. Important on the Pi's SD card.
+                cur = dbapi_conn.cursor()
+                cur.execute("PRAGMA journal_mode=WAL")
+                cur.execute("PRAGMA synchronous=NORMAL")
+                cur.close()
+        self._is_sqlite = url.startswith("sqlite:")
+        self._last_persist = 0.0
+        self._persist_count = 0
         self.metadata = MetaData()
 
         # Backwards compatibility: if caller supplied a db_path (legacy), expose
@@ -145,13 +159,32 @@ class Storage:
         except SQLAlchemyError:
             # If create_all fails (rare), ignore and let runtime operations fail
             pass
+        # Shrink any WAL left over from before checkpoints were run.
+        self.checkpoint()
 
     def _conn(self):
         return self.engine.connect()
 
+    # The full VATSIM feed (~600 KB) used to be written every cycle (~15 s) and
+    # read back on every API request. Live reads now come from the in-memory
+    # snapshot_buffer; the DB copy only needs to be fresh enough to warm up
+    # after a restart.
+    PERSIST_INTERVAL_S = float(os.environ.get("VNCRCC_SNAPSHOT_PERSIST_S", "60"))
+
     def save_snapshot(self, data: Dict[str, Any], fetched_at: Optional[float] = None) -> int:
         if fetched_at is None:
             fetched_at = time.time()
+        # Only skip the write when live readers are served from memory (the
+        # app pushes to snapshot_buffer before saving); otherwise the DB is
+        # the only copy and must be written.
+        try:
+            from .snapshot_buffer import get_latest as _buf_latest
+            buffered = bool(_buf_latest(1))
+        except Exception:
+            buffered = False
+        if buffered and time.time() - self._last_persist < self.PERSIST_INTERVAL_S:
+            return 0
+        self._last_persist = time.time()
         try:
             with self._conn() as conn:
                 result = conn.execute(insert(self.snapshots).values(fetched_at=fetched_at, raw_json=data))
@@ -170,6 +203,14 @@ class Storage:
             return 0
 
     def get_latest_snapshot(self) -> Optional[Dict[str, Any]]:
+        # Live path: the in-memory buffer filled on every fetch.
+        try:
+            from .snapshot_buffer import get_latest as _buf_latest
+            buf = _buf_latest(1)
+            if buf:
+                return buf[0]
+        except Exception:
+            pass
         try:
             with self._conn() as conn:
                 stmt = select(self.snapshots.c.raw_json, self.snapshots.c.fetched_at).order_by(self.snapshots.c.fetched_at.desc()).limit(1)
@@ -194,6 +235,13 @@ class Storage:
         return out
 
     def get_latest_snapshots(self, n: int = 2) -> List[Dict[str, Any]]:
+        try:
+            from .snapshot_buffer import get_latest as _buf_latest
+            buf = _buf_latest(n)
+            if len(buf) >= n:
+                return buf
+        except Exception:
+            pass
         return self.list_snapshots(limit=n)
 
     # Counter for periodic VACUUM (every ~100 cycles ≈ ~25 minutes)
@@ -216,17 +264,27 @@ class Storage:
         except Exception:
             pass
 
-        # Periodic VACUUM to reclaim disk space (every ~100 save cycles)
+        # Periodically fold the WAL back into the database. A periodic VACUUM
+        # used to rewrite the whole DB here (multi-second stalls on the SD
+        # card) while the WAL itself was never truncated (167 MB in prod).
         Storage._cleanup_counter += 1
-        if Storage._cleanup_counter >= 100:
+        if Storage._cleanup_counter >= 20:
             Storage._cleanup_counter = 0
+            self.checkpoint()
+
+    def checkpoint(self) -> None:
+        if not getattr(self, "_is_sqlite", False):
+            return
+        try:
+            raw_conn = self.engine.raw_connection()
             try:
-                # VACUUM must run outside a transaction
-                raw_conn = self.engine.raw_connection()
-                raw_conn.execute("VACUUM")
+                busy, log_pages, done = raw_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+                if busy:
+                    logger.warning("WAL checkpoint incomplete (busy); %s/%s pages", done, log_pages)
+            finally:
                 raw_conn.close()
-            except Exception:
-                pass
+        except Exception:
+            logger.warning("WAL checkpoint failed", exc_info=True)
 
     def _save_aircraft_positions(self, conn, data: Dict[str, Any], timestamp: float) -> None:
         aircraft = data.get("pilots") or data.get("aircraft") or []
