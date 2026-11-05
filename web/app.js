@@ -324,15 +324,15 @@
   // doesn't wipe others (previous behavior called clearLayers on the whole layer).
   const intrusionOverlaysByKey = new Map();
 
-  // Intrusion track: approach (blue dashed) -> inside P-56 (red) -> departure
-  // (grey dashed), each over a contrasting casing so it reads on light and
+  // Intrusion track: approach (blue) -> inside P-56 (red) -> departure
+  // (grey) with direction chevrons, each over a contrasting casing so it reads on light and
   // dark basemaps. Per-point detail lives in tooltips on small dots instead of
   // permanent labels (which piled up into an unreadable stack). Only start,
   // P-56 entry and end are marked.
   const TRACK_STYLE = {
-    pre:       { color: '#1f6feb', weight: 3, dashArray: '6 6' },
+    pre:       { color: '#1f6feb', weight: 3 },
     intrusion: { color: '#d83933', weight: 4 },
-    post:      { color: '#6c757d', weight: 3, dashArray: '6 6' },
+    post:      { color: '#6c757d', weight: 3 },
   };
   function trackPointTip(p, phase){
     const t = p.ts ? new Date(Number(p.ts) * 1000) : null;
@@ -346,10 +346,10 @@
   // Direction of flight: chevrons placed every ~ARROW_SPACING_PX of screen
   // distance along the track, rotated to the local segment. Recomputed on
   // zoom so spacing stays even whether zoomed in on P-56 or out on the SFRA.
-  const ARROW_SPACING_PX = 90;
+  const ARROW_SPACING_PX = 120;
   const arrowIcon = (deg, color) => L.divIcon({
-    className: 'trk-arrow-wrap', iconSize: [16, 16], iconAnchor: [8, 8],
-    html: `<svg class="trk-arrow" viewBox="0 0 16 16" style="transform:rotate(${deg.toFixed(1)}deg)"><path d="M4 2.5 L12.5 8 L4 13.5 L6.5 8 Z" fill="${color}"/></svg>`,
+    className: 'trk-arrow-wrap', iconSize: [22, 22], iconAnchor: [11, 11],
+    html: `<svg class="trk-arrow" viewBox="0 0 16 16" style="transform:rotate(${deg.toFixed(1)}deg)"><path d="M3.5 2 L13.5 8 L3.5 14 L6.5 8 Z" fill="${color}"/></svg>`,
   });
   function addDirectionArrows(g, positions, map){
     const arrows = L.layerGroup();

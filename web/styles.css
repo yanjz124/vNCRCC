@@ -280,8 +280,8 @@ input[type="text"], input[type="number"], input[type="password"]{font:inherit}
 .trk-tip{font-size:12.5px;line-height:1.35;font-variant-numeric:tabular-nums}
 .trk-pin-wrap{background:none;border:0}
 .trk-arrow-wrap{background:none;border:0;pointer-events:none}
-.trk-arrow{display:block;width:16px;height:16px;overflow:visible}
-.trk-arrow path{stroke:var(--track-casing);stroke-width:1.6;stroke-linejoin:round;paint-order:stroke}
+.trk-arrow{display:block;width:22px;height:22px;overflow:visible}
+.trk-arrow path{stroke:var(--track-casing);stroke-width:1.4;stroke-linejoin:round;paint-order:stroke}
 .trk-pin{display:inline-block;transform:translate(10px,-50%);white-space:nowrap;font:700 12px/1 var(--font);
   padding:4px 7px;border-radius:3px;background:var(--red);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 
