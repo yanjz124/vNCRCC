@@ -343,7 +343,41 @@
     const label = { pre: 'Approach', intrusion: 'Inside P-56', post: 'Departure' }[phase] || '';
     return `<div class="trk-tip"><strong>${label}</strong> ${hhmm}<br>${[alt, gs, hdg].filter(Boolean).join(' · ')}</div>`;
   }
-  function buildTrackGroup(positions, { dots }){
+  // Direction of flight: chevrons placed every ~ARROW_SPACING_PX of screen
+  // distance along the track, rotated to the local segment. Recomputed on
+  // zoom so spacing stays even whether zoomed in on P-56 or out on the SFRA.
+  const ARROW_SPACING_PX = 90;
+  const arrowIcon = (deg, color) => L.divIcon({
+    className: 'trk-arrow-wrap', iconSize: [16, 16], iconAnchor: [8, 8],
+    html: `<svg class="trk-arrow" viewBox="0 0 16 16" style="transform:rotate(${deg.toFixed(1)}deg)"><path d="M4 2.5 L12.5 8 L4 13.5 L6.5 8 Z" fill="${color}"/></svg>`,
+  });
+  function addDirectionArrows(g, positions, map){
+    const arrows = L.layerGroup();
+    const draw = () => {
+      arrows.clearLayers();
+      const pts = positions.map(p => map.latLngToLayerPoint([p.lat, p.lon]));
+      let carry = ARROW_SPACING_PX / 2;
+      for(let i = 1; i < pts.length; i++){
+        const a = pts[i - 1], b = pts[i];
+        const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+        if(len < 0.5) continue;
+        const deg = Math.atan2(dy, dx) * 180 / Math.PI;
+        const color = (TRACK_STYLE[positions[i].phase || 'intrusion'] || TRACK_STYLE.intrusion).color;
+        let d = carry;
+        while(d <= len){
+          const t = d / len;
+          const ll = map.layerPointToLatLng(L.point(a.x + dx * t, a.y + dy * t));
+          arrows.addLayer(L.marker(ll, { icon: arrowIcon(deg, color), interactive: false, keyboard: false }));
+          d += ARROW_SPACING_PX;
+        }
+        carry = d - len;
+      }
+    };
+    g.addLayer(arrows);
+    g.on('add', () => { draw(); map.on('zoomend', draw); });
+    g.on('remove', () => map.off('zoomend', draw));
+  }
+  function buildTrackGroup(positions, { dots, map }){
     const g = L.layerGroup();
     // split into contiguous same-phase runs, sharing the joint point so the
     // line stays continuous across phase changes
@@ -386,14 +420,15 @@
       const alt = (entry.alt ?? null) !== null ? ` ${Math.round(entry.alt).toLocaleString()} ft` : '';
       g.addLayer(pin(entry, 'trk-pin-entry', `P-56 entry${alt}`));
     }
+    if(map) addDirectionArrows(g, positions, map);
     return g;
   }
   function drawIntrusionForEvent(evtKey, positions){
     removeIntrusionForEvent(evtKey);
     positions = (positions || []).filter(p => isFinite(p.lat) && isFinite(p.lon));
     if(positions.length < 2) return;
-    const p56Group = buildTrackGroup(positions, { dots: false });
-    const sfraGroup = buildTrackGroup(positions, { dots: true });
+    const p56Group = buildTrackGroup(positions, { dots: false, map: p56Map });
+    const sfraGroup = buildTrackGroup(positions, { dots: true, map: sfraMap });
     p56IntrusionLayer.addLayer(p56Group);
     sfraIntrusionLayer.addLayer(sfraGroup);
     intrusionOverlaysByKey.set(evtKey, { p56Group, sfraGroup });
@@ -427,9 +462,11 @@
           positions = phaseTagged(j);
           eventTrackCache.set(evtKey, positions);
         }catch(e){ console.warn('Failed to load intrusion track', e); return; }
+        // The user may have collapsed the row while we were fetching. Only
+        // checked after an await: on a cache hit this runs synchronously,
+        // before the caller has marked the row expanded.
+        if(!expandedSet.has(evtKey)) return;
       }
-      // The user may have collapsed the row while we were fetching.
-      if(!expandedSet.has(evtKey)) return;
     }
     drawIntrusionForEvent(evtKey, positions);
   }
@@ -2324,8 +2361,8 @@
           const opening = !fpDiv.classList.contains('show');
           fpDiv.classList.toggle('show');
           if(opening){
-            showEventTrack(evtKey, evt);
             expandedSet.add(evtKey); saveExpandedSet(expandedSet);
+            showEventTrack(evtKey, evt);
           }else{
             removeIntrusionForEvent(evtKey);
             expandedSet.delete(evtKey); saveExpandedSet(expandedSet);
@@ -2691,8 +2728,8 @@
         const opening = !fpDiv.classList.contains('show');
         fpDiv.classList.toggle('show');
           if(opening){
-            showEventTrack(evtKey, evt);
             expandedSet.add(evtKey); saveExpandedSet(expandedSet);
+            showEventTrack(evtKey, evt);
           }else{
             removeIntrusionForEvent(evtKey);
             expandedSet.delete(evtKey); saveExpandedSet(expandedSet);
