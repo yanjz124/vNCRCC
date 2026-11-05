@@ -2280,7 +2280,7 @@
     // Handle controllers table with fresh cache data
     if(tbodyId === 'controllers-tbody'){
       const controllersList = window.ctrlsCache?.data?.controllers || [];
-      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower', 'IAD': 'Dulles Tower', 'BWI': 'BWI Tower', 'HEF': 'Manassas Tower', 'MTN': 'Martin State Tower', 'FDK': 'Frederick Tower'};
+      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower', 'IAD': 'Dulles Tower', 'BWI': 'BWI Tower', 'HEF': 'Manassas Tower', 'MTN': 'Martin State Tower', 'FDK': 'Frederick Tower', 'JYO': 'Leesburg Tower', 'DAA': 'Davison Tower'};
       renderTable('controllers-tbody', controllersList, it => {
         const cid = it.cid || '';
         const name = it.realName || '';
@@ -2593,7 +2593,7 @@
     el('controllers-count').textContent = controllersList.length;
     // Render controllers table immediately to avoid lag between count and table display
     try{
-      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower', 'IAD': 'Dulles Tower', 'BWI': 'BWI Tower', 'HEF': 'Manassas Tower', 'MTN': 'Martin State Tower', 'FDK': 'Frederick Tower'};
+      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower', 'IAD': 'Dulles Tower', 'BWI': 'BWI Tower', 'HEF': 'Manassas Tower', 'MTN': 'Martin State Tower', 'FDK': 'Frederick Tower', 'JYO': 'Leesburg Tower', 'DAA': 'Davison Tower'};
       const tbody = el('controllers-tbody');
       if(tbody){
         const parts = [];

@@ -6,12 +6,12 @@ def ctl(fac, artcc="ZDC", observer=False):
 
 
 def test_ncr_facilities_included():
-    for fac in ("PCT", "DCA", "IAD", "BWI", "ADW", "ZDC"):
+    for fac in ("PCT", "DCA", "IAD", "BWI", "ADW", "ZDC", "JYO", "DAA"):
         assert is_ncr_controller(ctl(fac)), fac
 
 
 def test_rest_of_zdc_excluded():
-    for fac in ("RIC", "ORF", "ROA", "CHO"):
+    for fac in ("RIC", "ORF", "ROA", "CHO", "HGR", "MRB"):
         assert not is_ncr_controller(ctl(fac)), fac
 
 

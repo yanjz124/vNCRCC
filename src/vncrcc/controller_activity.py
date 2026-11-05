@@ -12,8 +12,9 @@ VNAS_CONTROLLERS_URL = "https://live.env.vnas.vatsim.net/data-feed/controllers.j
 # else in ZDC (RIC, ORF, ROA, CHO, ...) is outside the NCR and not shown.
 #   ZDC  - Washington Center: owns the NCR top-down when PCT is unstaffed
 #   PCT  - Potomac TRACON
-#   DCA/IAD/BWI/ADW/NYG/HEF/MTN/FDK - towers in or adjoining the DC SFRA
-NCR_FACILITIES = frozenset({"ZDC", "PCT", "DCA", "IAD", "BWI", "ADW", "NYG", "HEF", "MTN", "FDK"})
+#   DCA/IAD/BWI/ADW/NYG/HEF/MTN/FDK/JYO/DAA - towers in or adjoining the
+#   DC SFRA. PCT also parents CHO/HGR/MRB/RIC, which are outside the NCR.
+NCR_FACILITIES = frozenset({"ZDC", "PCT", "DCA", "IAD", "BWI", "ADW", "NYG", "HEF", "MTN", "FDK", "JYO", "DAA"})
 
 
 def is_ncr_controller(controller: Dict) -> bool:
