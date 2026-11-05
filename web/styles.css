@@ -36,7 +36,7 @@
   --font:'Lato',-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Consolas,monospace;
   --gap:16px;
-  --maxw:1440px;
+  --maxw:1760px;
 
   --card-2:#f7f9fa;
   --input-bg:#ffffff;
@@ -176,7 +176,7 @@ ul{margin:6px 0;padding-left:18px}
 }
 #p56-count{background:var(--red)}
 #frz-count{background:#c47f00}
-.panel-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--gap)}
+.panel-row{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap)}
 
 /* View modes: Tile (cards, default), List (tables), Map (big maps only) */
 body[data-view="tile"] .list-only{display:none}
@@ -424,9 +424,6 @@ body > header:not(.masthead) .header-left{display:flex;align-items:center;gap:12
 /* ==========================================================================
    Responsive
    ========================================================================== */
-@media (max-width:1280px){
-  .panel-row{grid-template-columns:minmax(0,1fr)}
-}
 @media (max-width:1180px){
   .site-title{font-size:1.9rem}
   .site-nav a{padding:16px 14px;font-size:1rem}
