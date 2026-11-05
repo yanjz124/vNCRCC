@@ -21,10 +21,17 @@ async def stream_dashboard(request: Request) -> StreamingResponse:
     async def event_generator():
         yield "retry: 3000\n\n"
 
-        async for message in BROADCASTER.subscribe():
-            if await request.is_disconnected():
-                break
-            yield message
+        # Close the subscription explicitly on disconnect/cancel so the
+        # subscriber count is decremented promptly rather than whenever the
+        # abandoned async generator happens to be garbage-collected.
+        sub = BROADCASTER.subscribe()
+        try:
+            async for message in sub:
+                if await request.is_disconnected():
+                    break
+                yield message
+        finally:
+            await sub.aclose()
 
     return StreamingResponse(
         event_generator(),

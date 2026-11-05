@@ -32,7 +32,12 @@ def _atomic_write(data: Dict[str, Any]):
     _ensure_parent()
     try:
         # PERF: Use compact JSON (no indent) to reduce file size and write time
-        HISTORY_PATH.write_text(json.dumps(data, separators=(',', ':'), default=str))
+        # Write-then-rename so concurrent readers (dashboard, P-56 fallback)
+        # never parse a half-written file -- _load() maps that to {} and the
+        # mtime cache would then serve the empty history.
+        tmp = HISTORY_PATH.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, separators=(',', ':'), default=str))
+        tmp.replace(HISTORY_PATH)
         # PERF: Removed verbose logging - this runs every 15s and clutters logs
         # Invalidate cache after write
         _HISTORY_CACHE = None

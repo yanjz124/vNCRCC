@@ -81,7 +81,7 @@ async def fetch_zdc_controllers() -> List[Dict]:
 
             filtered.append(controller_info)
 
-        logger.info(f"Fetched {len(filtered)} ZDC controllers from vNAS")
+        logger.debug("Fetched %d ZDC controllers from vNAS", len(filtered))
         return filtered
 
     except httpx.HTTPError as e:

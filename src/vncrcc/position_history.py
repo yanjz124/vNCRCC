@@ -108,9 +108,13 @@ def record_snapshot(aircraft_list: List[Dict[str, Any]], ts: float) -> None:
 
 def stats() -> Dict[str, int]:
     """(aircraft tracked, total fixes held) -- for /api/status style reporting."""
+    # Called from the event loop while record_snapshot mutates the dict in an
+    # executor thread; snapshot the values first so iteration can't raise
+    # "dictionary changed size during iteration".
+    bufs = list(_POSITIONS.values())
     return {
-        "aircraft": len(_POSITIONS),
-        "fixes": sum(len(b) for b in _POSITIONS.values()),
+        "aircraft": len(bufs),
+        "fixes": sum(len(b) for b in bufs),
         "max_fixes": _MAX_FIXES,
         "radius_nm": int(_RADIUS_NM),
     }

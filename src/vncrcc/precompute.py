@@ -13,6 +13,7 @@ Design:
 
 import logging
 import os
+import threading
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 
@@ -81,18 +82,21 @@ def _compute_geofence(aircraft: List[Dict[str, Any]], geo_keyword: str, max_alti
         # Use spatial index if available
         if tree:
             try:
-                candidates = tree.query(pt)
-                for candidate_shp in candidates:
-                    if candidate_shp.contains(pt) or candidate_shp.touches(pt):
-                        # Find matching props for this shape
-                        for shp, props in shapes:
-                            if shp == candidate_shp:
-                                dca = _dca_radial_range(pt.y, pt.x)
-                                inside.append({"aircraft": a, "matched_props": props, "dca": dca})
-                                break
+                # Shapely 2.x STRtree.query returns integer indices into the
+                # input geometry list; Shapely 1.8 returned the geometries
+                # themselves. Handle both so the lookup actually matches.
+                for candidate in tree.query(pt):
+                    if hasattr(candidate, "__index__"):
+                        shp, props = shapes[int(candidate)]
+                    else:
+                        shp = candidate
+                        props = next((p for s, p in shapes if s is candidate or s == candidate), {})
+                    if shp.contains(pt) or shp.touches(pt):
+                        dca = _dca_radial_range(pt.y, pt.x)
+                        inside.append({"aircraft": a, "matched_props": props, "dca": dca})
                         break
             except Exception:
-                pass  # Fallback to linear search
+                logger.exception("Spatial index lookup failed for %s", cid)
         else:
             # Linear search fallback for small datasets
             for shp, props in shapes:
@@ -312,7 +316,9 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
             positions_by_cid=positions_by_cid if write_json_history else None
         )
     except Exception:
-        pass
+        # Never silently drop P-56 recording failures: this is the only path
+        # that persists intrusion events.
+        logger.exception("Failed to record P-56 history")
 
     # Record this cycle's positions for every aircraft AFTER computing
     # pre_positions, so next cycle's approach track is available. Done last so
@@ -320,12 +326,25 @@ def _detect_p56_intrusions(data: Dict[str, Any], ts: float) -> List[Dict[str, An
     try:
         _position_history.record_snapshot(latest_ac, latest_ts)
     except Exception:
-        pass
+        logger.exception("Failed to update position history")
 
     return breaches
 
 
+# Each fetch spawns its own background task, so if a cycle runs long (surge,
+# slow disk) two precompute_all calls can overlap in executor threads. They
+# share module state (the position tracker, the p56 history file, _CACHE), and
+# an overlap can corrupt it ("dictionary changed size during iteration", lost
+# p56 writes). Serialize them.
+_PRECOMPUTE_LOCK = threading.Lock()
+
+
 def precompute_all(data: Dict[str, Any], ts: float) -> None:
+    with _PRECOMPUTE_LOCK:
+        _precompute_all_unlocked(data, ts)
+
+
+def _precompute_all_unlocked(data: Dict[str, Any], ts: float) -> None:
     """Pre-compute all expensive operations after a VATSIM fetch.
 
     This runs synchronously in the fetch callback, so keep it fast.
@@ -343,15 +362,19 @@ def precompute_all(data: Dict[str, Any], ts: float) -> None:
             general = data.get("general", {})
             update_str = general.get("update_timestamp") or general.get("update")
             if update_str:
-                from datetime import datetime as dt
+                from datetime import datetime as dt, timezone
                 if 'T' in update_str or '-' in update_str:
                     vatsim_dt = dt.fromisoformat(update_str.replace('Z', '+00:00'))
                 else:
                     y, m, d, h, mi, s = update_str[:4], update_str[4:6], update_str[6:8], update_str[8:10], update_str[10:12], update_str[12:14]
                     vatsim_dt = dt.strptime(f"{y}-{m}-{d}T{h}:{mi}:{s}Z", "%Y-%m-%dT%H:%M:%SZ")
+                # VATSIM timestamps are UTC; a naive value would be read as
+                # server-local time by .timestamp().
+                if vatsim_dt.tzinfo is None:
+                    vatsim_dt = vatsim_dt.replace(tzinfo=timezone.utc)
                 vatsim_update_ts = vatsim_dt.timestamp()
                 delay_from_vatsim = ts - vatsim_update_ts
-                logger.info(f"[TIMING] Precompute started {delay_from_vatsim:.1f}s after VATSIM update")
+                logger.debug("[TIMING] Precompute started %.1fs after VATSIM update", delay_from_vatsim)
         except Exception:
             pass
         
@@ -496,7 +519,7 @@ async def fetch_and_cache_controllers(ts: float) -> None:
             "count": len(controllers),
             "computed_at": ts
         }
-        logger.info(f"Cached {len(controllers)} controllers from vNAS")
+        logger.debug("Cached %d controllers from vNAS", len(controllers))
     except Exception as e:
         logger.warning(f"Failed to fetch controllers: {e}")
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from . import aircraft, sfra, frz, p56, incidents, vso, geo, elevation, vip, controllers, status, metrics, dashboard, stream
+from . import aircraft, sfra, frz, p56, incidents, vso, geo, elevation, vip, controllers, status, metrics, dashboard, stream, admin
 
 router = APIRouter(prefix="/v1")
 router.include_router(dashboard.router)  # Consolidated endpoint first (highest priority)
@@ -17,5 +17,6 @@ router.include_router(vip.router)
 router.include_router(controllers.router)
 router.include_router(status.router)
 router.include_router(metrics.router)
+router.include_router(admin.router)
 
 __all__ = ["router"]

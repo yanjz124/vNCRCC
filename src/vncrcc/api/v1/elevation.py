@@ -9,6 +9,7 @@ router = APIRouter(prefix="/elevation")
 # Simple in-memory cache: key -> (elevation_m, timestamp)
 _CACHE: Dict[str, Any] = {}
 _TTL = 60 * 60 * 6  # 6 hours
+_MAX_ENTRIES = 50000
 
 
 def _cache_key(lat: float, lon: float) -> str:
@@ -54,5 +55,13 @@ async def elevation(request: Request, lat: float = Query(...), lon: float = Quer
         # no data at this location in the provided rasters - return neutral
         return {"elevation_m": None, "cached": False, "source": "none", "message": "No local elevation data for this location"}
 
+    # Keys are client-chosen coordinates and entries were never evicted, so
+    # the cache grew without bound. Drop expired entries (and, failing that,
+    # everything) once it gets large.
+    if len(_CACHE) >= _MAX_ENTRIES:
+        for k in [k for k, v in _CACHE.items() if now - v[1] >= _TTL]:
+            del _CACHE[k]
+        if len(_CACHE) >= _MAX_ENTRIES:
+            _CACHE.clear()
     _CACHE[key] = (float(elev_local), now)
     return {"elevation_m": float(elev_local), "cached": False, "source": "local-raster"}

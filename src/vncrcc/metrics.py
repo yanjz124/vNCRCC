@@ -8,7 +8,9 @@ from typing import Dict, Optional
 
 class MetricsTracker:
     """Track API metrics, active users, and resource usage."""
-    
+
+    MAX_ENDPOINTS = 200
+
     def __init__(self, active_window: int = 300):
         """
         Args:
@@ -37,8 +39,18 @@ class MetricsTracker:
     def record_request(self, endpoint: str, client_ip: str) -> None:
         """Record a request from a client IP to an endpoint."""
         now = time.time()
+        # Cap distinct endpoint keys: paths are client-controlled (scanners
+        # probing random URLs), and each key holds a 1000-entry deque, so an
+        # uncapped dict grows without bound.
+        if endpoint not in self._requests and len(self._requests) >= self.MAX_ENDPOINTS:
+            endpoint = "<other>"
         self._requests[endpoint].append((now, client_ip))
         self._active_ips[client_ip] = now
+        # get_active_users() prunes this, but only when /metrics is polled;
+        # prune here too once it gets large so it stays bounded regardless.
+        if len(self._active_ips) > 10000:
+            cutoff = now - self.active_window
+            self._active_ips = {ip: ts for ip, ts in self._active_ips.items() if ts > cutoff}
     
     def record_error(self, endpoint: str, error_type: str) -> None:
         """Record an error for an endpoint."""

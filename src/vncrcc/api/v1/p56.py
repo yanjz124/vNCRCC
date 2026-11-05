@@ -39,6 +39,7 @@ def _load_dotenv_if_present(max_levels: int = 6):
 # Attempt to load a .env file (if present in the repo root or higher)
 _load_dotenv_if_present()
 from shapely.geometry import LineString
+import hmac
 import json
 import time
 
@@ -46,7 +47,7 @@ from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
 from ...p56_history import get_history, get_history_for_api, record_penetration, sync_snapshot
 from ...aircraft_history import get_history as get_ac_history
-from ...rate_limit import maybe_limit
+from ...rate_limit import maybe_limit, get_client_ip
 from shapely.geometry import Point
 from fastapi import Request
 
@@ -364,6 +365,13 @@ async def p56_incidents(request: Request, limit: int = Query(100, description="M
         raise HTTPException(status_code=500, detail=f"Failed to retrieve incidents: {e}")
 
 
+def _password_ok(provided: Any, expected: str) -> bool:
+    """Constant-time password check (a plain != leaks timing information)."""
+    if not isinstance(provided, str) or not provided:
+        return False
+    return hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))
+
+
 @router.post("/clear")
 @maybe_limit("6/minute")
 async def p56_clear(request: Request, payload: Dict[str, str] = Body(...)) -> Dict[str, Any]:
@@ -376,8 +384,7 @@ async def p56_clear(request: Request, payload: Dict[str, str] = Body(...)) -> Di
     admin_pwd = os.getenv("VNCRCC_ADMIN_PASSWORD")
     if not admin_pwd:
         raise HTTPException(status_code=403, detail="Server admin password not configured")
-    provided = payload.get("password")
-    if not provided or provided != admin_pwd:
+    if not _password_ok(payload.get("password"), admin_pwd):
         raise HTTPException(status_code=403, detail="Invalid password")
     # perform clear
     try:
@@ -400,8 +407,7 @@ async def p56_purge(request: Request, payload: Dict[str, Any] = Body(...)) -> Di
     admin_pwd = os.getenv("VNCRCC_ADMIN_PASSWORD")
     if not admin_pwd:
         raise HTTPException(status_code=403, detail="Server admin password not configured")
-    provided = (payload or {}).get("password")
-    if not provided or provided != admin_pwd:
+    if not _password_ok((payload or {}).get("password"), admin_pwd):
         raise HTTPException(status_code=403, detail="Invalid password")
 
     keys = (payload or {}).get("keys") or []
@@ -414,13 +420,7 @@ async def p56_purge(request: Request, payload: Dict[str, Any] = Body(...)) -> Di
         purged_count = result.get("purged", 0)
         
         # Log purge operation to metrics
-        client_ip = ""
-        if request is not None:
-            client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-            if not client_ip:
-                client_ip = request.headers.get("X-Real-IP", "")
-            if not client_ip and getattr(request, "client", None):
-                client_ip = request.client.host
+        client_ip = get_client_ip(request) if request is not None else ""
         
         METRICS.record_p56_purge(purged_count, client_ip or "unknown")
         

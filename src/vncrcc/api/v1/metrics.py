@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from typing import Any, Dict
 import time
 from ...rate_limit import limiter
 from ...metrics import METRICS
+from .admin import require_admin
 
-router = APIRouter(prefix="/metrics")
+# Metrics expose client IPs and request paths: admin only.
+router = APIRouter(prefix="/metrics", dependencies=[Depends(require_admin)])
 
 
 @router.get("/")

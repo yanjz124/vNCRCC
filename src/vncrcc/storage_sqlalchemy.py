@@ -19,6 +19,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
+import logging
+
+logger = logging.getLogger("vncrcc.storage")
 
 
 class Storage:
@@ -161,6 +164,9 @@ class Storage:
                 self._cleanup_old_snapshots(conn)
                 return sid
         except Exception:
+            # Previously swallowed silently, so a broken DB just logged
+            # "Saved snapshot 0" forever.
+            logger.exception("save_snapshot failed")
             return 0
 
     def get_latest_snapshot(self) -> Optional[Dict[str, Any]]:

@@ -4,7 +4,7 @@ from typing import Any
 from datetime import datetime
 
 import yaml
-from fastapi import FastAPI, Request, HTTPException, Response
+from fastapi import FastAPI, Request, HTTPException, Response, Depends
 from fastapi.responses import FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -16,8 +16,9 @@ from .storage import STORAGE
 from .aircraft_history import update_history_batch
 from .vatsim_client import VatsimClient
 from .api import router as api_router
+from .api.v1.admin import require_admin
 from .precompute import precompute_all, build_dashboard_payload
-from .rate_limit import limiter
+from .rate_limit import limiter, get_client_ip
 from .metrics import METRICS
 from .snapshot_buffer import push as _push_snapshot
 from .broadcast import BROADCASTER
@@ -48,12 +49,8 @@ class MetricsMiddleware(BaseHTTPMiddleware):
     """Track requests for metrics."""
     async def dispatch(self, request: Request, call_next):
         # Get client IP (handle proxy headers)
-        client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-        if not client_ip:
-            client_ip = request.headers.get("X-Real-IP", "")
-        if not client_ip and request.client:
-            client_ip = request.client.host
-        
+        client_ip = get_client_ip(request)
+
         # Record request
         endpoint = request.url.path
         METRICS.record_request(endpoint, client_ip or "unknown")
@@ -110,6 +107,11 @@ _TRACK_POSITIONS = os.getenv("VNCRCC_TRACK_POSITIONS", "0").strip() == "1"
 # Dedup: skip processing when VATSIM data hasn't changed
 _last_processed_vatsim_ts = None
 
+# Strong references to in-flight background tasks. The event loop only keeps
+# weak references, so an unreferenced create_task() can be garbage-collected
+# mid-run (precompute/broadcast silently never completing).
+_BG_TASKS: set = set()
+
 
 def _on_fetch(data: dict, ts: float) -> None:
     global _last_processed_vatsim_ts
@@ -128,7 +130,7 @@ def _on_fetch(data: dict, ts: float) -> None:
         aircraft = (data.get("pilots") or data.get("aircraft") or [])
         count = len(aircraft)
         timestamp_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
-        logger.info("Processing %d aircraft at %s", count, timestamp_str)
+        logger.debug("Processing %d aircraft at %s", count, timestamp_str)
 
         # Push to in-memory ring buffer BEFORE background tasks (sync, instant)
         _push_snapshot(data, ts)
@@ -155,7 +157,7 @@ def _on_fetch(data: dict, ts: float) -> None:
             # Wait for save to finish (don't lose data, but doesn't block precompute)
             try:
                 sid = await save_future
-                logger.info("Saved snapshot %s", sid)
+                logger.debug("Saved snapshot %s", sid)
             except Exception:
                 logger.exception("save_snapshot failed")
 
@@ -199,7 +201,9 @@ def _on_fetch(data: dict, ts: float) -> None:
                 logger.exception("Controller fetch failed")
 
         try:
-            asyncio.get_running_loop().create_task(_bg())
+            task = asyncio.get_running_loop().create_task(_bg())
+            _BG_TASKS.add(task)
+            task.add_done_callback(_BG_TASKS.discard)
         except Exception:
             try:
                 STORAGE.save_snapshot(data, ts)
@@ -213,7 +217,16 @@ def _on_fetch(data: dict, ts: float) -> None:
 @app.on_event("startup")
 async def startup() -> None:
     # configure basic logging for development
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
+    # One INFO summary line per poll cycle (precompute timing); per-step
+    # detail is DEBUG. Set VNCRCC_LOG_LEVEL=DEBUG when troubleshooting.
+    level = getattr(logging, os.getenv("VNCRCC_LOG_LEVEL", "INFO").upper(), logging.INFO)
+    logging.basicConfig(level=level, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
+    # httpx logs every outbound request at INFO (the vNAS poll every cycle).
+    logging.getLogger("httpx").setLevel(max(level, logging.WARNING))
+    # Localhost is exempted from rate limits by returning an empty key, which
+    # slowapi reports at ERROR on every such request. Drop just that message.
+    logging.getLogger("slowapi").addFilter(
+        lambda rec: "Empty value found in parameters" not in rec.getMessage())
     logger.info("VNCRCC_WRITE_JSON_HISTORY=%s VNCRCC_TRACK_POSITIONS=%s", _WRITE_JSON_HISTORY, _TRACK_POSITIONS)
     FETCHER.register_callback(_on_fetch)
     await FETCHER.start()
@@ -269,8 +282,8 @@ async def last_snapshot(request: Request) -> dict:
     return {"fetched_at": ts, "aircraft_count": count}
 
 
-@app.get("/api/metrics")
-@limiter.exempt
+@app.get("/api/metrics", dependencies=[Depends(require_admin)])
+@limiter.limit("30/minute")
 async def metrics(request: Request) -> dict:
     """Return server metrics including active users and resource usage.
     

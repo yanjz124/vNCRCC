@@ -22,6 +22,10 @@ class DataBroadcaster:
         self._latest_ts: float = 0
         self._subscriber_count: int = 0
         self._total_broadcasts: int = 0
+        # Monotonic version of _latest_payload. Subscribers compare against
+        # this rather than wall-clock time: a backwards clock step (NTP) made
+        # `_latest_ts > last_seen_ts` false and froze every open stream.
+        self._seq: int = 0
 
     def _ensure_condition(self) -> asyncio.Condition:
         if self._condition is None:
@@ -41,6 +45,7 @@ class DataBroadcaster:
             self._latest_payload = serialized
             self._latest_ts = time.time()
             self._total_broadcasts += 1
+            self._seq += 1
             condition.notify_all()
 
         if self._subscriber_count > 0:
@@ -51,28 +56,36 @@ class DataBroadcaster:
         """Async generator yielding SSE-formatted messages."""
         condition = self._ensure_condition()
         self._subscriber_count += 1
-        last_seen_ts = 0.0
+        last_seen = 0
 
         try:
             # Send latest data immediately on connect
-            if self._latest_payload and self._latest_ts > last_seen_ts:
-                last_seen_ts = self._latest_ts
+            if self._latest_payload and self._seq > last_seen:
+                last_seen = self._seq
                 yield f"event: update\ndata: {self._latest_payload}\n\n"
 
             while True:
+                # Only hold the condition lock while waiting/reading state.
+                # Yielding while holding it would let one slow client (whose
+                # socket send is blocked) stall notify() and every other
+                # subscriber until that client drains.
+                message: Optional[str] = None
                 async with condition:
                     try:
                         await asyncio.wait_for(
-                            condition.wait_for(lambda: self._latest_ts > last_seen_ts),
+                            condition.wait_for(lambda: self._seq > last_seen),
                             timeout=15.0
                         )
                     except asyncio.TimeoutError:
-                        yield f": heartbeat {int(time.time())}\n\n"
-                        continue
+                        pass
+                    if self._latest_payload and self._seq > last_seen:
+                        last_seen = self._seq
+                        message = f"event: update\ndata: {self._latest_payload}\n\n"
 
-                    if self._latest_payload and self._latest_ts > last_seen_ts:
-                        last_seen_ts = self._latest_ts
-                        yield f"event: update\ndata: {self._latest_payload}\n\n"
+                if message is None:
+                    yield f": heartbeat {int(time.time())}\n\n"
+                else:
+                    yield message
         finally:
             self._subscriber_count -= 1
 

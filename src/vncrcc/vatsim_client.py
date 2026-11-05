@@ -132,13 +132,17 @@ class VatsimClient:
                 update_str = general.get("update_timestamp") or general.get("update")
                 if update_str:
                     # Parse ISO or compact format
-                    from datetime import datetime
+                    from datetime import datetime, timezone
                     if 'T' in update_str or '-' in update_str:
                         vatsim_dt = datetime.fromisoformat(update_str.replace('Z', '+00:00'))
                     else:
-                        # Compact: "20251120211931"
+                        # Compact: "20251120211931" (UTC). strptime returns a
+                        # naive datetime, which .timestamp() would interpret
+                        # as server-local time -- pin it to UTC.
                         y, m, d, h, mi, s = update_str[:4], update_str[4:6], update_str[6:8], update_str[8:10], update_str[10:12], update_str[12:14]
-                        vatsim_dt = datetime.strptime(f"{y}-{m}-{d}T{h}:{mi}:{s}Z", "%Y-%m-%dT%H:%M:%SZ")
+                        vatsim_dt = datetime.strptime(f"{y}-{m}-{d}T{h}:{mi}:{s}Z", "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                    if vatsim_dt.tzinfo is None:
+                        vatsim_dt = vatsim_dt.replace(tzinfo=timezone.utc)
                     vatsim_update_ts = vatsim_dt.timestamp()
                     vatsim_age_seconds = ts - vatsim_update_ts
             except Exception:
@@ -157,10 +161,10 @@ class VatsimClient:
 
             # Log with staleness info
             if vatsim_age_seconds is not None:
-                logger.info("VATSIM fetch success: %d aircraft, fetch took %.2fs, data age %.1fs",
+                logger.debug("VATSIM fetch success: %d aircraft, fetch took %.2fs, data age %.1fs",
                            count, fetch_duration, vatsim_age_seconds)
             else:
-                logger.info("VATSIM fetch success: %d aircraft at %.0f, fetch took %.2fs",
+                logger.debug("VATSIM fetch success: %d aircraft at %.0f, fetch took %.2fs",
                            count, ts, fetch_duration)
 
             # Record delay to metrics if available
