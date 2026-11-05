@@ -311,6 +311,14 @@
     if(!h) return {};
     return h.data || h.history || {};
   }
+  // vNAS sends ratings as words ("Controller3", "Student2"); show the usual
+  // VATSIM short form (C3, S2, I1, SUP...).
+  function atcRating(r){
+    if(r === null || r === undefined || r === '') return '';
+    const m = String(r).match(/^(Student|Controller|Instructor)(\d)?$/i);
+    if(!m) return String(r).replace(/^Supervisor$/i, 'SUP').replace(/^Administrator$/i, 'ADM').replace(/^Observer$/i, 'OBS');
+    return m[1][0].toUpperCase() + (m[2] || '');
+  }
 
   // Create path layers for flight path visualization.
   // Separate the live "flight path" polylines (triggered by clicking an aircraft/row)
@@ -2272,7 +2280,7 @@
     // Handle controllers table with fresh cache data
     if(tbodyId === 'controllers-tbody'){
       const controllersList = window.ctrlsCache?.data?.controllers || [];
-      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower'};
+      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower', 'IAD': 'Dulles Tower', 'BWI': 'BWI Tower', 'HEF': 'Manassas Tower', 'MTN': 'Martin State Tower', 'FDK': 'Frederick Tower'};
       renderTable('controllers-tbody', controllersList, it => {
         const cid = it.cid || '';
         const name = it.realName || '';
@@ -2281,7 +2289,7 @@
         const facility = facilityDisplayNames[facilityId] || facilityId;
         const position = it.positionName || '';
         const freq = it.frequency || '';
-        const rating = it.rating || '';
+        const rating = atcRating(it.rating);
         return `<td><strong>${callsign}</strong></td><td>${name}</td><td>${cid}</td><td>${facility}</td><td>${position}</td><td>${freq}</td><td>${rating}</td>`;
       }, null); // No flight plan expansion for controllers
       return;
@@ -2585,7 +2593,7 @@
     el('controllers-count').textContent = controllersList.length;
     // Render controllers table immediately to avoid lag between count and table display
     try{
-      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower'};
+      const facilityDisplayNames = {'ZDC': 'Washington Center', 'PCT': 'Potomac TRACON', 'DCA': 'Reagan Tower', 'NYG': 'Quantico Tower', 'ADW': 'Andrews Tower', 'IAD': 'Dulles Tower', 'BWI': 'BWI Tower', 'HEF': 'Manassas Tower', 'MTN': 'Martin State Tower', 'FDK': 'Frederick Tower'};
       const tbody = el('controllers-tbody');
       if(tbody){
         const parts = [];
@@ -2597,10 +2605,10 @@
           const facility = facilityDisplayNames[facilityId] || facilityId;
           const position = it.positionName || '';
           const freq = it.frequency || '';
-          const rating = it.rating || '';
+          const rating = atcRating(it.rating);
           parts.push(`<tr><td><strong>${callsign}</strong></td><td>${name}</td><td>${cid}</td><td>${facility}</td><td>${position}</td><td>${freq}</td><td>${rating}</td></tr>`);
         });
-        tbody.innerHTML = parts.join('');
+        tbody.innerHTML = parts.join('') || '<tr><td colspan="7" class="muted">No NCR controllers online.</td></tr>';
       }
     }catch(e){}
 
