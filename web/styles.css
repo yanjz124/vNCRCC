@@ -343,6 +343,9 @@ input[type="text"], input[type="number"], input[type="password"]{font:inherit}
 #sfra-table td:nth-child(9), #frz-table td:nth-child(9), #vso-table td:nth-child(10), #p56-table td:nth-child(9){white-space:normal;word-break:break-word}
 #sfra-table th:nth-child(2), #sfra-table td:nth-child(2), #frz-table th:nth-child(2), #frz-table td:nth-child(2){width:10%}
 #sfra-table th:nth-child(3), #sfra-table td:nth-child(3), #frz-table th:nth-child(3), #frz-table td:nth-child(3){width:12%}
+#sfra-table th:nth-child(4), #sfra-table td:nth-child(4), #frz-table th:nth-child(4), #frz-table td:nth-child(4),
+#sfra-table th:nth-child(6), #sfra-table td:nth-child(6), #frz-table th:nth-child(6), #frz-table td:nth-child(6),
+#sfra-table th:nth-child(12), #sfra-table td:nth-child(12), #frz-table th:nth-child(12), #frz-table td:nth-child(12){width:9%}
 #p56-leaderboard-table th:nth-child(1), #p56-leaderboard-table td:nth-child(1){width:8%}
 #p56-leaderboard-table th:nth-child(5), #p56-leaderboard-table td:nth-child(5){width:11%}
 #p56-leaderboard-table th:nth-child(6), #p56-leaderboard-table td:nth-child(6),
@@ -462,7 +465,7 @@ body > header:not(.masthead) .header-left{display:flex;align-items:center;gap:12
   .section-title{font-size:1.35rem}
   .tile-ident{font-size:1.4rem}
   .tile-link{font-size:1rem}
-  .traffic-table{min-width:820px;font-size:.92rem}
+  .traffic-table{min-width:960px;font-size:.92rem}
   #controllers-table, #p56-leaderboard-table, #p56-events-table{min-width:680px}
   .traffic-table tbody{max-height:60vh}
   .btn, .vso-controls input{min-height:40px}
