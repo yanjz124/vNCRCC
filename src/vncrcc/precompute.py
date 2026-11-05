@@ -535,7 +535,8 @@ def build_dashboard_payload() -> Optional[Dict[str, Any]]:
     if not aircraft_cached:
         return None
 
-    from .p56_history import get_history as get_p56_history
+    # Summary (no per-event tracks): this goes out in every SSE frame.
+    from .p56_history import get_history_summary as get_p56_history
 
     p56_cached = _CACHE.get("p56")
 

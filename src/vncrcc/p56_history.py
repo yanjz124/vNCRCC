@@ -1,18 +1,21 @@
 import json
 import logging
 import os
-import shutil
 import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .geo.loader import point_from_aircraft
+from .p56_store import get_store
 
 # Anchor to the repo root (not the process CWD, which differs between the two
 # systemd overrides in this repo) unless overridden. If an older file exists
 # under the CWD and not at the repo root, keep using it so a deploy never
 # "loses" the log by switching files.
+#
+# HISTORY_PATH is the *legacy* JSON file. Live storage is the SQLite DB next to
+# it (same stem, ".db"); the JSON is imported once and kept as ".json.migrated".
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _ENV_PATH = os.environ.get("VNCRCC_P56_HISTORY_PATH")
 if _ENV_PATH:
@@ -20,33 +23,37 @@ if _ENV_PATH:
 else:
     HISTORY_PATH = _REPO_ROOT / "data" / "p56_history.json"
     _legacy = Path.cwd() / "data" / "p56_history.json"
-    if not HISTORY_PATH.exists() and _legacy.exists():
+    _legacy_db = _legacy.with_suffix(".db")
+    if not HISTORY_PATH.exists() and not HISTORY_PATH.with_suffix(".db").exists() and (_legacy.exists() or _legacy_db.exists()):
         HISTORY_PATH = _legacy
 
 # If an aircraft re-enters P56 within this many position updates after exiting,
 # treat as the same intrusion (not a new one).
 REENTRY_GRACE_UPDATES = 5
-# Rolling backup of the last good history file, refreshed at most this often.
-BACKUP_INTERVAL_S = 600
+
+# Position buckets stripped from the lightweight summary sent on every
+# dashboard poll / SSE frame; fetch them per event via get_event_track().
+_TRACK_KEYS = ("pre_positions", "intrusion_positions", "post_positions")
 
 logger = logging.getLogger("vncrcc.p56_history")
 
-# Serializes every load-modify-write of the history file. The precompute cycle
-# runs in an executor thread while admin clear/purge run on the event loop;
-# without this an in-flight cycle that loaded the file before a purge would
-# write the purged events straight back (and both writers shared one .tmp).
+# Serializes every load-modify-write. The precompute cycle runs in an executor
+# thread while admin clear/purge run on the event loop; without this an
+# in-flight cycle that loaded before a purge would write purged events back.
 _LOCK = threading.RLock()
 
-# PERF: Cache for get_history() to avoid repeated file reads
+# Reader caches, keyed by store version (bumped on every committed write).
 _HISTORY_CACHE: Optional[Dict[str, Any]] = None
-_HISTORY_CACHE_MTIME: float = 0
-# Last successfully parsed history, served to readers if the file goes bad.
+_HISTORY_CACHE_VERSION: int = -1
+_SUMMARY_CACHE: Optional[Dict[str, Any]] = None
+_SUMMARY_CACHE_VERSION: int = -1
+# Last successfully loaded history, served to readers if storage fails.
 _LAST_GOOD: Optional[Dict[str, Any]] = None
 
 
 class HistoryUnreadable(RuntimeError):
-    """The history file exists but can't be parsed. Writers must NOT proceed:
-    treating it as empty and saving would wipe the intrusion log/leaderboard."""
+    """Stored history can't be read. Writers must NOT proceed: treating it as
+    empty and saving would wipe the intrusion log/leaderboard."""
 
 
 def _path() -> Path:
@@ -54,12 +61,9 @@ def _path() -> Path:
     return HISTORY_PATH if isinstance(HISTORY_PATH, Path) else Path(HISTORY_PATH)
 
 
-def _backup_path() -> Path:
-    return _path().with_suffix(".json.bak")
-
-
-def _ensure_parent():
-    _path().parent.mkdir(parents=True, exist_ok=True)
+def _db_path() -> Path:
+    env = os.environ.get("VNCRCC_P56_DB_PATH")
+    return Path(env) if env else _path().with_suffix(".db")
 
 
 def _parse(p: Path) -> Dict[str, Any]:
@@ -71,120 +75,110 @@ def _parse(p: Path) -> Dict[str, Any]:
     return data
 
 
-def _load() -> Dict[str, Any]:
-    """Load history. A *missing* file is a genuinely empty history; a file that
-    exists but fails to parse is NOT -- it used to be mapped to {} here, and the
-    next poll cycle then wrote {} back, silently wiping every event (the
-    "log and leaderboard purge themselves" bug). Now we retry, fall back to the
-    rolling backup, and otherwise raise so callers skip the write."""
-    _ensure_parent()
+def _read_legacy_json() -> Optional[Dict[str, Any]]:
+    """Read the pre-SQLite JSON history (or its .bak) for one-time import.
+    Returns None if there is nothing to import; raises HistoryUnreadable if a
+    file exists but neither it nor its backup parses (so nothing gets wiped)."""
     p = _path()
-    if not p.exists():
-        return {"events": [], "current_inside": {}}
-    bak = _backup_path()
-    try:
-        zero_length = p.stat().st_size == 0
-    except OSError:
-        zero_length = False
-    if zero_length:
-        # A 0-byte file is what ext4 can leave after a power cut when a rename
-        # wasn't preceded by fsync (the old writer didn't fsync). Restore from
-        # backup if we have one; otherwise there's genuinely nothing to lose.
-        if bak.exists():
-            try:
-                data = _parse(bak)
-                logger.error("P-56 history %s was empty; restored %d events from %s", p, len(data["events"]), bak.name)
-                return data
-            except Exception:
-                logger.exception("P-56 history backup %s is unreadable", bak.name)
-        return {"events": [], "current_inside": {}}
+    bak = p.with_suffix(".json.bak")
+    if not p.exists() or p.stat().st_size == 0:
+        if bak.exists() and bak.stat().st_size:
+            return _parse(bak)
+        return None
     last_err: Optional[Exception] = None
     for attempt in range(3):
         try:
             return _parse(p)
-        except Exception as e:  # transient partial read, encoding glitch, ...
+        except Exception as e:
             last_err = e
             time.sleep(0.05 * (attempt + 1))
-    bak = _backup_path()
-    try:
-        # Keep the unreadable file IN PLACE (moving it would make the next
-        # cycle see "no file" and start an empty history -- the same wipe one
-        # cycle later) and save one copy for inspection, named by its mtime so
-        # repeated failed loads don't create a copy every 10s.
-        corrupt = p.with_suffix(f".json.corrupt-{int(p.stat().st_mtime)}")
-        if not corrupt.exists():
-            shutil.copy2(p, corrupt)
-            logger.error("P-56 history %s unreadable (%s); copy saved as %s", p, last_err, corrupt.name)
-    except Exception:
-        logger.exception("P-56 history %s unreadable (%s) and could not be copied", p, last_err)
     if bak.exists():
         try:
             data = _parse(bak)
-            logger.error("Restored P-56 history from backup %s (%d events)", bak.name, len(data["events"]))
+            logger.error("Legacy P-56 history %s unreadable (%s); importing backup %s", p, last_err, bak.name)
             return data
         except Exception:
-            logger.exception("P-56 history backup %s is unreadable too", bak.name)
-    raise HistoryUnreadable(f"{p} could not be parsed: {last_err}")
+            pass
+    raise HistoryUnreadable(f"{p} could not be parsed for import: {last_err}")
+
+
+def _store():
+    """Open the SQLite store, importing the legacy JSON history on first use."""
+    st = get_store(_db_path())
+    if st.get_meta("schema") is None:
+        with _LOCK:
+            if st.get_meta("schema") is None:
+                legacy = _read_legacy_json()
+                if legacy is not None and st.is_empty():
+                    n = st.save(legacy)
+                    logger.warning("Imported %d P-56 events from %s into %s (%d rows)",
+                                   len(legacy.get("events") or []), _path().name, _db_path().name, n)
+                    try:
+                        _path().replace(_path().with_suffix(".json.migrated"))
+                    except FileNotFoundError:
+                        pass
+                st.set_meta("schema", "1")
+    return st
+
+
+def _load() -> Dict[str, Any]:
+    """Fresh, caller-owned copy of the history ({"events", "current_inside"})."""
+    try:
+        return _store().load()
+    except HistoryUnreadable:
+        raise
+    except Exception as e:  # sqlite3.DatabaseError etc.
+        logger.exception("P-56 history store unreadable")
+        raise HistoryUnreadable(str(e)) from e
 
 
 def _atomic_write(data: Dict[str, Any]):
-    global _HISTORY_CACHE, _HISTORY_CACHE_MTIME
-    _ensure_parent()
-    p = _path()
-    # Refresh the rolling backup from the current (known-good) file before
-    # replacing it, at most every BACKUP_INTERVAL_S.
-    try:
-        bak = _backup_path()
-        if p.exists() and (not bak.exists() or time.time() - bak.stat().st_mtime > BACKUP_INTERVAL_S):
-            _parse(p)  # only back up a file that actually parses
-            shutil.copy2(p, bak)
-    except Exception:
-        logger.warning("Could not refresh P-56 history backup", exc_info=True)
-    tmp = p.with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
-    # PERF: Use compact JSON (no indent) to reduce file size and write time
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(json.dumps(data, separators=(',', ':'), default=str))
-        f.flush()
-        os.fsync(f.fileno())  # survive power loss on the Pi's SD card
-    tmp.replace(p)
-    # Invalidate cache after write
-    _HISTORY_CACHE = None
-    _HISTORY_CACHE_MTIME = 0
+    """Persist in one transaction (only changed rows are written)."""
+    _store().save(data)
 
 
 def get_history() -> Dict[str, Any]:
-    """Get P56 history with caching to avoid repeated file reads.
-
-    PERF: Caches the history file and only reloads if file has been modified.
-    This is safe because history updates always call _atomic_write which changes mtime.
-    """
-    global _HISTORY_CACHE, _HISTORY_CACHE_MTIME, _LAST_GOOD
-
+    """Full history including position tracks (cached until the next write).
+    Readers must not mutate the returned dict."""
+    global _HISTORY_CACHE, _HISTORY_CACHE_VERSION, _LAST_GOOD
     try:
-        p = HISTORY_PATH if isinstance(HISTORY_PATH, Path) else Path(HISTORY_PATH)
-        if not p.exists():
-            return {"events": [], "current_inside": {}}
-
-        # Check if file has been modified since last cache
-        current_mtime = p.stat().st_mtime
-        if _HISTORY_CACHE is not None and current_mtime == _HISTORY_CACHE_MTIME:
+        st = _store()
+        if _HISTORY_CACHE is not None and _HISTORY_CACHE_VERSION == st.version:
             return _HISTORY_CACHE
-
-        # File changed or no cache - reload
-        data = _load()
-        _HISTORY_CACHE = data
-        _LAST_GOOD = data
-        _HISTORY_CACHE_MTIME = current_mtime
+        data = st.load()
+        _HISTORY_CACHE, _HISTORY_CACHE_VERSION, _LAST_GOOD = data, st.version, data
         return data
-    except HistoryUnreadable:
-        # Serve the last good copy rather than an empty log.
-        return _LAST_GOOD or {"events": [], "current_inside": {}}
     except Exception:
-        # Fallback to uncached load on error
-        try:
-            return _load()
-        except HistoryUnreadable:
-            return _LAST_GOOD or {"events": [], "current_inside": {}}
+        logger.exception("Serving last good P-56 history (store read failed)")
+        return _LAST_GOOD or {"events": [], "current_inside": {}}
+
+
+def get_history_summary() -> Dict[str, Any]:
+    """History without per-event position tracks, for the dashboard and every
+    SSE frame. Tracks made the payload grow by ~10 KB per logged intrusion;
+    each event now carries ``track_points`` and clients fetch the path on
+    demand (GET /api/v1/p56/track)."""
+    global _SUMMARY_CACHE, _SUMMARY_CACHE_VERSION
+    full = get_history()
+    version = _HISTORY_CACHE_VERSION
+    if _SUMMARY_CACHE is not None and _SUMMARY_CACHE_VERSION == version and version >= 0:
+        return _SUMMARY_CACHE
+    events = []
+    for e in full.get("events") or []:
+        slim = {k: v for k, v in e.items() if k not in _TRACK_KEYS}
+        slim["track_points"] = sum(len(e.get(k) or []) for k in _TRACK_KEYS)
+        events.append(slim)
+    current = {}
+    for cid, st in (full.get("current_inside") or {}).items():
+        current[cid] = st
+    summary = {"events": events, "current_inside": current, "summary": True}
+    _SUMMARY_CACHE, _SUMMARY_CACHE_VERSION = summary, version
+    return summary
+
+
+def get_event(cid: str, recorded_at: str) -> Optional[Dict[str, Any]]:
+    """One full event (with tracks) by its '<cid>:<recorded_at>' identity."""
+    return _store().get_event(str(cid), str(recorded_at))
 
 
 def build_event_track(event: Dict[str, Any]) -> List[Dict[str, Any]]:

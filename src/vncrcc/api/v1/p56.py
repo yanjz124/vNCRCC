@@ -45,7 +45,7 @@ import time
 
 from ... import storage
 from ...geo.loader import find_geo_by_keyword, point_from_aircraft
-from ...p56_history import get_history, get_history_for_api, record_penetration, sync_snapshot
+from ...p56_history import get_history, get_history_for_api, record_penetration, sync_snapshot, get_event, build_event_track
 from ...aircraft_history import get_history as get_ac_history
 from ...rate_limit import maybe_limit, get_client_ip
 from shapely.geometry import Point
@@ -346,6 +346,27 @@ def _attach_tracks_to_breaches(breaches: List[Dict[str, Any]], history: Dict[str
 async def p56_breaches(name: str = "p56") -> Dict[str, Any]:
     return _compute_p56_breaches(name)
 
+
+
+@router.get("/track")
+@maybe_limit("60/minute")
+async def p56_event_track(request: Request, cid: str = Query(...), recorded_at: str = Query(...)) -> Dict[str, Any]:
+    """Full position track for one logged intrusion (identity '<cid>:<recorded_at>').
+
+    The dashboard/SSE history is a summary without tracks; the UI calls this
+    when an event is opened.
+    """
+    evt = get_event(cid, recorded_at)
+    if evt is None:
+        raise HTTPException(status_code=404, detail="event not found")
+    return {
+        "cid": cid,
+        "recorded_at": recorded_at,
+        "pre_positions": evt.get("pre_positions") or [],
+        "intrusion_positions": evt.get("intrusion_positions") or [],
+        "post_positions": evt.get("post_positions") or [],
+        "track": build_event_track(evt),
+    }
 
 
 @router.get("/incidents")

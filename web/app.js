@@ -322,6 +322,31 @@
     intrusionOverlaysByKey.set(evtKey, { p56Group, sfraGroup });
   }
 
+  // Dashboard/SSE history is a summary without position tracks (they made
+  // every frame ~1 MB). Use embedded positions if present (older servers),
+  // otherwise fetch the track for this event once and cache it.
+  const eventTrackCache = new Map();
+  async function showEventTrack(evtKey, evt){
+    if(!evt) return;
+    let positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
+    if(!positions.length && evt.track_points){
+      positions = eventTrackCache.get(evtKey);
+      if(!positions){
+        try{
+          const qs = new URLSearchParams({ cid: String(evt.cid ?? ''), recorded_at: String(evt.recorded_at ?? '') });
+          const r = await fetch(`${API_ROOT}/p56/track?${qs}`, { cache: 'no-store' });
+          if(!r.ok) return;
+          const j = await r.json();
+          positions = (j.pre_positions || []).concat(j.intrusion_positions || []).concat(j.post_positions || []);
+          eventTrackCache.set(evtKey, positions);
+        }catch(e){ console.warn('Failed to load intrusion track', e); return; }
+      }
+      // The user may have collapsed the row while we were fetching.
+      if(!expandedSet.has(evtKey)) return;
+    }
+    drawIntrusionForEvent(evtKey, positions);
+  }
+
   function removeIntrusionForEvent(evtKey){
     const rec = intrusionOverlaysByKey.get(evtKey);
     if(!rec) return;
@@ -1977,8 +2002,7 @@
                 const evts = tableDataCache?.events || [];
                 const evt = evts.find(e => `${String(e.cid||'')}:${String(e.recorded_at||'')}` === key);
                 if(opening){
-                  const positions = (evt?.pre_positions || []).concat(evt?.intrusion_positions || []).concat(evt?.post_positions || []);
-                  drawIntrusionForEvent(key, positions);
+                  showEventTrack(key, evt);
                 }else{
                   removeIntrusionForEvent(key);
                 }
@@ -2226,15 +2250,13 @@
         fpDiv.dataset.fpKey = evtKey;
         if(expandedSet.has(evtKey)){
           fpDiv.classList.add('show');
-          const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
-          drawIntrusionForEvent(evtKey, positions);
+          showEventTrack(evtKey, evt);
         }
         tr.addEventListener('click', () => {
           const opening = !fpDiv.classList.contains('show');
           fpDiv.classList.toggle('show');
           if(opening){
-            const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
-            drawIntrusionForEvent(evtKey, positions);
+            showEventTrack(evtKey, evt);
             expandedSet.add(evtKey); saveExpandedSet(expandedSet);
           }else{
             removeIntrusionForEvent(evtKey);
@@ -2595,15 +2617,13 @@
       // if it was expanded previously, show it and draw path
         if(expandedSet.has(evtKey)){
           fpDiv.classList.add('show');
-          const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
-          drawIntrusionForEvent(evtKey, positions);
+          showEventTrack(evtKey, evt);
         }
       tr.addEventListener('click', () => {
         const opening = !fpDiv.classList.contains('show');
         fpDiv.classList.toggle('show');
           if(opening){
-            const positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
-            drawIntrusionForEvent(evtKey, positions);
+            showEventTrack(evtKey, evt);
             expandedSet.add(evtKey); saveExpandedSet(expandedSet);
           }else{
             removeIntrusionForEvent(evtKey);

@@ -5,7 +5,8 @@ import time
 
 from ... import storage
 from ...aircraft_history import get_history
-from ...p56_history import get_history as get_p56_history
+# Summary (no per-event tracks): this payload goes out on every poll.
+from ...p56_history import get_history_summary as get_p56_history
 from ...rate_limit import limiter
 from ...geo_utils import haversine_nm as _haversine_nm, DCA_LAT, DCA_LON
 
