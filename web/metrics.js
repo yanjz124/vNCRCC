@@ -133,11 +133,11 @@ function initCharts() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: true, labels: { color: '#9fb9d8' } }
+      legend: { display: true, labels: { color: '#3d4551' } }
     },
     scales: {
-      x: { ticks: { color: '#9fb9d8' }, grid: { color: 'rgba(74, 144, 226, 0.1)' } },
-      y: { ticks: { color: '#9fb9d8' }, grid: { color: 'rgba(74, 144, 226, 0.1)' } }
+      x: { ticks: { color: '#3d4551' }, grid: { color: 'rgba(0, 0, 0, 0.08)' } },
+      y: { ticks: { color: '#3d4551' }, grid: { color: 'rgba(0, 0, 0, 0.08)' } }
     }
   };
 

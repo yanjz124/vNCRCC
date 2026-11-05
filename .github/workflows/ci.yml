@@ -24,4 +24,5 @@ jobs:
         with:
           node-version: "22"
       - name: JS syntax check
-        run: for f in web/*.js web/js/*.js; do [ -f "$f" ] && node --check "$f"; done
+        # find, not a glob loop: an unmatched glob made the loop exit 1.
+        run: find web -name '*.js' -print0 | xargs -0 -n1 node --check

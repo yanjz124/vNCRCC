@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Metrics Dashboard - vNCRCC</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
-  <link rel="stylesheet" href="styles.css?v=1793852400" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="styles.css?v=1793860000" />
   <link rel="icon" href="/static/logo.png?v=1" type="image/png" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
@@ -28,14 +28,14 @@
       }
     }
     .metric-card {
-      background: rgba(15, 25, 40, 0.95);
-      border: 1px solid #4a90e2;
+      background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18);
+      border: 0;
       border-radius: 8px;
       padding: 16px;
     }
     .metric-card h3 {
       margin: 0 0 12px 0;
-      color: #4a90e2;
+      color: #0071bc;
       font-size: 16px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -43,12 +43,12 @@
     .metric-value {
       font-size: 32px;
       font-weight: bold;
-      color: #dfefff;
+      color: #1b1b1b;
       margin: 8px 0;
     }
     .metric-label {
       font-size: 12px;
-      color: #9fb9d8;
+      color: #71767a;
       text-transform: uppercase;
     }
     .chart-container {
@@ -72,7 +72,7 @@
     .status-danger { color: #f87171; }
     .refresh-info {
       text-align: center;
-      color: #9fb9d8;
+      color: #71767a;
       margin: 16px 0;
       font-size: 14px;
     }
@@ -256,6 +256,6 @@
     </p>
   </footer>
 
-  <script src="metrics.js?v=1793852400"></script>
+  <script src="metrics.js?v=1793860000"></script>
 </body>
 </html>

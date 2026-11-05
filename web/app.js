@@ -239,13 +239,13 @@
   const sfraMap = L.map('sfra-map', { zoomControl: false, doubleClickZoom: false }).setView(DCA, 9);
   // Basemap: keyless providers only. CARTO's basemaps now require an API key
   // (they serve an "API KEY REQUIRED" placeholder tile), so we use Esri's
-  // Dark Gray Canvas (base + labels). If Esri starts failing we fall back to
-  // standard OpenStreetMap tiles darkened with a CSS filter (.osm-dark).
+  // Light Gray Canvas (base + labels). If Esri starts failing we fall back to
+  // standard OpenStreetMap tiles.
   const ESRI_ATTR = 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
   function addBasemap(map){
     const esriOpts = { maxZoom: 19, maxNativeZoom: 16, attribution: ESRI_ATTR };
-    const base = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', esriOpts);
-    const labels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 16 });
+    const base = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', esriOpts);
+    const labels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 16 });
     let errors = 0, loaded = 0, switched = false;
     base.on('tileload', () => { loaded++; });
     base.on('tileerror', () => {
@@ -255,7 +255,7 @@
       switched = true;
       try{ map.removeLayer(base); map.removeLayer(labels); }catch(e){}
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19, className: 'osm-dark',
+        maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
       }).addTo(map);
     });
@@ -1494,7 +1494,10 @@
   updateDiv.id = 'update-time';
   updateDiv.setAttribute('role', 'status');
   updateDiv.title = 'Age of the VATSIM data feed';
-  (document.querySelector('.header-right') || document.body).appendChild(updateDiv);
+  // The NAS-style masthead shows its own Updated/Current clocks (status-ui.js);
+  // only mount the legacy pill on pages that still have a .header-right slot.
+  const headerSlot = document.querySelector('.header-right');
+  if(headerSlot) headerSlot.appendChild(updateDiv);
 
   function updateTimeDisplay() {
     const now = Date.now();
@@ -3216,6 +3219,17 @@
       latest_ac: filtered || [],
       p56json: p56json || {}
     };
+    // Publish a snapshot for ES-module UI code (web/js/*). Strings are already
+    // HTML-escaped by the JSON boundary guard, so consumers may use innerHTML.
+    try{
+      window.dispatchEvent(new CustomEvent('vncrcc:data', { detail: window.__vncrccLastData = {
+        currentInside: currentInside || [],
+        events: events || [],
+        sfraCount: (sfraList || []).length,
+        frzCount: (frzList || []).length,
+        vatsimUpdateTimestamp: window.vatsimUpdateTimestamp || null,
+      }}));
+    }catch(e){ console.warn('vncrcc:data dispatch failed', e); }
     // Cached table data
 
     // Update visible flight paths immediately - markers are already added to layer groups
