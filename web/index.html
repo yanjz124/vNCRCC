@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0e13" />
   <title>vNCRCC Live Dashboard</title>
   
   <!-- SEO and Social Media Meta Tags -->
@@ -24,20 +25,26 @@
   <meta name="twitter:image" content="https://vncrcc.org/static/p56_alert_banner.jpg" />
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="styles.css?v=1763345500" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="styles.css?v=1793852400" />
   <!-- Use project logo (drop your PNG at web/static/logo.png). Falls back to inline tiny favicon if missing -->
   <link rel="icon" href="/static/logo.png?v=1" type="image/png" />
 </head>
 <body>
   <header>
     <div class="header-left">
-      <a href="/" title="Home">
-        <div id="logo-placeholder"><img id="site-logo" src="/static/logo.png?v=1" alt="vNCRCC logo" /></div>
+      <a href="/" title="Home" class="brand">
+        <div id="logo-placeholder"><img id="site-logo" src="/static/logo.png?v=1" alt="" /></div>
+        <div class="brand-text">
+          <h1><span class="title-full">Virtual National Capital Region Coordination Center</span><span class="title-short">vNCRCC</span></h1>
+          <p class="subtitle">Live VATSIM airspace monitor &middot; Washington DC SFRA / FRZ / P-56</p>
+        </div>
       </a>
-      <h1>Virtual National Capital Region Coordination Center</h1>
     </div>
     <div class="header-right">
-      <!-- Future dropdown menus will go here -->
+      <!-- #update-time status pill is inserted here by app.js -->
     </div>
   </header>
   <div class="container">
@@ -71,14 +78,14 @@
       <div class="panel-row">
         <div class="panel" id="p56-panel">
           <div class="panel-header">
-            <h2>P56 Current Intrusion (<span id="p56-count">0</span>)</h2>
+            <h2>P-56 Current Intrusions <span class="count" id="p56-count">0</span></h2>
             <div class="p56-alert-controls">
-              <label><input type="checkbox" id="toggle-p56-banner" checked/> Show Alert Banner</label>
-              <label><input type="checkbox" id="toggle-p56-sound" checked/> Play Alert Sound</label>
+              <label class="switch"><input type="checkbox" id="toggle-p56-banner" checked/> Banner</label>
+              <label class="switch"><input type="checkbox" id="toggle-p56-sound" checked/> Sound</label>
               <button id="test-p56-alert" class="btn">Test Alert</button>
             </div>
           </div>
-          <table id="p56-table" class="traffic-table">
+          <div class="table-scroll"><table id="p56-table" class="traffic-table">
             <thead>
               <tr>
                 <th>Callsign</th>
@@ -96,12 +103,12 @@
               </tr>
             </thead>
             <tbody id="p56-tbody"></tbody>
-          </table>
+          </table></div>
         </div>
 
         <div class="panel" id="controllers-panel">
-          <h2>Online ATC (<span id="controllers-count">0</span>)</h2>
-          <table id="controllers-table" class="traffic-table">
+          <div class="panel-header"><h2>Online ATC <span class="count" id="controllers-count">0</span></h2></div>
+          <div class="table-scroll"><table id="controllers-table" class="traffic-table">
             <thead>
               <tr>
                 <th>Callsign</th>
@@ -114,14 +121,14 @@
               </tr>
             </thead>
             <tbody id="controllers-tbody"></tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 
       <div class="panel-row">
         <div class="panel" id="p56-leaderboard-panel">
-          <h2>P56 Leaderboard</h2>
-          <table id="p56-leaderboard-table" class="traffic-table">
+          <div class="panel-header"><h2>P-56 Leaderboard</h2></div>
+          <div class="table-scroll"><table id="p56-leaderboard-table" class="traffic-table">
             <thead>
               <tr>
                 <th>Rank</th>
@@ -134,12 +141,12 @@
               </tr>
             </thead>
             <tbody id="p56-leaderboard-tbody"></tbody>
-          </table>
+          </table></div>
         </div>
 
         <div class="panel" id="p56-events-panel">
-          <h2>P56 Intrusion Logs</h2>
-          <table id="p56-events-table" class="traffic-table">
+          <div class="panel-header"><h2>P-56 Intrusion Log</h2></div>
+          <div class="table-scroll"><table id="p56-events-table" class="traffic-table">
             <thead>
               <tr>
         <th>Callsign</th>
@@ -153,14 +160,14 @@
               </tr>
             </thead>
             <tbody id="p56-events-tbody"></tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 
       <div class="panel-row">
         <div class="panel" id="sfra-panel">
-          <h2>SFRA Traffic (<span id="sfra-count">0</span>)</h2>
-          <table id="sfra-table" class="traffic-table">
+          <div class="panel-header"><h2>SFRA Traffic <span class="count" id="sfra-count">0</span></h2></div>
+          <div class="table-scroll"><table id="sfra-table" class="traffic-table">
             <thead>
               <tr>
                 <th>Callsign</th>
@@ -178,12 +185,12 @@
               </tr>
             </thead>
             <tbody id="sfra-tbody"></tbody>
-          </table>
+          </table></div>
         </div>
 
         <div class="panel" id="frz-panel">
-          <h2>FRZ Traffic (<span id="frz-count">0</span>)</h2>
-          <table id="frz-table" class="traffic-table">
+          <div class="panel-header"><h2>FRZ Traffic <span class="count" id="frz-count">0</span></h2></div>
+          <div class="table-scroll"><table id="frz-table" class="traffic-table">
             <thead>
               <tr>
                 <th>Callsign</th>
@@ -201,14 +208,14 @@
               </tr>
             </thead>
             <tbody id="frz-tbody"></tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 
       <div class="panel-row">
         <div class="panel" id="vip-panel">
-          <h2>VIP Activity (<span id="vip-count">0</span>)</h2>
-          <table id="vip-table" class="traffic-table">
+          <div class="panel-header"><h2>VIP Activity <span class="count" id="vip-count">0</span></h2></div>
+          <div class="table-scroll"><table id="vip-table" class="traffic-table">
             <thead>
               <tr>
                 <th>Callsign</th>
@@ -225,18 +232,18 @@
               </tr>
             </thead>
             <tbody id="vip-tbody"></tbody>
-          </table>
+          </table></div>
         </div>
 
         <div class="panel" id="vso-panel">
           <div class="panel-header vso-header">
-            <h2>VSO Activity (<span id="vso-count">0</span>)</h2>
+            <h2>VSO Activity <span class="count" id="vso-count">0</span></h2>
             <div class="vso-controls">
-              <label>VSO range (nm): <input id="vso-range" type="number" value="300" min="1" step="0.1"/></label>
+              <label>Range (nm) <input id="vso-range" type="number" inputmode="decimal" value="300" min="1" step="0.1"/></label>
               <div class="affiliations">
                 <div class="aff-dropdown-container">
                   <input id="custom-aff" type="text" placeholder="add affiliation" />
-                  <button id="aff-dropdown-btn" class="btn dropdown-btn">▼</button>
+                  <button id="aff-dropdown-btn" class="btn dropdown-btn" aria-label="Choose affiliations">▼</button>
                   <div id="aff-dropdown" class="aff-dropdown">
                     <div id="aff-options"></div>
                   </div>
@@ -247,7 +254,7 @@
               </div>
             </div>
           </div>
-          <table id="vso-table" class="traffic-table">
+          <div class="table-scroll"><table id="vso-table" class="traffic-table">
             <thead>
               <tr>
                 <th>Aff</th>
@@ -266,7 +273,7 @@
               </tr>
             </thead>
             <tbody id="vso-tbody"></tbody>
-          </table>
+          </table></div>
         </div>
       </div>
 
@@ -294,21 +301,18 @@
   <!-- Hidden admin control: small, unobtrusive button that prompts for password and calls the server-side clear API.
        The button is intentionally visually subtle; security relies on server-side password verification
        (do NOT embed any secret in client-side code). Set VNCRCC_ADMIN_PASSWORD on the server. -->
-  <button id="admin-clear-p56" class="admin-clear-btn" title="admin">⚙</button>
+  <button id="admin-clear-p56" class="admin-clear-btn" title="admin" aria-label="Admin">⚙</button>
   </footer>
 
   <!-- P56 Alert Banner -->
   <div id="p56-alert-banner" class="p56-alert-banner">
-    <button class="p56-alert-close" id="p56-alert-close">×</button>
+    <button class="p56-alert-close" id="p56-alert-close" aria-label="Close alert">×</button>
     <img src="static/p56_alert_banner.jpg" alt="P56 Intrusion Alert" />
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
-  <script src="app.js?v=1732400500"></script>
+  <script src="https://unpkg.com/@turf/turf@7.2.0/turf.min.js"></script>
+  <script src="app.js?v=1793852400"></script>
 </body>
 </html>
 

@@ -1,21 +1,26 @@
 // Metrics Dashboard JavaScript
 const API_ROOT = '/api/v1';
 
-// Password protection
-const METRICS_STORAGE_KEY = 'vncrcc.metrics_auth';
+// Password protection.
+// The metrics API itself is protected server-side: every request carries the
+// admin password in the X-Admin-Password header and the server returns 403
+// without it. The password lives only in sessionStorage (cleared when the tab
+// closes) - a localStorage timestamp used to be the whole "auth", which
+// anyone could forge from devtools.
+const METRICS_PWD_KEY = 'vncrcc.metrics_pwd';
+try { localStorage.removeItem('vncrcc.metrics_auth'); } catch (e) {} // legacy flag
 
-// Check if already authenticated
-function isAuthenticated() {
-  const stored = localStorage.getItem(METRICS_STORAGE_KEY);
-  if (!stored) return false;
-  try {
-    const data = JSON.parse(stored);
-    // Auth expires after 24 hours
-    return data.timestamp && (Date.now() - data.timestamp < 24 * 60 * 60 * 1000);
-  } catch {
-    return false;
-  }
+function getAdminPassword() {
+  try { return sessionStorage.getItem(METRICS_PWD_KEY) || ''; } catch (e) { return ''; }
 }
+function setAdminPassword(pwd) {
+  try { if (pwd) sessionStorage.setItem(METRICS_PWD_KEY, pwd); else sessionStorage.removeItem(METRICS_PWD_KEY); } catch (e) {}
+}
+function isAuthenticated() { return !!getAdminPassword(); }
+function authHeaders() { return { 'X-Admin-Password': getAdminPassword() }; }
+
+const HTML_ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => HTML_ESC[c]);
 
 // Prompt for password
 async function authenticate() {
@@ -68,22 +73,24 @@ async function authenticate() {
       const password = input.value.trim();
       if (!password) return;
       
-      // Verify password by attempting to access a protected endpoint
+      // Verify against the dedicated endpoint (no side effects; the old
+      // approach issued a real purge call and logged it).
       try {
-        const resp = await fetch(`${API_ROOT}/p56/purge`, {
+        const resp = await fetch(`${API_ROOT}/admin/verify`, {
           method: 'POST',
+          cache: 'no-store',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password, keys: [] })
+          body: JSON.stringify({ password })
         });
-        
-        if (resp.ok || resp.status === 400) { // 400 = valid password but empty keys
-          localStorage.setItem(METRICS_STORAGE_KEY, JSON.stringify({ timestamp: Date.now() }));
+
+        if (resp.ok) {
+          setAdminPassword(password);
           overlay.remove();
           resolve(true);
         } else {
           input.style.borderColor = '#f87171';
           input.value = '';
-          input.placeholder = 'Invalid password';
+          input.placeholder = resp.status === 429 ? 'Too many attempts - wait a minute' : 'Invalid password';
           setTimeout(() => {
             input.style.borderColor = '#4a90e2';
             input.placeholder = 'Password';
@@ -294,7 +301,13 @@ function initCharts() {
 // Fetch and update metrics
 async function updateMetrics() {
   try {
-    const resp = await fetch('/api/metrics');
+    const resp = await fetch('/api/metrics', { cache: 'no-store', headers: authHeaders() });
+    if (resp.status === 401 || resp.status === 403) {
+      // Password changed or session invalid: drop it and ask again.
+      setAdminPassword('');
+      if (!(await authenticate())) { window.location.href = '/'; }
+      return;
+    }
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     
     const data = await resp.json();
@@ -404,7 +417,7 @@ async function updateMetrics() {
       .forEach(([path, stats]) => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td><code>${path}</code></td>
+          <td><code>${esc(path)}</code></td>
           <td>${stats.requests_1min}</td>
           <td>${stats.requests_5min}</td>
           <td class="${stats.errors_1min > 0 ? 'status-danger' : ''}">${stats.errors_1min}</td>
@@ -426,9 +439,9 @@ async function updateMetrics() {
       purges.forEach(purge => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td>${purge.timestamp}</td>
-          <td>${purge.count}</td>
-          <td><code>${purge.ip}</code></td>
+          <td>${esc(purge.timestamp)}</td>
+          <td>${esc(purge.count)}</td>
+          <td><code>${esc(purge.ip)}</code></td>
         `;
         purgesTbody.appendChild(row);
       });

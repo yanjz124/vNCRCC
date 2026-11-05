@@ -8,7 +8,9 @@
   const REFRESH = 15000;
   // Add light client-side jitter and shared cooldown to de-sync tabs and respect 429s
   const JITTER_PCT = 0.10; // +/-10%
-  const MAX_COOLDOWN_MS = 15 * 1000; // cap any client-side cooldown to 15s
+  // Cap client-side cooldown. Must be long enough to honour slowapi's
+  // per-minute Retry-After; 15s made clients retry while still limited.
+  const MAX_COOLDOWN_MS = 90 * 1000;
   const COOLDOWN_KEY = 'vncrcc.cooldownUntil';
 
   function withJitter(ms){
@@ -38,18 +40,28 @@
     // the token we previously saw, store it and trigger a reload so clients
     // pick up updated JS/assets. This only affects clients running the
     // updated script that contains this logic.
+    let mustReload = false;
     try{
       const reloadToken = resp.headers.get && resp.headers.get('X-Force-Reload');
       if(reloadToken){
         const prev = localStorage.getItem('vncrcc.reloadToken') || '';
         if(prev !== reloadToken){
           try{ localStorage.setItem('vncrcc.reloadToken', reloadToken); }catch(e){}
-          // Give other handlers a moment, then reload page to fetch new assets
-          setTimeout(()=>{ try{ location.reload(); }catch(e){ /* ignore */ } }, 150);
-          const err = new Error('Force reload requested by server'); err.code = 'FORCE_RELOAD'; throw err;
+          // Only reload if the token actually persisted (otherwise e.g. a full
+          // or read-only storage would reload on every page load forever) and
+          // we haven't already reloaded for this token in this tab.
+          const persisted = localStorage.getItem('vncrcc.reloadToken') === reloadToken;
+          let already = false;
+          try{ already = sessionStorage.getItem('vncrcc.reloadedFor') === reloadToken; sessionStorage.setItem('vncrcc.reloadedFor', reloadToken); }catch(e){}
+          if(persisted && !already){
+            // Stagger tabs/clients so they don't all hit the server at once.
+            setTimeout(()=>{ try{ location.reload(); }catch(e){ /* ignore */ } }, 150 + Math.random()*3000);
+            mustReload = true;
+          }
         }
       }
-    }catch(e){ /* ignore header read errors */ }
+    }catch(e){ /* ignore header/storage read errors */ }
+    if(mustReload){ const err = new Error('Force reload requested by server'); err.code = 'FORCE_RELOAD'; throw err; }
     if(resp.status === 429){
       const ra = resp.headers.get('Retry-After');
       const parsed = parseRetryAfter(ra);
@@ -64,9 +76,26 @@
   }
 
   const el = id => document.getElementById(id);
-  
+
+  // ---- XSS guard -------------------------------------------------------
+  // VATSIM text (callsigns, pilot names, routes, remarks, controller names)
+  // is attacker-controlled and is rendered via innerHTML / Leaflet tooltips in
+  // dozens of places. Rather than escape each sink, HTML-escape every string
+  // value at the boundary where API JSON enters the page: Response.json() and
+  // the SSE JSON.parse below. All UI code then handles pre-escaped strings.
+  const HTML_ESC = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+  const escHtml = s => String(s).replace(/[&<>"']/g, c => HTML_ESC[c]);
+  const escReviver = (k, v) => (typeof v === 'string' ? escHtml(v) : v);
+  const parseSafeJson = text => JSON.parse(text, escReviver);
+  if(!Response.prototype._vncrccSafe){
+    Response.prototype._vncrccSafe = true;
+    Response.prototype.json = async function(){ return parseSafeJson(await this.text()); };
+  }
+
   // P56 Alert System
   let previousP56EventKeys = new Set();
+  let lastGoodP56 = null; // last P-56 payload that actually contained history
+  let p56EventsPrimed = false;
   let p56AlertAudio = null;
   let p56AlertTimeout = null;
   let p56AlertFadeTimeout = null;
@@ -155,9 +184,13 @@
       currentKeys.add(key);
     });
 
-    // Check if there are new keys not in previous set (skip if this is first load)
+    // Check if there are new keys not in previous set (skip only the very
+    // first load). Using a flag instead of `size > 0` so the first intrusion
+    // after an empty log (fresh DB, full purge) still alerts.
     let hasNewEvents = false;
-    if (previousP56EventKeys.size > 0) {
+    const primed = p56EventsPrimed;
+    p56EventsPrimed = true;
+    if (primed) {
       currentKeys.forEach(key => {
         if (!previousP56EventKeys.has(key)) {
           hasNewEvents = true;
@@ -204,8 +237,43 @@
   const p56Map = L.map('p56-map', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false });
   // SFRA map: zoom ~9 shows a bit wider view (slightly zoomed out from 40nm)
   const sfraMap = L.map('sfra-map', { zoomControl: false, doubleClickZoom: false }).setView(DCA, 9);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{maxZoom:19,attribution:''}).addTo(p56Map);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',{maxZoom:19,attribution:''}).addTo(sfraMap);
+  // Basemap: keyless providers only. CARTO's basemaps now require an API key
+  // (they serve an "API KEY REQUIRED" placeholder tile), so we use Esri's
+  // Dark Gray Canvas (base + labels). If Esri starts failing we fall back to
+  // standard OpenStreetMap tiles darkened with a CSS filter (.osm-dark).
+  const ESRI_ATTR = 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
+  function addBasemap(map){
+    const esriOpts = { maxZoom: 19, maxNativeZoom: 16, attribution: ESRI_ATTR };
+    const base = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', esriOpts);
+    const labels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 16 });
+    let errors = 0, loaded = 0, switched = false;
+    base.on('tileload', () => { loaded++; });
+    base.on('tileerror', () => {
+      errors++;
+      // Only fall back when Esri is clearly down, not on a single flaky tile.
+      if(switched || errors < 4 || loaded > errors) return;
+      switched = true;
+      try{ map.removeLayer(base); map.removeLayer(labels); }catch(e){}
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, className: 'osm-dark',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+      }).addTo(map);
+    });
+    base.addTo(map);
+    labels.addTo(map);
+    map.attributionControl && map.attributionControl.setPrefix(false);
+  }
+  addBasemap(p56Map);
+  addBasemap(sfraMap);
+  let p56Bounds = null; // set once the P-56 overlay loads; used to re-fit on resize
+
+  // On phones the legend covers most of the SFRA map; start it collapsed.
+  try{
+    if(window.matchMedia && window.matchMedia('(max-width: 720px)').matches){
+      const lg = el('legend'), lb = el('legend-toggle');
+      if(lg && lb){ lg.classList.add('collapsed'); lb.setAttribute('aria-expanded','false'); lb.textContent = 'Legend ▸'; }
+    }
+  }catch(e){}
 
   // layers - create separate overlay objects for each map since Leaflet doesn't allow sharing
   const overlays = {
@@ -218,6 +286,14 @@
   let currentAircraftCids = new Set();
   // Cache full history data from consolidated dashboard for instant display
   let cachedHistoryData = null;
+  let cachedHistoryAt = 0;
+  const HISTORY_FRESH_MS = 20000;
+  const pathRequestsInFlight = new Set();
+  // Accept either history response shape and return {cid: [positions]}.
+  function historyMap(h){
+    if(!h) return {};
+    return h.data || h.history || {};
+  }
 
   // Create path layers for flight path visualization.
   // Separate the live "flight path" polylines (triggered by clicking an aircraft/row)
@@ -331,12 +407,11 @@
     
     try {
       // Use pre-fetched history data if available, otherwise fetch it
-      const data = historyData || await (async () => {
-        const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
-        const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
-        return await response.json();
-      })();
-      
+      const raw = historyData || await fetchHistoryData();
+      // Dashboard history is {data:{cid:[...]}}; /aircraft/list/history is
+      // {history:{cid:[...]}}. Normalise so paths aren't wrongly dropped.
+      const data = { history: historyMap(raw) };
+
       // Check for disconnected/out-of-range aircraft and remove their paths
       const pathsToRemove = [];
       for (const cid of visiblePaths) {
@@ -464,18 +539,22 @@
       // Show path - use cached history for instant display
       try {
         // Use cached history data from consolidated dashboard for instant display
+        // Guard against a double-click racing two fetches and drawing twice.
+        if (pathRequestsInFlight.has(cidKey)) return;
+        pathRequestsInFlight.add(cidKey);
         let history = null;
-        if (cachedHistoryData && cachedHistoryData.data) {
-          history = cachedHistoryData.data[cidKey];
+        // Use the cache only while fresh; SSE updates don't carry history, so
+        // an old cache would draw the track as it was minutes ago.
+        if (cachedHistoryData && (Date.now() - cachedHistoryAt) < HISTORY_FRESH_MS) {
+          history = historyMap(cachedHistoryData)[cidKey];
         }
-
-        // Fallback to fetch if not in cache (shouldn't happen normally)
         if (!history) {
-          const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
-          const response = await fetch(`${API_ROOT}/aircraft/list/history?range_nm=${range_nm}`);
-          const data = await response.json();
-          history = data.history?.[cidKey];
+          const fresh = await fetchHistoryData();
+          if (fresh) { cachedHistoryData = fresh; cachedHistoryAt = Date.now(); }
+          history = historyMap(fresh)[cidKey];
         }
+        pathRequestsInFlight.delete(cidKey);
+        if (visiblePaths.has(cidKey)) return;
 
         if (history && history.length > 1) {
           // Create lat/lng points from history
@@ -507,6 +586,26 @@
         console.error(`Failed to fetch history for ${cidKey}:`, error);
       }
     }
+  }
+
+  // Touch devices have no hover, so a single tap used to both pop the tooltip
+  // and toggle the flight path (and tapping again to read it toggled it off).
+  // On hover-less devices: first tap shows info, a second tap within 4s on
+  // the same aircraft toggles the path. Mouse users keep one-click toggling.
+  const NO_HOVER = !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
+  function onMarkerTap(marker, action){
+    return () => {
+      if(NO_HOVER && !marker._tapArmed){
+        marker._tapArmed = true;
+        try{ marker.openTooltip(); }catch(e){}
+        clearTimeout(marker._tapTimer);
+        marker._tapTimer = setTimeout(()=>{ marker._tapArmed = false; }, 4000);
+        return;
+      }
+      marker._tapArmed = false;
+      clearTimeout(marker._tapTimer);
+      action();
+    };
   }
 
   // icon sizing
@@ -1364,9 +1463,13 @@
 
 
   // Create update time display (styled via CSS #update-time)
+  // Lives in the header as a status pill (falls back to <body> on pages
+  // without the header slot).
   const updateDiv = document.createElement('div');
   updateDiv.id = 'update-time';
-  document.body.appendChild(updateDiv);
+  updateDiv.setAttribute('role', 'status');
+  updateDiv.title = 'Age of the VATSIM data feed';
+  (document.querySelector('.header-right') || document.body).appendChild(updateDiv);
 
   function updateTimeDisplay() {
     const now = Date.now();
@@ -1406,10 +1509,12 @@
     
     const diff = last > 0 ? now - last : 0;
     const nowStr = formatZuluEpoch(Math.floor(now / 1000), true);
-    updateDiv.innerHTML = `Data: ${lastStr}<br>Now: ${nowStr}`;
-    if (diff > 120000) updateDiv.style.color = 'red';
-    else if (diff > 60000) updateDiv.style.color = 'yellow';
-    else updateDiv.style.color = 'white';
+    const state = last <= 0 ? 'offline' : diff > 120000 ? 'stale' : diff > 60000 ? 'lagging' : 'live';
+    const label = { live: 'Live', lagging: 'Lagging', stale: 'Stale', offline: 'Connecting' }[state];
+    updateDiv.dataset.state = state;
+    updateDiv.innerHTML = `<span class="status-dot" aria-hidden="true"></span>`
+      + `<span class="status-text"><strong>${label}</strong>`
+      + `<span class="status-times"><span>Data ${lastStr}</span><span class="status-now">Now ${nowStr}</span></span></span>`;
   }
 
   // Update time display every second for live ticking
@@ -1529,8 +1634,9 @@
         overlays.p56.p56 = L.geoJSON(p56, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
         overlays.sfra.p56 = L.geoJSON(p56, {style:{color:'#d9534f',weight:2,fillOpacity:0.05}});
         if(el('toggle-p56').checked) { overlays.p56.p56.addTo(p56Map); overlays.sfra.p56.addTo(sfraMap); }
-        p56Map.fitBounds(L.geoJSON(p56).getBounds());
-        setTimeout(()=>{ try{ p56Map.invalidateSize(); }catch(e){} }, 200);
+        p56Bounds = L.geoJSON(p56).getBounds();
+        p56Map.fitBounds(p56Bounds);
+        setTimeout(()=>{ try{ p56Map.invalidateSize(); p56Map.fitBounds(p56Bounds); }catch(e){} }, 200);
       }
     } catch(e){ console.warn('Failed to load overlays', e); }
   }
@@ -1778,6 +1884,252 @@
 
   // Global cache for table data to enable fast sorting without full refresh
   let tableDataCache = null;
+  // Keys of rows rendered in the current refresh; used to prune expandedSet.
+  let presentKeys = new Set();
+
+  // Shared sorting for every table renderer. Rows may be raw aircraft or
+  // wrappers like {aircraft, dca, matched_affiliations} (VSO), so key
+  // functions get the unwrapped aircraft as a fallback.
+  function applyTableSort(tbodyId, items){
+    const conf = sortConfig[tbodyId];
+    if(!conf || typeof conf.key !== 'function') return items;
+    const unwrap = it => (it && it.aircraft && typeof it.aircraft === 'object') ? { ...it.aircraft, dca: it.dca || it.aircraft.dca } : it;
+    const keyOf = it => { try{ return conf.key(unwrap(it)); }catch(e){ return null; } };
+    return items.slice().sort((a,b)=>{
+      const va = keyOf(a), vb = keyOf(b);
+      if(va==null && vb==null) return 0;
+      if(va==null) return conf.order==='asc'? -1: 1;
+      if(vb==null) return conf.order==='asc'? 1: -1;
+      if(typeof va === 'number' && typeof vb === 'number') return conf.order==='asc'? va-vb : vb-va;
+      const sa = String(va).toLowerCase(), sb = String(vb).toLowerCase();
+      if(sa < sb) return conf.order==='asc'? -1: 1;
+      if(sa > sb) return conf.order==='asc'? 1: -1;
+      return 0;
+    });
+  }
+
+  // Helper: check if an aircraft/item has VSO-matching remarks
+  const hasVsoRemarks = (item) => {
+    try {
+      const selectedAff = (el('custom-aff')?.dataset?.selected || '').split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.toLowerCase());
+      if (!selectedAff.length) return false;
+      const ac = item?.aircraft || item || {};
+      const fp = ac.flight_plan || {};
+      const rmk = (fp.remarks || fp.rmk || fp.remark || '').toLowerCase();
+      if (!rmk) return false;
+      return selectedAff.some(p => rmk.includes(p));
+    } catch(e) { return false; }
+  };
+
+  const renderTable = (tbodyId, items, rowFn, keyFn, fpOptions) => {
+      // Fast batched render: build HTML for all rows and attach a single delegated
+      // click handler on the tbody. This avoids creating many DOM nodes and
+      // per-row listeners, making sorting much faster.
+      const tbody = el(tbodyId);
+      if(!tbody) return;
+      // compute colspan dynamically from the table header
+      const table = tbody.closest('table');
+      let colspan = 1;
+      try{ colspan = table.querySelectorAll('thead th').length }catch(e){}
+
+      items = applyTableSort(tbodyId, items);
+
+      const parts = [];
+      // build HTML string for all rows
+      items.forEach(item => {
+        let rowHtml = '';
+        try{ rowHtml = rowFn(item) || ''; }catch(err){ console.error('renderTable rowFn error for', tbodyId, err, item); rowHtml = `<td colspan="${colspan}">Error rendering row</td>`; }
+        const key = (typeof keyFn === 'function') ? (() => { try{ return keyFn(item); }catch(e){return null} })() : null;
+        const fpHtml = formatFlightPlan(item, fpOptions);
+        const onGroundClass = item && item._onGround ? ' on-ground' : '';
+        const vsoClass = hasVsoRemarks(item) ? ' vso-row' : '';
+        const fpShow = key && expandedSet.has(key) ? ' show' : '';
+        const dataAttr = key ? ` data-fp-key="${String(key).replace(/"/g,'') }"` : '';
+        parts.push(`<tr class="expandable${onGroundClass}${vsoClass}"${dataAttr}>${rowHtml}</tr>`);
+        parts.push(`<tr class="flight-plan${fpShow}"${dataAttr}><td class="flight-plan-cell" colspan="${colspan}">${fpHtml}</td></tr>`);
+        if(key) try{ presentKeys.add(key); }catch(e){}
+      });
+
+      // set innerHTML in one shot
+      tbody.innerHTML = parts.join('');
+
+      // attach delegated click handler once per tbody
+      if(!tbody._delegationAttached){
+        tbody._delegationAttached = true;
+        tbody.addEventListener('click', async (ev)=>{
+          try{
+            const tr = ev.target.closest('tr.expandable');
+            if(!tr) return;
+            const key = tr.dataset.fpKey;
+            if(!key) return;
+            const tbodyIdLocal = tbody.id;
+            const fpRow = tbody.querySelector(`tr.flight-plan[data-fp-key="${key}"]`);
+            if(!fpRow) return;
+            const opening = !fpRow.classList.contains('show');
+            fpRow.classList.toggle('show');
+            if(opening){ expandedSet.add(key); saveExpandedSet(expandedSet); }
+            else { expandedSet.delete(key); saveExpandedSet(expandedSet); }
+
+            // Sync flight-path display similar to prior per-row handlers
+            try{
+              // p56 event rows: key is '<cid>:<recorded_at>' and we draw pre/post positions
+              if(tbodyIdLocal === 'p56-events-tbody'){
+                const evts = tableDataCache?.events || [];
+                const evt = evts.find(e => `${String(e.cid||'')}:${String(e.recorded_at||'')}` === key);
+                if(opening){
+                  const positions = (evt?.pre_positions || []).concat(evt?.intrusion_positions || []).concat(evt?.post_positions || []);
+                  drawIntrusionForEvent(key, positions);
+                }else{
+                  removeIntrusionForEvent(key);
+                }
+              } else {
+                // other tables: keys like 'sfra:<cid>' or 'frz:<cid>' or 'p56-current:<cid>'
+                const parts = String(key).split(':');
+                const prefix = parts[0];
+                const cidVal = parts.slice(1).join(':');
+                let mapType = null;
+                if(prefix === 'sfra') mapType = 'sfra';
+                else if(prefix === 'frz') mapType = 'p56';
+                else if(prefix === 'p56-current') mapType = 'p56';
+                else if(prefix === 'vso') mapType = 'sfra';
+                if(mapType && cidVal){
+                  // call toggleFlightPath to show/hide the path (it will be idempotent)
+                  try{ toggleFlightPath(cidVal, mapType).catch(e=>console.error('toggleFlightPath error', e)); }catch(e){}
+                }
+              }
+            }catch(e){ console.error('Failed to sync flight-path for delegated click', e); }
+
+          }catch(e){ console.error('tbody click handler error', e); }
+        });
+      }
+    };
+
+    /**
+     * renderTableWithDivider: Like renderTable, but takes two arrays (airborne, ground)
+     * and inserts a divider row between them. Uses 12 columns for colspan.
+     */
+    const renderTableWithDivider = (tbodyId, airborneItems, groundItems, rowFn, keyFn, fpOptions = {}) => {
+      const tbody = document.getElementById(tbodyId);
+      if(!tbody) return;
+      // compute colspan dynamically from the table header (mirror renderTable)
+      let colspan = 12;
+      try{
+        const table = tbody.closest('table');
+        if(table){ colspan = table.querySelectorAll('thead th').length || 12; }
+      }catch(e){}
+
+      const parts = [];
+      const buildRows = (items) => {
+        items.forEach(item => {
+          const key = keyFn(item);
+          let rowHtml = '';
+          try{ rowHtml = rowFn(item) || ''; }catch(err){ rowHtml = `<td colspan="${colspan}">Row error</td>`; }
+          const fpHtml = formatFlightPlan(item, fpOptions);
+          const onGroundClass = item && item._isOnGround ? ' on-ground' : '';
+          const vsoClass = hasVsoRemarks(item) ? ' vso-row' : '';
+          const dataAttr = key ? ` data-fp-key="${String(key).replace(/"/g,'') }"` : '';
+          const fpShow = key && expandedSet.has(key) ? ' show' : '';
+          parts.push(`<tr class="expandable${onGroundClass}${vsoClass}"${dataAttr}>${rowHtml}</tr>`);
+          parts.push(`<tr class="flight-plan${fpShow}"${dataAttr}><td class="flight-plan-cell" colspan="${colspan}">${fpHtml}</td></tr>`);
+          if(key) presentKeys.add(key);
+        });
+      };
+
+      airborneItems = applyTableSort(tbodyId, airborneItems);
+      groundItems = applyTableSort(tbodyId, groundItems);
+      // Airborne rows
+      buildRows(airborneItems);
+      // Divider
+      if(airborneItems.length > 0 && groundItems.length > 0){
+        parts.push(`<tr class="ground-divider"><td colspan="${colspan}"></td></tr>`);
+      }
+      // Ground rows
+      buildRows(groundItems);
+
+      tbody.innerHTML = parts.join('');
+
+      // Attach delegated click handler once per tbody (same pattern as renderTable)
+      if(!tbody._delegationAttached){
+        tbody._delegationAttached = true;
+        tbody.addEventListener('click', async (ev)=>{
+          try{
+            const tr = ev.target.closest('tr.expandable');
+            if(!tr) return;
+            const key = tr.dataset.fpKey;
+            if(!key) return;
+            const fpRow = tbody.querySelector(`tr.flight-plan[data-fp-key="${key}"]`);
+            if(!fpRow) return;
+            const opening = !fpRow.classList.contains('show');
+            fpRow.classList.toggle('show');
+            if(opening){ expandedSet.add(key); saveExpandedSet(expandedSet); }
+            else { expandedSet.delete(key); saveExpandedSet(expandedSet); }
+            try{
+              const partsArr = String(key).split(':');
+              const prefix = partsArr[0];
+              const cidVal = partsArr.slice(1).join(':');
+              let mapType = null;
+              if(prefix === 'sfra') mapType = 'sfra';
+              else if(prefix === 'frz') mapType = 'p56';
+              else if(prefix === 'p56-current') mapType = 'p56';
+              else if(prefix === 'vso') mapType = 'sfra';
+              if(mapType && cidVal){
+                try{ toggleFlightPath(cidVal, mapType).catch(e=>console.error('toggleFlightPath error', e)); }catch(e){}
+              }
+            }catch(e){ console.error('Failed to sync flight-path for divider table click', e); }
+          }catch(e){ console.error('divider table tbody click handler error', e); }
+        });
+      }
+    };
+
+    const formatFlightPlan = (item, opts) => {
+      const ac = item.aircraft || item;
+      const fp = ac.flight_plan || {};
+      
+      // Extract all fields
+      const aid = ac.callsign || '—';
+      const cid = ac.cid || '—';
+      const bcn = ac.transponder || '—';
+      const typ = fp.aircraft_faa || fp.aircraft_short || '—';
+      const dep = fp.departure || '—';
+      const dest = fp.arrival || '—';
+      const spd = fp.cruise_tas || '—';
+      const alt = fp.altitude || ac.altitude || '—';
+      const route = fp.route || '—';
+      const remarks = fp.remarks || '';
+
+      // Compact full-width layout: all main fields in 1-2 lines, then RTE and RMK full-width
+      let html = '<div class="fp-compact">';
+      
+      // Row 1: All main fields (AID, CID, BCN, TYP, DEP, DEST, SPD, ALT) - will wrap to 2 lines if needed
+      html += `<div class="fp-row-inline">`;
+      html += `<span class="fp-inline-field"><span class="fp-lbl">AID</span> ${aid}</span>`;
+      html += `<span class="fp-inline-field"><span class="fp-lbl">CID</span> ${cid}</span>`;
+      html += `<span class="fp-inline-field"><span class="fp-lbl">BCN</span> ${bcn}</span>`;
+      html += `<span class="fp-inline-field"><span class="fp-lbl">TYP</span> ${typ}</span>`;
+      html += `<span class="fp-inline-field"><span class="fp-lbl">DEP</span> ${dep}</span>`;
+      html += `<span class="fp-inline-field"><span class="fp-lbl">DEST</span> ${dest}</span>`;
+      html += `<span class="fp-inline-field"><span class="fp-lbl">SPD</span> ${spd}</span>`;
+      html += `<span class="fp-inline-field"><span class="fp-lbl">ALT</span> ${alt}</span>`;
+      html += `</div>`;
+      
+      // Row 2: RTE (full width)
+      html += `<div class="fp-row-block">`;
+      html += `<div class="fp-lbl">RTE</div>`;
+      html += `<div class="fp-route-content">${route}</div>`;
+      html += `</div>`;
+      
+      // Row 3: RMK (full width)
+      if (remarks) {
+        html += `<div class="fp-row-block">`;
+        html += `<div class="fp-lbl">RMK</div>`;
+        html += `<div class="fp-rmk-content">${remarks}</div>`;
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+      return html;
+    };
+
 
   // Fast table re-rendering using cached data (for sorting without full refresh)
   function rerenderTable(tbodyId) {
@@ -1990,7 +2342,7 @@
     const r0 = performance.now();
     setPermalink();
     // track keys present in this refresh so we can prune persisted expanded keys
-    const presentKeys = new Set();
+    presentKeys = new Set();
     // Declare variables that need function-level scope for caching
     let lb = [];
     // load overlays if not yet
@@ -2080,6 +2432,13 @@
       ]);
       p56json = results[0]; vipjson = results[1];
     }
+    // A failed/rate-limited fetch yields the placeholder {history:{}} (no
+    // events array). Rendering that blanked the intrusion log and leaderboard
+    // until the next good refresh, which looked like they "purged themselves".
+    // Keep showing the last good history instead. A real empty history from
+    // the server still has an events array and is accepted.
+    if(Array.isArray(p56json?.history?.events)){ lastGoodP56 = p56json; }
+    else if(lastGoodP56){ p56json = { ...lastGoodP56, breaches: p56json?.breaches || lastGoodP56.breaches || [] }; }
     const r3 = performance.now();
     console.log(`[PERF] Parallel API calls took ${((r3-r2)/1000).toFixed(2)}s`);
     
@@ -2142,244 +2501,7 @@
       frzList.push(...(frzjson.aircraft || []));
     }
 
-  // Helper: check if an aircraft/item has VSO-matching remarks
-  const hasVsoRemarks = (item) => {
-    try {
-      const selectedAff = (el('custom-aff')?.dataset?.selected || '').split(',').map(s=>s.trim()).filter(Boolean).map(s=>s.toLowerCase());
-      if (!selectedAff.length) return false;
-      const ac = item?.aircraft || item || {};
-      const fp = ac.flight_plan || {};
-      const rmk = (fp.remarks || fp.rmk || fp.remark || '').toLowerCase();
-      if (!rmk) return false;
-      return selectedAff.some(p => rmk.includes(p));
-    } catch(e) { return false; }
-  };
-
-  const renderTable = (tbodyId, items, rowFn, keyFn, fpOptions) => {
-      // Fast batched render: build HTML for all rows and attach a single delegated
-      // click handler on the tbody. This avoids creating many DOM nodes and
-      // per-row listeners, making sorting much faster.
-      const tbody = el(tbodyId);
-      if(!tbody) return;
-      // compute colspan dynamically from the table header
-      const table = tbody.closest('table');
-      let colspan = 1;
-      try{ colspan = table.querySelectorAll('thead th').length }catch(e){}
-
-      // Apply sorting if configured for this table
-      try{
-        const conf = sortConfig[tbodyId];
-        if(conf && typeof conf.key === 'function'){
-          items = items.slice(); // copy
-          items.sort((a,b)=>{
-            try{
-              const va = conf.key(a); const vb = conf.key(b);
-              if(va==null && vb==null) return 0;
-              if(va==null) return conf.order==='asc'? -1: 1;
-              if(vb==null) return conf.order==='asc'? 1: -1;
-              if(typeof va === 'number' && typeof vb === 'number') return conf.order==='asc'? va-vb : vb-va;
-              const sa = String(va).toLowerCase(); const sb = String(vb).toLowerCase();
-              if(sa < sb) return conf.order==='asc'? -1: 1;
-              if(sa > sb) return conf.order==='asc'? 1: -1;
-            }catch(e){ /* fallback to equal on error */ }
-            return 0;
-          });
-        }
-      }catch(e){ console.error('Sort error for', tbodyId, e) }
-
-      const parts = [];
-      // build HTML string for all rows
-      items.forEach(item => {
-        let rowHtml = '';
-        try{ rowHtml = rowFn(item) || ''; }catch(err){ console.error('renderTable rowFn error for', tbodyId, err, item); rowHtml = `<td colspan="${colspan}">Error rendering row</td>`; }
-        const key = (typeof keyFn === 'function') ? (() => { try{ return keyFn(item); }catch(e){return null} })() : null;
-        const fpHtml = formatFlightPlan(item, fpOptions);
-        const onGroundClass = item && item._onGround ? ' on-ground' : '';
-        const vsoClass = hasVsoRemarks(item) ? ' vso-row' : '';
-        const fpShow = key && expandedSet.has(key) ? ' show' : '';
-        const dataAttr = key ? ` data-fp-key="${String(key).replace(/"/g,'') }"` : '';
-        parts.push(`<tr class="expandable${onGroundClass}${vsoClass}"${dataAttr}>${rowHtml}</tr>`);
-        parts.push(`<tr class="flight-plan${fpShow}"${dataAttr}><td class="flight-plan-cell" colspan="${colspan}">${fpHtml}</td></tr>`);
-        if(key) try{ presentKeys.add(key); }catch(e){}
-      });
-
-      // set innerHTML in one shot
-      tbody.innerHTML = parts.join('');
-
-      // attach delegated click handler once per tbody
-      if(!tbody._delegationAttached){
-        tbody._delegationAttached = true;
-        tbody.addEventListener('click', async (ev)=>{
-          try{
-            const tr = ev.target.closest('tr.expandable');
-            if(!tr) return;
-            const key = tr.dataset.fpKey;
-            if(!key) return;
-            const tbodyIdLocal = tbody.id;
-            const fpRow = tbody.querySelector(`tr.flight-plan[data-fp-key="${key}"]`);
-            if(!fpRow) return;
-            const opening = !fpRow.classList.contains('show');
-            fpRow.classList.toggle('show');
-            if(opening){ expandedSet.add(key); saveExpandedSet(expandedSet); }
-            else { expandedSet.delete(key); saveExpandedSet(expandedSet); }
-
-            // Sync flight-path display similar to prior per-row handlers
-            try{
-              // p56 event rows: key is '<cid>:<recorded_at>' and we draw pre/post positions
-              if(tbodyIdLocal === 'p56-events-tbody'){
-                const evts = tableDataCache?.events || [];
-                const evt = evts.find(e => `${String(e.cid||'')}:${String(e.recorded_at||'')}` === key);
-                if(opening){
-                  const positions = (evt?.pre_positions || []).concat(evt?.intrusion_positions || []).concat(evt?.post_positions || []);
-                  drawIntrusionForEvent(key, positions);
-                }else{
-                  removeIntrusionForEvent(key);
-                }
-              } else {
-                // other tables: keys like 'sfra:<cid>' or 'frz:<cid>' or 'p56-current:<cid>'
-                const parts = String(key).split(':');
-                const prefix = parts[0];
-                const cidVal = parts.slice(1).join(':');
-                let mapType = null;
-                if(prefix === 'sfra') mapType = 'sfra';
-                else if(prefix === 'frz') mapType = 'p56';
-                else if(prefix === 'p56-current') mapType = 'p56';
-                else if(prefix === 'vso') mapType = 'sfra';
-                if(mapType && cidVal){
-                  // call toggleFlightPath to show/hide the path (it will be idempotent)
-                  try{ toggleFlightPath(cidVal, mapType).catch(e=>console.error('toggleFlightPath error', e)); }catch(e){}
-                }
-              }
-            }catch(e){ console.error('Failed to sync flight-path for delegated click', e); }
-
-          }catch(e){ console.error('tbody click handler error', e); }
-        });
-      }
-    };
-
-    /**
-     * renderTableWithDivider: Like renderTable, but takes two arrays (airborne, ground)
-     * and inserts a divider row between them. Uses 12 columns for colspan.
-     */
-    const renderTableWithDivider = (tbodyId, airborneItems, groundItems, rowFn, keyFn, fpOptions = {}) => {
-      const tbody = document.getElementById(tbodyId);
-      if(!tbody) return;
-      const expandedSet = loadExpandedSet();
-      // compute colspan dynamically from the table header (mirror renderTable)
-      let colspan = 12;
-      try{
-        const table = tbody.closest('table');
-        if(table){ colspan = table.querySelectorAll('thead th').length || 12; }
-      }catch(e){}
-
-      const parts = [];
-      const buildRows = (items) => {
-        items.forEach(item => {
-          const key = keyFn(item);
-          let rowHtml = '';
-          try{ rowHtml = rowFn(item) || ''; }catch(err){ rowHtml = `<td colspan="${colspan}">Row error</td>`; }
-          const fpHtml = formatFlightPlan(item, fpOptions);
-          const onGroundClass = item && item._isOnGround ? ' on-ground' : '';
-          const vsoClass = hasVsoRemarks(item) ? ' vso-row' : '';
-          const dataAttr = key ? ` data-fp-key="${String(key).replace(/"/g,'') }"` : '';
-          const fpShow = key && expandedSet.has(key) ? ' show' : '';
-          parts.push(`<tr class="expandable${onGroundClass}${vsoClass}"${dataAttr}>${rowHtml}</tr>`);
-          parts.push(`<tr class="flight-plan${fpShow}"${dataAttr}><td class="flight-plan-cell" colspan="${colspan}">${fpHtml}</td></tr>`);
-        });
-      };
-
-      // Airborne rows
-      buildRows(airborneItems);
-      // Divider
-      if(airborneItems.length > 0 && groundItems.length > 0){
-        parts.push(`<tr class="ground-divider"><td colspan="${colspan}"></td></tr>`);
-      }
-      // Ground rows
-      buildRows(groundItems);
-
-      tbody.innerHTML = parts.join('');
-
-      // Attach delegated click handler once per tbody (same pattern as renderTable)
-      if(!tbody._delegationAttached){
-        tbody._delegationAttached = true;
-        tbody.addEventListener('click', async (ev)=>{
-          try{
-            const tr = ev.target.closest('tr.expandable');
-            if(!tr) return;
-            const key = tr.dataset.fpKey;
-            if(!key) return;
-            const fpRow = tbody.querySelector(`tr.flight-plan[data-fp-key="${key}"]`);
-            if(!fpRow) return;
-            const opening = !fpRow.classList.contains('show');
-            fpRow.classList.toggle('show');
-            if(opening){ expandedSet.add(key); saveExpandedSet(expandedSet); }
-            else { expandedSet.delete(key); saveExpandedSet(expandedSet); }
-            try{
-              const partsArr = String(key).split(':');
-              const prefix = partsArr[0];
-              const cidVal = partsArr.slice(1).join(':');
-              let mapType = null;
-              if(prefix === 'sfra') mapType = 'sfra';
-              else if(prefix === 'frz') mapType = 'p56';
-              else if(prefix === 'p56-current') mapType = 'p56';
-              else if(prefix === 'vso') mapType = 'sfra';
-              if(mapType && cidVal){
-                try{ toggleFlightPath(cidVal, mapType).catch(e=>console.error('toggleFlightPath error', e)); }catch(e){}
-              }
-            }catch(e){ console.error('Failed to sync flight-path for divider table click', e); }
-          }catch(e){ console.error('divider table tbody click handler error', e); }
-        });
-      }
-    };
-
-    const formatFlightPlan = (item, opts) => {
-      const ac = item.aircraft || item;
-      const fp = ac.flight_plan || {};
-      
-      // Extract all fields
-      const aid = ac.callsign || '—';
-      const cid = ac.cid || '—';
-      const bcn = ac.transponder || '—';
-      const typ = fp.aircraft_faa || fp.aircraft_short || '—';
-      const dep = fp.departure || '—';
-      const dest = fp.arrival || '—';
-      const spd = fp.cruise_tas || '—';
-      const alt = fp.altitude || ac.altitude || '—';
-      const route = fp.route || '—';
-      const remarks = fp.remarks || '';
-
-      // Compact full-width layout: all main fields in 1-2 lines, then RTE and RMK full-width
-      let html = '<div class="fp-compact">';
-      
-      // Row 1: All main fields (AID, CID, BCN, TYP, DEP, DEST, SPD, ALT) - will wrap to 2 lines if needed
-      html += `<div class="fp-row-inline">`;
-      html += `<span class="fp-inline-field"><span class="fp-lbl">AID</span> ${aid}</span>`;
-      html += `<span class="fp-inline-field"><span class="fp-lbl">CID</span> ${cid}</span>`;
-      html += `<span class="fp-inline-field"><span class="fp-lbl">BCN</span> ${bcn}</span>`;
-      html += `<span class="fp-inline-field"><span class="fp-lbl">TYP</span> ${typ}</span>`;
-      html += `<span class="fp-inline-field"><span class="fp-lbl">DEP</span> ${dep}</span>`;
-      html += `<span class="fp-inline-field"><span class="fp-lbl">DEST</span> ${dest}</span>`;
-      html += `<span class="fp-inline-field"><span class="fp-lbl">SPD</span> ${spd}</span>`;
-      html += `<span class="fp-inline-field"><span class="fp-lbl">ALT</span> ${alt}</span>`;
-      html += `</div>`;
-      
-      // Row 2: RTE (full width)
-      html += `<div class="fp-row-block">`;
-      html += `<div class="fp-lbl">RTE</div>`;
-      html += `<div class="fp-route-content">${route}</div>`;
-      html += `</div>`;
-      
-      // Row 3: RMK (full width)
-      if (remarks) {
-        html += `<div class="fp-row-block">`;
-        html += `<div class="fp-lbl">RMK</div>`;
-        html += `<div class="fp-rmk-content">${remarks}</div>`;
-        html += `</div>`;
-      }
-
-      html += `</div>`;
-      return html;
-    };
+    // (table render helpers live at module scope; see renderTable)
 
     // Render tables
 
@@ -2702,7 +2824,7 @@
               marker._flightPathCid = cid;
               const grp = ctx.groups[statusClass] || ctx.groups.vicinity;
               grp.addLayer(marker);
-              marker.on('click', ()=> toggleFlightPath(cid, ctx.ctx));
+              marker.on('click', onMarkerTap(marker, ()=> toggleFlightPath(cid, ctx.ctx)));
               store[cid] = { marker, heading, statusClass, acType };
               try{
                 const gsVal = Math.round(Number(ac.groundspeed||ac.gs||0));
@@ -2765,7 +2887,7 @@
         const grp = p56MarkerGroups[statusClass] || p56MarkerGroups.vicinity;
         const sgrp = sfraMarkerGroups[statusClass] || sfraMarkerGroups.vicinity;
         grp.addLayer(markerP56); sgrp.addLayer(markerSFRA);
-        markerP56.on('click',()=>toggleFlightPath(ac.cid,'p56')); markerSFRA.on('click',()=>toggleFlightPath(ac.cid,'sfra'));
+        markerP56.on('click', onMarkerTap(markerP56, ()=>toggleFlightPath(ac.cid,'p56'))); markerSFRA.on('click', onMarkerTap(markerSFRA, ()=>toggleFlightPath(ac.cid,'sfra')));
         ac._markerP56 = markerP56; ac._markerSFRA = markerSFRA; ac._status = statusClass;
         // Seed the incremental store so a later switch to incremental mode
         // reuses these markers instead of creating duplicates.
@@ -2785,7 +2907,11 @@
   // local elevation data is available. We deduplicate requests by rounded
   // lat/lon (4 decimal places) and limit concurrency to avoid overloading
   // the client or server.
-  try{ runBackgroundElevationChecks(filtered).catch(e=>console.error('Background elevation checks failed', e)); }catch(e){console.error(e)}
+  // DISABLED: this never worked (elevCache was undeclared, so it threw and
+  // did nothing). Re-enabling as-is would mis-colour P-56 intruders: it reads
+  // currentP56Cids out of scope and uses a different on-ground rule than
+  // refresh(), so markers would flip groups every cycle. Fix those first.
+  // runBackgroundElevationChecks(filtered);
 
     // Populate counts and render SFRA/FRZ tables from client-side lists so UI
     // exactly matches the map classification.
@@ -2963,7 +3089,7 @@
                 if(order){
                   if(col.includes('callsign')) sortConfig[tbodyId] = { key: (a)=> (a.callsign||'').toLowerCase(), order };
                   else if(col.includes('type') || col === 'a/c' || col.includes('aircraft')) sortConfig[tbodyId] = { key: (a)=> ((a.flight_plan?.aircraft_faa || a.flight_plan?.aircraft_short || '')||'').toLowerCase(), order };
-                  else if(col.includes('name') || col.includes('pilot')) sortConfig[tbodyId] = { key: (a)=> (a.name||'').toLowerCase(), order };
+                  else if(col.includes('name') || col.includes('pilot')) sortConfig[tbodyId] = { key: (a)=> (a.name||a.realName||'').toLowerCase(), order };
                   else if(col.includes('cid')) sortConfig[tbodyId] = { key: (a)=> Number(a.cid||0), order };
                   else if(col.includes('bullseye') || col.includes('dca')) {
                     // Sort bullseye by distance first (range), then bearing
@@ -2997,7 +3123,7 @@
                 } else delete sortConfig[tbodyId];
             }
             // update header sort indicators
-              document.querySelectorAll('.traffic-table thead th').forEach(h=>{ h.classList.remove('sort-asc','sort-desc'); });
+              table.querySelectorAll('thead th').forEach(h=>{ h.classList.remove('sort-asc','sort-desc'); });
               if(order === 'asc') th.classList.add('sort-asc'); else if(order === 'desc') th.classList.add('sort-desc');
             // re-render only this table using cached data for fast sorting
             // Sorting table
@@ -3175,7 +3301,7 @@
     
     const close = ()=> overlay.classList.remove('show');
     overlay.querySelector('#admin-menu-close').onclick = close;
-    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) close(); });
+    overlay.onclick = (e)=>{ if(e.target === overlay) close(); }; // assign, don't stack listeners on reopen
     
     overlay.querySelector('#admin-purge-btn').onclick = ()=>{
       close();
@@ -3240,7 +3366,7 @@
     const close = ()=> overlay.classList.remove('show');
     overlay.querySelector('#purge-close').onclick = close;
     overlay.querySelector('#purge-cancel').onclick = close;
-    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) close(); });
+    overlay.onclick = (e)=>{ if(e.target === overlay) close(); }; // assign, don't stack listeners on reopen
     overlay.querySelector('#purge-select-all').onclick = ()=>{
       list.querySelectorAll('.purge-item').forEach(cb => cb.checked = true);
     };
@@ -3256,7 +3382,7 @@
         }
         const pwd = await askPassword({ title: 'Admin verification', message: 'Enter admin password to purge selected entries.' });
         if(!pwd) return; // cancelled
-        const resp = await fetchWithBackoff(`${API_ROOT}/p56/purge`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd, keys: checked }) });
+        const resp = await fetch(`${API_ROOT}/p56/purge`, { cache:"no-store", method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pwd, keys: checked }) });
         if(!resp.ok){
           const j = await resp.json().catch(()=>({detail:resp.statusText}));
           await showConfirmation({ title: 'Purge failed', message: j.detail || JSON.stringify(j), isError: true });
@@ -3437,13 +3563,19 @@
   try{
     const vsoRange = el('vso-range');
     if(vsoRange){
+      // Only refresh when the value actually changed: Enter followed by blur
+      // (or a no-op blur) used to fire two full refreshes.
+      let lastAppliedRange = vsoRange.value;
+      const applyRange = ()=>{
+        setPermalink();
+        if(vsoRange.value === lastAppliedRange) return;
+        lastAppliedRange = vsoRange.value;
+        refresh();
+      };
       vsoRange.addEventListener('keydown', (ev)=>{
-        if(ev.key === 'Enter'){
-          ev.preventDefault();
-          setPermalink(); refresh();
-        }
+        if(ev.key === 'Enter'){ ev.preventDefault(); applyRange(); }
       });
-      vsoRange.addEventListener('blur', ()=>{ setPermalink(); refresh(); });
+      vsoRange.addEventListener('blur', applyRange);
     }
   }catch(e){/* ignore */}
   el('toggle-sfra').addEventListener('change', ()=>{ 
@@ -3641,7 +3773,7 @@
         // Extract history from dashboard response (already filtered by range)
         historyData = dash.history || null;
         // Cache the history data for instant display when clicking aircraft
-        cachedHistoryData = historyData;
+        if(historyData){ cachedHistoryData = historyData; cachedHistoryAt = Date.now(); }
       } else {
         // fallback to separate aircraft endpoint
         aircraft = await fetchAllAircraft(range_nm);
@@ -3736,7 +3868,16 @@
     pollAircraftThenRefresh()
   ]).then(()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
   // ensure maps reflow on window resize
-  window.addEventListener('resize', ()=>{ try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); }catch(e){} });
+  // The P-56 map is non-interactive, so re-fit it to the P-56 boundary when
+  // its size changes (rotation, breakpoint switch); otherwise the zone drifts
+  // off-centre or out of frame on phones. Debounced to avoid thrash.
+  let resizeTimer = null;
+  window.addEventListener('resize', ()=>{
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(()=>{
+      try{ p56Map.invalidateSize(); sfraMap.invalidateSize(); if(p56Bounds) p56Map.fitBounds(p56Bounds); }catch(e){}
+    }, 150);
+  });
   // Expose rerenderTable globally for background fetcher
   window.rerenderTable = rerenderTable;
   
@@ -3750,26 +3891,48 @@
   const MAX_SSE_RETRIES = 5;
   const SSE_FRESH_MS = 15000; // if SSE delivered an update within this window, skip the poll entirely
 
+  // SSE frames are precomputed server-side for a fixed ~300 nm radius and do
+  // not honour the user's range input, so trim them client-side to match
+  // what a poll with ?range_nm= would return.
+  function filterByUserRange(list){
+    const range_nm = parseFloat(el('vso-range')?.value || DEFAULT_RANGE_NM);
+    if(!isFinite(range_nm) || range_nm >= DEFAULT_RANGE_NM) return list;
+    return list.filter(ac => {
+      const lat = Number(ac.latitude ?? ac.lat), lon = Number(ac.longitude ?? ac.lon);
+      if(!isFinite(lat) || !isFinite(lon)) return false;
+      try{ return computeDca(lat, lon).range_nm <= range_nm; }catch(e){ return true; }
+    });
+  }
+
+  // SSE frames carry no flight-path history; refresh it on its own cadence
+  // while any path is shown so drawn tracks keep growing.
+  setInterval(async ()=>{
+    if(!sseActive || visiblePaths.size === 0 || document.hidden) return;
+    if(Date.now() - cachedHistoryAt < HISTORY_FRESH_MS) return;
+    const fresh = await fetchHistoryData();
+    if(fresh){ cachedHistoryData = fresh; cachedHistoryAt = Date.now(); await updateVisiblePaths(fresh); }
+  }, 30000);
+
+  let sseReconnectTimer = null;
   function initSSE(){
     try{
       const evtSrc = new EventSource(API_ROOT + '/stream');
 
       evtSrc.addEventListener('update', async (ev) => {
         try{
-          const dash = JSON.parse(ev.data);
+          const dash = parseSafeJson(ev.data);
           sseActive = true;
           sseRetryCount = 0;
 
           let aircraft = null;
-          let historyData = cachedHistoryData; // reuse cached history
           if(dash.aircraft && Array.isArray(dash.aircraft.list)){
-            aircraft = dash.aircraft.list;
+            aircraft = filterByUserRange(dash.aircraft.list);
             if(dash.aircraft.vatsim_update_timestamp) window.vatsimUpdateTimestamp = dash.aircraft.vatsim_update_timestamp;
           }
           if(aircraft){
             const extras = { p56: dash.p56||null, vip: dash.vip||null, controllers: dash.controllers||null };
             lastSseAt = Date.now();
-            await refresh(aircraft, historyData, extras);
+            await refresh(aircraft, cachedHistoryData, extras);
           }
         }catch(e){ console.warn('[SSE] Failed to process update', e); }
       });
@@ -3778,8 +3941,12 @@
         sseActive = false;
         sseRetryCount++;
         if(sseRetryCount > MAX_SSE_RETRIES){
-          console.warn('[SSE] Max retries exceeded, closing');
+          // Stop the browser's tight auto-retry, but come back later (e.g.
+          // after a server restart) instead of staying on polling forever.
+          console.warn('[SSE] Max retries exceeded; reconnecting in 60s');
           evtSrc.close();
+          clearTimeout(sseReconnectTimer);
+          sseReconnectTimer = setTimeout(()=>{ sseRetryCount = 0; initSSE(); }, withJitter(60000));
         }
       };
       evtSrc.onopen = () => { console.log('[SSE] Connected'); sseRetryCount = 0; };
