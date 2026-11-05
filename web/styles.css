@@ -312,7 +312,7 @@ input[type="text"], input[type="number"], input[type="password"]{font:inherit}
 /* Column widths sized to content (rows are fixed-layout so columns align). */
 #p56-events-table th:nth-child(1), #p56-events-table td:nth-child(1){width:13%}
 #p56-events-table th:nth-child(2), #p56-events-table td:nth-child(2){width:10%}
-#p56-events-table th:nth-child(3), #p56-events-table td:nth-child(3){width:10%}
+#p56-events-table th:nth-child(3), #p56-events-table td:nth-child(3){width:12%}
 #p56-events-table th:nth-child(5), #p56-events-table td:nth-child(5){width:11%}
 #p56-events-table th:nth-child(7), #p56-events-table td:nth-child(7),
 #p56-events-table th:nth-child(8), #p56-events-table td:nth-child(8){width:10%}
@@ -347,7 +347,7 @@ input[type="text"], input[type="number"], input[type="password"]{font:inherit}
 #p56-leaderboard-table th:nth-child(5), #p56-leaderboard-table td:nth-child(5){width:11%}
 #p56-leaderboard-table th:nth-child(6), #p56-leaderboard-table td:nth-child(6),
 #p56-leaderboard-table th:nth-child(7), #p56-leaderboard-table td:nth-child(7){width:18%}
-#p56-events-table th:nth-child(6), #p56-events-table td:nth-child(6){width:20%}
+#p56-events-table th:nth-child(6), #p56-events-table td:nth-child(6){width:18%}
 #p56-events-table th:nth-child(4), #p56-events-table td:nth-child(4){width:16%}
 .lb-callsigns{white-space:normal;word-break:break-word;line-height:1.25}
 .callsign-more{color:var(--ink-3);font-size:.85em;margin-top:4px}
@@ -463,7 +463,7 @@ body > header:not(.masthead) .header-left{display:flex;align-items:center;gap:12
   .tile-ident{font-size:1.4rem}
   .tile-link{font-size:1rem}
   .traffic-table{min-width:680px;font-size:.92rem}
-  #controllers-table, #p56-leaderboard-table, #p56-events-table{min-width:540px}
+  #controllers-table, #p56-leaderboard-table, #p56-events-table{min-width:680px}
   .traffic-table tbody{max-height:60vh}
   .btn, .vso-controls input{min-height:40px}
   .vso-controls input{font-size:16px}
