@@ -81,6 +81,37 @@ function initZulu() {
   sync();
 }
 
+// ---------------------------------------------------------------- theme ----
+// Preference cycles Auto (follow OS) -> Light -> Dark. The inline <head>
+// script applied it before first paint; app.js listens for `vncrcc:theme` to
+// swap the basemap.
+const THEMES = ['auto', 'light', 'dark'];
+const darkMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+function applyTheme(pref) {
+  const root = document.documentElement;
+  const resolved = pref === 'dark' || (pref === 'auto' && darkMq?.matches) ? 'dark' : 'light';
+  const changed = root.dataset.resolvedTheme !== resolved;
+  root.dataset.theme = pref;
+  root.dataset.resolvedTheme = resolved;
+  $('#theme-label').textContent = pref === 'auto' ? 'Auto' : pref === 'dark' ? 'Dark' : 'Light';
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = resolved === 'dark' ? '#0a2a52' : '#0b3d78';
+  if (changed) window.dispatchEvent(new Event('vncrcc:theme'));
+}
+
+function initTheme() {
+  let pref = store.get('vncrcc.theme', 'auto');
+  if (!THEMES.includes(pref)) pref = 'auto';
+  applyTheme(pref);
+  $('#theme-toggle').addEventListener('click', () => {
+    pref = THEMES[(THEMES.indexOf(pref) + 1) % THEMES.length];
+    store.set('vncrcc.theme', pref);
+    applyTheme(pref);
+  });
+  darkMq?.addEventListener?.('change', () => { if (pref === 'auto') applyTheme('auto'); });
+}
+
 // ---------------------------------------------------------------- views ----
 const VIEWS = ['list', 'tile', 'map'];
 
@@ -230,6 +261,7 @@ function initTiles() {
 }
 
 // ---------------------------------------------------------------- boot -----
+initTheme();
 initZulu();
 initViews();
 initNav();

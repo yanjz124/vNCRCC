@@ -242,34 +242,51 @@
   // Light Gray Canvas (base + labels). If Esri starts failing we fall back to
   // standard OpenStreetMap tiles.
   const ESRI_ATTR = 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
+  const esriUrl = (theme, kind) => `https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${theme === 'dark' ? 'Dark' : 'Light'}_Gray_${kind}/MapServer/tile/{z}/{y}/{x}`;
+  // The page theme (light/dark) is resolved by the inline script in <head>
+  // and updated by status-ui.js, which fires `vncrcc:theme` on change.
+  const currentTheme = () => document.documentElement.dataset.resolvedTheme === 'dark' ? 'dark' : 'light';
+  const basemaps = [];
   function addBasemap(map){
-    const esriOpts = { maxZoom: 19, maxNativeZoom: 16, attribution: ESRI_ATTR };
-    const base = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', esriOpts);
-    const labels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 16 });
-    let errors = 0, loaded = 0, switched = false;
+    const rec = { map, layers: [], osm: false };
+    basemaps.push(rec);
+    applyBasemap(rec, currentTheme());
+    map.attributionControl && map.attributionControl.setPrefix(false);
+  }
+  function applyBasemap(rec, theme){
+    rec.layers.forEach(l => { try{ rec.map.removeLayer(l); }catch(e){} });
+    rec.layers = [];
+    if(rec.osm){
+      const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, className: theme === 'dark' ? 'osm-dark' : '',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+      });
+      rec.layers.push(osm.addTo(rec.map));
+      return;
+    }
+    const base = L.tileLayer(esriUrl(theme, 'Base'), { maxZoom: 19, maxNativeZoom: 16, attribution: ESRI_ATTR });
+    const labels = L.tileLayer(esriUrl(theme, 'Reference'), { maxZoom: 19, maxNativeZoom: 16 });
+    let errors = 0, loaded = 0;
     base.on('tileload', () => { loaded++; });
     base.on('tileerror', () => {
       errors++;
-      // Only fall back when Esri is clearly down, not on a single flaky tile.
-      if(switched || errors < 4 || loaded > errors) return;
-      switched = true;
-      try{ map.removeLayer(base); map.removeLayer(labels); }catch(e){}
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
-      }).addTo(map);
+      // Fall back to OSM only when Esri is clearly down, not on a flaky tile.
+      if(rec.osm || errors < 4 || loaded > errors) return;
+      rec.osm = true;
+      applyBasemap(rec, currentTheme());
     });
-    base.addTo(map);
-    labels.addTo(map);
-    map.attributionControl && map.attributionControl.setPrefix(false);
+    rec.layers.push(base.addTo(rec.map), labels.addTo(rec.map));
+    // keep tiles beneath overlays
+    try{ base.bringToBack(); }catch(e){}
   }
+  window.addEventListener('vncrcc:theme', () => basemaps.forEach(r => applyBasemap(r, currentTheme())));
   addBasemap(p56Map);
   addBasemap(sfraMap);
   let p56Bounds = null; // set once the P-56 overlay loads; used to re-fit on resize
 
-  // On phones the legend covers most of the SFRA map; start it collapsed.
+  // On phones and tablets the legend covers much of the SFRA map; start it collapsed.
   try{
-    if(window.matchMedia && window.matchMedia('(max-width: 720px)').matches){
+    if(window.matchMedia && window.matchMedia('(max-width: 1180px)').matches){
       const lg = el('legend'), lb = el('legend-toggle');
       if(lg && lb){ lg.classList.add('collapsed'); lb.setAttribute('aria-expanded','false'); lb.textContent = 'Legend ▸'; }
     }
@@ -307,28 +324,98 @@
   // doesn't wipe others (previous behavior called clearLayers on the whole layer).
   const intrusionOverlaysByKey = new Map();
 
+  // Intrusion track: approach (blue dashed) -> inside P-56 (red) -> departure
+  // (grey dashed), each over a contrasting casing so it reads on light and
+  // dark basemaps. Per-point detail lives in tooltips on small dots instead of
+  // permanent labels (which piled up into an unreadable stack). Only start,
+  // P-56 entry and end are marked.
+  const TRACK_STYLE = {
+    pre:       { color: '#1f6feb', weight: 3, dashArray: '6 6' },
+    intrusion: { color: '#d83933', weight: 4 },
+    post:      { color: '#6c757d', weight: 3, dashArray: '6 6' },
+  };
+  function trackPointTip(p, phase){
+    const t = p.ts ? new Date(Number(p.ts) * 1000) : null;
+    const hhmm = t ? `${String(t.getUTCHours()).padStart(2,'0')}${String(t.getUTCMinutes()).padStart(2,'0')}:${String(t.getUTCSeconds()).padStart(2,'0')}Z` : '';
+    const alt = (p.alt ?? null) !== null ? `${Math.round(p.alt).toLocaleString()} ft` : '';
+    const gs = (p.gs ?? null) !== null ? `${Math.round(p.gs)} kt` : '';
+    const hdg = (p.heading ?? null) !== null ? `${String(Math.round(p.heading) % 360).padStart(3,'0')}°` : '';
+    const label = { pre: 'Approach', intrusion: 'Inside P-56', post: 'Departure' }[phase] || '';
+    return `<div class="trk-tip"><strong>${label}</strong> ${hhmm}<br>${[alt, gs, hdg].filter(Boolean).join(' · ')}</div>`;
+  }
+  function buildTrackGroup(positions, { dots }){
+    const g = L.layerGroup();
+    // split into contiguous same-phase runs, sharing the joint point so the
+    // line stays continuous across phase changes
+    const runs = [];
+    positions.forEach((p, i) => {
+      const ph = p.phase || 'intrusion';
+      const last = runs[runs.length - 1];
+      if(!last || last.phase !== ph){
+        const seed = last ? [last.pts[last.pts.length - 1]] : [];
+        runs.push({ phase: ph, pts: seed.concat([p]) });
+      } else last.pts.push(p);
+    });
+    runs.forEach(r => {
+      if(r.pts.length < 2) return;
+      const ll = r.pts.map(p => [p.lat, p.lon]);
+      const st = TRACK_STYLE[r.phase] || TRACK_STYLE.intrusion;
+      g.addLayer(L.polyline(ll, { color: '#ffffff', weight: st.weight + 4, opacity: 0.9, interactive: false, className: 'trk-casing' }));
+      g.addLayer(L.polyline(ll, { ...st, opacity: 0.95, interactive: false, lineCap: 'round', lineJoin: 'round' }));
+    });
+    if(dots){
+      // Every point inside P-56 / after it; the (often very long) approach is
+      // thinned except for its final ~20 fixes so it doesn't become a bead chain.
+      const entryIdx = positions.findIndex(p => (p.phase || 'intrusion') === 'intrusion');
+      const keep = (p, i) => (p.phase !== 'pre') || (entryIdx >= 0 && i >= entryIdx - 20) || (i % 6 === 0);
+      positions.filter(keep).forEach(p => {
+        const ph = p.phase || 'intrusion';
+        const c = (TRACK_STYLE[ph] || TRACK_STYLE.intrusion).color;
+        g.addLayer(L.circleMarker([p.lat, p.lon], { radius: 3.5, color: '#fff', weight: 1, fillColor: c, fillOpacity: 1 })
+          .bindTooltip(trackPointTip(p, ph), { direction: 'top', className: 'fp-tooltip', offset: [0, -4] }));
+      });
+    }
+    const first = positions[0], last = positions[positions.length - 1];
+    const entry = positions.find(p => (p.phase || 'intrusion') === 'intrusion');
+    const pin = (p, cls, text) => L.marker([p.lat, p.lon], { interactive: false, keyboard: false,
+      icon: L.divIcon({ className: 'trk-pin-wrap', html: `<span class="trk-pin ${cls}">${text}</span>`, iconSize: null, iconAnchor: [0, 0] }) });
+    g.addLayer(L.circleMarker([first.lat, first.lon], { radius: 5, color: '#1f6feb', weight: 2, fillColor: '#fff', fillOpacity: 1 }));
+    g.addLayer(L.circleMarker([last.lat, last.lon], { radius: 5, color: '#fff', weight: 2, fillColor: '#3d4551', fillOpacity: 1 }));
+    if(entry){
+      g.addLayer(L.circleMarker([entry.lat, entry.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#d83933', fillOpacity: 1 }));
+      const alt = (entry.alt ?? null) !== null ? ` ${Math.round(entry.alt).toLocaleString()} ft` : '';
+      g.addLayer(pin(entry, 'trk-pin-entry', `P-56 entry${alt}`));
+    }
+    return g;
+  }
   function drawIntrusionForEvent(evtKey, positions){
     removeIntrusionForEvent(evtKey);
-    if(!positions || positions.length < 2) return;
-    const latlngs = positions.map(p => [p.lat, p.lon]);
-    const p56Group = L.layerGroup();
-    const sfraGroup = L.layerGroup();
-    p56Group.addLayer(L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 }));
-    sfraGroup.addLayer(L.polyline(latlngs, { color: 'yellow', weight: 3, opacity: 0.8 }));
-    addIntrusionLabels(p56Group, positions);
-    addIntrusionLabels(sfraGroup, positions);
+    positions = (positions || []).filter(p => isFinite(p.lat) && isFinite(p.lon));
+    if(positions.length < 2) return;
+    const p56Group = buildTrackGroup(positions, { dots: false });
+    const sfraGroup = buildTrackGroup(positions, { dots: true });
     p56IntrusionLayer.addLayer(p56Group);
     sfraIntrusionLayer.addLayer(sfraGroup);
     intrusionOverlaysByKey.set(evtKey, { p56Group, sfraGroup });
+    // Frame the intrusion plus the final approach / departure, not a 200 nm
+    // approach that starts two states away.
+    const entryIdx = positions.findIndex(p => p.phase === 'intrusion');
+    const lastIn = positions.map(p => p.phase).lastIndexOf('intrusion');
+    const focus = entryIdx >= 0 ? positions.slice(Math.max(0, entryIdx - 15), Math.min(positions.length, lastIn + 16)) : positions;
+    try{ sfraMap.fitBounds(L.latLngBounds(focus.map(p => [p.lat, p.lon])).pad(0.35), { maxZoom: 12 }); }catch(e){}
   }
 
   // Dashboard/SSE history is a summary without position tracks (they made
   // every frame ~1 MB). Use embedded positions if present (older servers),
   // otherwise fetch the track for this event once and cache it.
   const eventTrackCache = new Map();
+  const phaseTagged = (src) => []
+    .concat((src.pre_positions || []).map(p => ({ ...p, phase: 'pre' })))
+    .concat((src.intrusion_positions || []).map(p => ({ ...p, phase: 'intrusion' })))
+    .concat((src.post_positions || []).map(p => ({ ...p, phase: 'post' })));
   async function showEventTrack(evtKey, evt){
     if(!evt) return;
-    let positions = (evt.pre_positions || []).concat(evt.intrusion_positions || []).concat(evt.post_positions || []);
+    let positions = phaseTagged(evt);
     if(!positions.length && evt.track_points){
       positions = eventTrackCache.get(evtKey);
       if(!positions){
@@ -337,7 +424,7 @@
           const r = await fetch(`${API_ROOT}/p56/track?${qs}`, { cache: 'no-store' });
           if(!r.ok) return;
           const j = await r.json();
-          positions = (j.pre_positions || []).concat(j.intrusion_positions || []).concat(j.post_positions || []);
+          positions = phaseTagged(j);
           eventTrackCache.set(evtKey, positions);
         }catch(e){ console.warn('Failed to load intrusion track', e); return; }
       }
@@ -355,28 +442,6 @@
     intrusionOverlaysByKey.delete(evtKey);
   }
 
-  // Helper: add small sampled labels for intrusion track points to a layer
-  function addIntrusionLabels(layer, positions) {
-    if (!layer || !positions || positions.length === 0) return;
-    const MAX_LABELS = 50;
-    const step = Math.max(1, Math.ceil(positions.length / MAX_LABELS));
-    positions.forEach((p, i) => {
-      if (i % step !== 0 && i !== positions.length - 1) return; // sample
-      const h = (p.heading !== undefined && p.heading !== null) ? Math.round(p.heading) : '–';
-      const alt = (p.alt !== undefined && p.alt !== null) ? Math.round(p.alt) : '–';
-      const gs = (p.gs !== undefined && p.gs !== null) ? Math.round(p.gs) : '–';
-      const html = `<div class=\"p56-point-label\">${h}&deg; / ${alt}ft / ${gs}kts</div>`;
-      const marker = L.marker([p.lat, p.lon], {
-        icon: L.divIcon({
-          className: 'p56-point-label-wrapper',
-          html,
-          iconSize: [1, 1],
-          iconAnchor: [0, 0]
-        })
-      });
-      layer.addLayer(marker);
-    });
-  }
 
   // Marker categories and per-category marker groups for each map
   const categories = ['p56', 'frz', 'sfra', 'vicinity', 'ground'];

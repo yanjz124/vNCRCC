@@ -24,8 +24,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&family=JetBrains+Mono:wght@400;500&display=swap" />
-  <link rel="stylesheet" href="styles.css?v=1793860000" />
-  <link rel="icon" href="/static/logo.png?v=1" type="image/png" />
+  <script>
+    // Resolve light/dark before first paint (no flash). Preference: 'auto'
+    // (follow the OS), 'light' or 'dark'; status-ui.js owns the toggle.
+    (function(){
+      var pref = 'auto';
+      try { pref = localStorage.getItem('vncrcc.theme') || 'auto'; } catch (e) {}
+      var dark = pref === 'dark' || (pref === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      var r = document.documentElement;
+      r.dataset.theme = pref;
+      r.dataset.resolvedTheme = dark ? 'dark' : 'light';
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css?v=1793864000" />
+  <link rel="icon" href="/static/logo-mark.svg?v=2" type="image/svg+xml" />
+  <link rel="alternate icon" href="/static/logo.png?v=1" type="image/png" />
 </head>
 <body data-view="tile">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -46,7 +59,7 @@
   <header class="masthead">
     <div class="masthead-inner">
       <a href="/" class="brand" title="Home">
-        <img id="site-logo" src="/static/logo.png?v=1" alt="" />
+        <img id="site-logo" src="/static/logo.svg?v=2" alt="vNCRCC emblem" width="60" height="60" />
         <span class="brand-name">Virtual National<br />Capital Region<br />Coordination Center</span>
       </a>
       <h1 class="site-title">NCR Airspace Status</h1>
@@ -87,10 +100,16 @@
         <button role="tab" data-view="tile">Tile View</button>
         <button role="tab" data-view="map">Map View</button>
       </div>
-      <button class="zulu-toggle" id="zulu-toggle" aria-pressed="true" title="Toggle Zulu / local time">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span id="zulu-label">Zulu</span>
-      </button>
+      <div class="view-tools">
+        <button class="tool-toggle" id="theme-toggle" title="Theme: follow system, light or dark">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.4 5.4 0 0 1-9.54-3.49c0-1.7.79-3.22 2.02-4.21A9.1 9.1 0 0 0 12 3z" fill="currentColor"/></svg>
+          <span id="theme-label">Auto</span>
+        </button>
+        <button class="tool-toggle" id="zulu-toggle" aria-pressed="true" title="Toggle Zulu / local time">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <span id="zulu-label">Zulu</span>
+        </button>
+      </div>
     </div>
 
     <!-- Maps -->
@@ -167,7 +186,7 @@
       <div class="panel" id="p56-leaderboard-panel">
         <div class="table-scroll"><table id="p56-leaderboard-table" class="traffic-table">
           <thead><tr>
-            <th>Rank</th><th>CID</th><th>Name</th><th>Callsign</th><th>P56 Busts</th><th>First</th><th>Last</th>
+            <th>Rank</th><th>CID</th><th>Name</th><th>Callsign</th><th>Busts</th><th>First</th><th>Last</th>
           </tr></thead>
           <tbody id="p56-leaderboard-tbody"></tbody>
         </table></div>
@@ -278,7 +297,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@turf/turf@7.2.0/turf.min.js"></script>
-  <script src="app.js?v=1793860000"></script>
-  <script type="module" src="js/status-ui.js?v=1793860000"></script>
+  <script src="app.js?v=1793864000"></script>
+  <script type="module" src="js/status-ui.js?v=1793864000"></script>
 </body>
 </html>
