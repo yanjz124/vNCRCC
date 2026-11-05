@@ -1,0 +1,27 @@
+name: CI
+
+# Tests only. Production (JY5) deploys itself: a systemd timer polls
+# origin/main every 60s and runs scripts/server/deploy.sh.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt pytest
+      - name: Python tests
+        run: PYTHONPATH=src python -m pytest -q tests
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: JS syntax check
+        run: for f in web/*.js web/js/*.js; do [ -f "$f" ] && node --check "$f"; done
