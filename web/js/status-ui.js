@@ -158,6 +158,8 @@ const route = (x) => {
   const arr = fp(x).arrival || '';
   return dep || arr ? `${dep || '—'} → ${arr || '—'}` : '';
 };
+const isVso = (x) => (typeof window.vncrccIsVso === 'function' ? window.vncrccIsVso(x) : false);
+const vsoTag = (x) => (isVso(x) ? ' <span class="vso-tag">VSOA</span>' : '');
 const zoneLabel = (x) => ((x.zones && x.zones.length) ? x.zones.join(', ') : 'P-56');
 
 function eventTile(evt) {
@@ -169,7 +171,7 @@ function eventTile(evt) {
   return `
     <article class="tile">
       <header class="tile-head">
-        <h3 class="tile-ident">${evt.callsign || 'UNKNOWN'}</h3>
+        <h3 class="tile-ident">${evt.callsign || 'UNKNOWN'}${vsoTag(evt)}</h3>
         ${evt.track_points || evt.pre_positions ? `<button class="tile-link" data-event-key="${key}">${expanded.has(key) ? 'Hide Track' : 'View Track'}</button>` : ''}
       </header>
       <div class="tile-row">
@@ -187,7 +189,7 @@ function activeTile(ci) {
   return `
     <article class="tile tile-active">
       <header class="tile-head">
-        <h3 class="tile-ident">${ci.callsign || 'UNKNOWN'}</h3>
+        <h3 class="tile-ident">${ci.callsign || 'UNKNOWN'}${vsoTag(ci)}</h3>
         <button class="tile-link" data-active-cid="${ci.cid ?? ''}">${expanded.has(`p56-current:${ci.cid}`) ? 'Hide Path' : 'Show Path'}</button>
       </header>
       <div class="tile-row">

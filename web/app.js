@@ -2076,6 +2076,34 @@
     } catch(e) { return false; }
   };
 
+  // P-56 entries flown as special operations (flight plan remarks match a
+  // selected VSO affiliation such as vUSAF/vUSCG, either on the logged event or on the live
+  // aircraft) get a "VSOA" tag next to the callsign.
+  // VATSIM VSOA partner organizations (my.vatsim.net virtual airlines list),
+  // matched by their identifier or website in flight plan remarks.
+  const VSOA_ORG_PATTERNS = [
+    'vusaf', 'vuscg', 'usnv', 'usnavyvirtual', 'vdhs', 'virtualdhs', 'vngb', 'virtualnationalguard',
+    'vtac', 'vaffu', 'vairmed', 'vagrs', 'virtual-aggressors', 'v158th', 'virtual158th', 'v9rw',
+    'atacv', 'airattackvirtual', 'bvaso', 'specops.bvartcc', 'armyvirtual', 'faav.com', 'fabv',
+    'vminarm', 'minarm-virtuel', 'modv', 'modvirtual', 'specialistva', 'vhelimed', 'fachvirtual',
+    'aviacionavalv', 'vfiaf', 'vfbg', 'virtualfiaf', 'vgaf', 'vhkgfs', 'visraeliairforce', 'vnato',
+    'virtualnato', 'vraf', 'vrcaf', 'saudivaf', 'vswaf', 'virtualswaf', 'vturaf', 'vplaaf', 'vrnlaf',
+    'virtual-rnlaf',
+  ];
+  const hasVsoaOrgRemarks = (item) => {
+    const fp = (item?.aircraft || item || {}).flight_plan || {};
+    const rmk = (fp.remarks || fp.rmk || fp.remark || '').toLowerCase();
+    return !!rmk && VSOA_ORG_PATTERNS.some(p => rmk.includes(p));
+  };
+  const isVsoEntry = (item, acList) => {
+    if (hasVsoRemarks(item) || hasVsoaOrgRemarks(item)) return true;
+    const list = acList || tableDataCache?.latest_ac || [];
+    const ac = list.find(a => String(a.cid) === String(item?.cid));
+    return ac ? (hasVsoRemarks(ac) || hasVsoaOrgRemarks(ac)) : false;
+  };
+  const vsoTag = (item, acList) => isVsoEntry(item, acList) ? ' <span class="vso-tag">VSOA</span>' : '';
+  window.vncrccIsVso = (item) => { try { return isVsoEntry(item); } catch(e) { return false; } };
+
   const renderTable = (tbodyId, items, rowFn, keyFn, fpOptions) => {
       // Fast batched render: build HTML for all rows and attach a single delegated
       // click handler on the tbody. This avoids creating many DOM nodes and
@@ -2328,7 +2356,7 @@
         else if (['1226', '1205', '1234'].includes(squawk)) squawkClass = 'squawk-vfr';
         const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
         const zoneStr = (ci.zones || []).join(', ') || 'P-56';
-        return `<td>${ci.callsign || ''}</td><td>${zoneStr}</td><td>${acType}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
+        return `<td>${ci.callsign || ''}${vsoTag(ci)}</td><td>${zoneStr}</td><td>${acType}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
       }, ci => `p56-current:${ci.cid||ci.callsign||''}`);
     } else if (tbodyId === 'p56-events-tbody') {
       const tbodyEvents = el('p56-events-tbody');
@@ -2356,13 +2384,13 @@
       const rerenderAcList = tableDataCache?.latest_ac || [];
       evtsLocal.forEach(evt => {
         const tr = document.createElement('tr');
-        const evtIsVso = hasVsoRemarks(evt) || (() => { const ac = rerenderAcList.find(a => String(a.cid) === String(evt.cid)); return ac ? hasVsoRemarks(ac) : false; })();
+        const evtIsVso = isVsoEntry(evt, rerenderAcList);
         tr.className = 'expandable' + (evtIsVso ? ' vso-row' : '');
         const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
         const dep = (evt.flight_plan && (evt.flight_plan.departure || evt.flight_plan.depart)) || '';
         const arr = (evt.flight_plan && (evt.flight_plan.arrival || evt.flight_plan.arr)) || '';
         const evtZone = (evt.zones || []).join(', ') || 'P-56';
-        tr.innerHTML = `<td>${evt.callsign || ''}</td><td>${evtZone}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
+        tr.innerHTML = `<td>${evt.callsign || ''}${evtIsVso ? ' <span class="vso-tag">VSOA</span>' : ''}</td><td>${evtZone}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
         const fpDiv = document.createElement('tr');
         fpDiv.className = 'flight-plan';
         try{
@@ -2681,7 +2709,7 @@
     const assigned = ci.flight_plan?.assigned_transponder || '';
     const squawkHtml = squawkClass ? `<span class="${squawkClass}">${squawk}</span>` : squawk;
     const zoneStr = (ci.zones || []).join(', ') || 'P-56';
-    return `<td>${ci.callsign || ''}</td><td>${zoneStr}</td><td>${acType}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
+    return `<td>${ci.callsign || ''}${vsoTag(ci)}</td><td>${zoneStr}</td><td>${acType}</td><td>${dca.bearing}°</td><td>${dca.range_nm.toFixed(1)} nm</td><td>${Math.round(ci.altitude || 0)}</td><td>${Math.round(ci.groundspeed || 0)}</td><td>${squawkHtml}</td><td>${dep}</td><td>${arr}</td>`;
   }, ci => `p56-current:${ci.cid||ci.callsign||''}`, { hideEquipment: true });
 
     // P56 events (intrusion log) - default sort: most recent on top
@@ -2713,7 +2741,7 @@
     }catch(e){/* ignore */}
     events.forEach(evt => {
       const tr = document.createElement('tr');
-      const evtIsVso = hasVsoRemarks(evt) || (() => { const ac = latest_ac.find(a => String(a.cid) === String(evt.cid)); return ac ? hasVsoRemarks(ac) : false; })();
+      const evtIsVso = isVsoEntry(evt, latest_ac);
       tr.className = 'expandable' + (evtIsVso ? ' vso-row' : '');
       // include date + time in Zulu
       const recorded = evt.recorded_at ? formatZuluEpoch(evt.recorded_at, true) : '-';
@@ -2721,7 +2749,7 @@
       const arr = (evt.flight_plan && (evt.flight_plan.arrival || evt.flight_plan.arr)) || '';
       // For P56 event log we no longer display a Status column; render core columns
       const evtZone = (evt.zones || []).join(', ') || 'P-56';
-      tr.innerHTML = `<td>${evt.callsign || ''}</td><td>${evtZone}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
+      tr.innerHTML = `<td>${evt.callsign || ''}${evtIsVso ? ' <span class="vso-tag">VSOA</span>' : ''}</td><td>${evtZone}</td><td>${(evt.flight_plan && evt.flight_plan.aircraft_faa) || (evt.flight_plan && evt.flight_plan.aircraft_short) || ''}</td><td>${recorded}</td><td>${dep}</td><td>${arr}</td>`;
       const fpDiv = document.createElement('tr');
       fpDiv.className = 'flight-plan';
       // colspan will be adjusted by renderTable when used; here we compute from header

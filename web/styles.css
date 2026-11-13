@@ -43,6 +43,7 @@
   --overlay:rgba(255,255,255,.95);
   --map-bg:#e5e5e5;
   --vso-row:#f2ecfc;
+  --vso-tag-bg:#6b46c1;
   --path-row:#fff6d6;
   --track-casing:#ffffff;
   --sq-1200:#8a6100;
@@ -83,6 +84,7 @@
   --overlay:rgba(24,33,44,.95);
   --map-bg:#1e1e1e;
   --vso-row:#2a2140;
+  --vso-tag-bg:#7c5cd6;
   --path-row:#3a3015;
   --track-casing:#0f151c;
   --sq-1200:#f2c94c;
@@ -334,6 +336,8 @@ input[type="text"], input[type="number"], input[type="password"]{font:inherit}
 .traffic-table .flight-plan-cell{background:var(--card-2);padding:0 !important}
 .traffic-table tr.ground-divider td{padding:0 !important;height:1px;border-bottom:2px solid var(--ink-3)}
 .traffic-table tr.vso-row td{background:var(--vso-row)}
+.vso-tag{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:3px;background:var(--vso-tag-bg);color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.04em;line-height:1.5;vertical-align:middle;word-break:normal}
+.tile-ident .vso-tag{font-size:.8rem;margin-left:8px}
 .traffic-table .squawk-1200{color:var(--sq-1200) !important;font-weight:700}
 .traffic-table .squawk-emergency{color:var(--red) !important;font-weight:900}
 .traffic-table .squawk-7777{color:var(--sq-7777) !important;font-weight:700}
