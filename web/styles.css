@@ -170,6 +170,8 @@ ul{margin:6px 0;padding-left:18px}
 .section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--rule);margin-bottom:18px}
 .section-head .section-title{border-bottom:0;margin-bottom:0}
 .section-head .p56-alert-controls{padding-bottom:10px}
+#maps-section .section-head #clear-tracks{margin-bottom:10px}
+body[data-view="map"] #maps-section .section-head{border-bottom:0;justify-content:flex-end;margin-bottom:8px}
 .count{
   display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:24px;padding:0 8px;
   border-radius:12px;background:var(--blue-600);color:#fff;font-size:.85rem;font-weight:700;font-variant-numeric:tabular-nums;

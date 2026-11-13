@@ -36,7 +36,7 @@
       r.dataset.resolvedTheme = dark ? 'dark' : 'light';
     })();
   </script>
-  <link rel="stylesheet" href="styles.css?v=1794000000" />
+  <link rel="stylesheet" href="styles.css?v=1794010000" />
   <link rel="icon" href="/static/logo-mark.svg?v=2" type="image/svg+xml" />
   <link rel="alternate icon" href="/static/logo.png?v=1" type="image/png" />
 </head>
@@ -112,7 +112,10 @@
 
     <!-- Maps -->
     <section id="maps-section" class="section">
-      <h2 class="section-title">Airspace Map</h2>
+      <div class="section-head">
+        <h2 class="section-title">Airspace Map</h2>
+        <button id="clear-tracks" class="btn btn-outline" title="Remove all flight paths and entry tracks from the maps">Clear All Tracks</button>
+      </div>
       <div id="maps-container">
         <div class="map-card">
           <div class="map-caption">P-56 Close-up</div>
@@ -282,7 +285,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@turf/turf@7.2.0/turf.min.js"></script>
-  <script src="app.js?v=1794000000"></script>
+  <script src="app.js?v=1794010000"></script>
   <script type="module" src="js/status-ui.js?v=1794000000"></script>
 </body>
 </html>

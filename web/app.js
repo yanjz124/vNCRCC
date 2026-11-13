@@ -1668,6 +1668,23 @@
   function saveExpandedSet(s){ try{ localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify(Array.from(s))); }catch(e){} }
   let expandedSet = loadExpandedSet();
 
+  // "Clear all tracks" (Airspace Map header): remove every live flight path
+  // and P-56 entry track from both maps, collapse the rows that opened them
+  // and forget them so the next refresh doesn't redraw them.
+  function clearAllTracks(){
+    try{ p56PathLayer.clearLayers(); sfraPathLayer.clearLayers(); }catch(e){}
+    visiblePaths.clear();
+    Array.from(intrusionOverlaysByKey.keys()).forEach(k => removeIntrusionForEvent(k));
+    document.querySelectorAll('tr.row-path-highlight').forEach(r => r.classList.remove('row-path-highlight'));
+    document.querySelectorAll('tr.flight-plan.show').forEach(r => r.classList.remove('show'));
+    document.querySelectorAll('.path-highlight').forEach(m => m.classList.remove('path-highlight'));
+    expandedSet.clear();
+    saveExpandedSet(expandedSet);
+    // Let the tile view refresh its Show/Hide labels.
+    try{ if(window.__vncrccLastData) window.dispatchEvent(new CustomEvent('vncrcc:data', { detail: window.__vncrccLastData })); }catch(e){}
+  }
+  try{ el('clear-tracks')?.addEventListener('click', clearAllTracks); }catch(e){}
+
   function renderList(listId, items, itemFn){
     const list = el(listId);
     if(!list) return;
