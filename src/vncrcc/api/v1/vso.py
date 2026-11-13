@@ -27,7 +27,7 @@ def _match_affiliations(remarks: Optional[str], patterns: List[str]) -> List[str
 @router.get("/")
 @limiter.limit("6/minute")
 async def vso_aircraft(request: Request, range_nm: int = Query(60, description="maximum range (nautical miles) from DCA (radius)"),
-                       affiliations: Optional[str] = Query(None, description="comma-separated list of flight-plan remark patterns to match (e.g. vusaf.us,vuscg,usnv). If provided, only aircraft whose flight_plan.remarks contain any pattern are returned.")) -> Dict[str, Any]:
+                       affiliations: Optional[str] = Query(None, description="comma-separated list of flight-plan remark patterns to match (e.g. vusaf.us,vuscg,usnv,vdhs). If provided, only aircraft whose flight_plan.remarks contain any pattern are returned.")) -> Dict[str, Any]:
     """Return aircraft within `range_nm` nautical miles of DCA that match optional affiliation remark patterns.
 
     Response structure mirrors other endpoints and includes:
