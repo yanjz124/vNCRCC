@@ -5,7 +5,7 @@ from datetime import datetime
 
 import yaml
 from fastapi import FastAPI, Request, HTTPException, Response, Depends
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,6 +22,7 @@ from .rate_limit import limiter, get_client_ip
 from .metrics import METRICS
 from .snapshot_buffer import push as _push_snapshot
 from .broadcast import BROADCASTER
+from .privacy import redact
 import asyncio
 
 
@@ -40,7 +41,14 @@ CFG = _load_config(CONFIG_PATH)
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
-app = FastAPI(title="vNCRCC API")
+class RedactedJSONResponse(JSONResponse):
+    """Every JSON response drops pilot/controller names and replaces CIDs
+    with opaque tokens (see privacy.py)."""
+    def render(self, content: Any) -> bytes:
+        return super().render(redact(content))
+
+
+app = FastAPI(title="vNCRCC API", default_response_class=RedactedJSONResponse)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -150,7 +158,7 @@ def _on_fetch(data: dict, ts: float) -> None:
             try:
                 payload = build_dashboard_payload()
                 if payload:
-                    await BROADCASTER.notify(payload)
+                    await BROADCASTER.notify(redact(payload))
             except Exception:
                 logger.exception("SSE broadcast failed")
 

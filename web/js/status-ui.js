@@ -173,10 +173,10 @@ function eventTile(evt) {
         ${evt.track_points || evt.pre_positions ? `<button class="tile-link" data-event-key="${key}">${expanded.has(key) ? 'Hide Track' : 'View Track'}</button>` : ''}
       </header>
       <div class="tile-row">
-        <span class="tile-label">${zoneLabel(evt)} Intrusion</span>
+        <span class="tile-label">${zoneLabel(evt)} Entry</span>
         <span class="tile-time" title="${ago(recMs)}">${fmtShort(recMs)}${dur ? ` &middot; ${dur} min` : ''}</span>
       </div>
-      <p class="tile-body">${evt.name || 'Unknown pilot'} &middot; CID ${evt.cid ?? '—'}${meta ? `<br />${meta}` : ''}</p>
+      ${meta ? `<p class="tile-body">${meta}</p>` : ''}
     </article>`;
 }
 
@@ -194,7 +194,7 @@ function activeTile(ci) {
         <span class="tile-label">${zoneLabel(ci)} &mdash; Inside Now</span>
         <span class="tile-time">${alt.toLocaleString()} ft &middot; ${gs} kt</span>
       </div>
-      <p class="tile-body">${ci.name || 'Unknown pilot'} &middot; CID ${ci.cid ?? '—'}${meta ? `<br />${meta}` : ''}</p>
+      ${meta ? `<p class="tile-body">${meta}</p>` : ''}
     </article>`;
 }
 
@@ -216,16 +216,16 @@ function renderNotice(d) {
   const active = d.currentInside || [];
   if (active.length) {
     notice.classList.add('notice-alert');
-    const names = active.slice(0, 3).map((c) => `<strong>${c.callsign || c.cid}</strong>`).join(', ');
-    text.innerHTML = `ACTIVE P-56 INTRUSION${active.length > 1 ? 'S' : ''}: ${names}${active.length > 3 ? ` +${active.length - 3} more` : ''}`;
+    const names = active.slice(0, 3).map((c) => `<strong>${c.callsign || 'UNKNOWN'}</strong>`).join(', ');
+    text.innerHTML = `ACTIVE P-56 ENTR${active.length > 1 ? 'IES' : 'Y'}: ${names}${active.length > 3 ? ` +${active.length - 3} more` : ''}`;
     return;
   }
   notice.classList.remove('notice-alert');
   const last = (d.events || []).reduce((a, e) => (Number(e.recorded_at) > Number(a?.recorded_at || 0) ? e : a), null);
   const traffic = `${d.sfraCount} in SFRA &middot; ${d.frzCount} in FRZ`;
   text.innerHTML = last
-    ? `No active P-56 intrusions &middot; ${traffic} &middot; last bust <strong>${last.callsign || last.cid}</strong> ${ago(Number(last.recorded_at) * 1000)}`
-    : `No active P-56 intrusions &middot; ${traffic}`;
+    ? `No active P-56 entries &middot; ${traffic} &middot; last entry <strong>${last.callsign || 'UNKNOWN'}</strong> ${ago(Number(last.recorded_at) * 1000)}`
+    : `No active P-56 entries &middot; ${traffic}`;
 }
 
 function render(d) {

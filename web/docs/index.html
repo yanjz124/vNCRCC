@@ -439,7 +439,7 @@
           <pre><code>{
   "aircraft": [
     {
-      "cid": 1234567,
+      "cid": "id-3f9a1c0b7e42",
       "callsign": "UAL123",
       "latitude": 38.8514,
       "longitude": -77.0377,
@@ -477,7 +477,7 @@
           <h4>Response:</h4>
           <pre><code>{
   "history": {
-    "1234567": [
+    "id-3f9a1c0b7e42": [
       {"lat": 38.85, "lon": -77.03, "alt": 5000, "ts": 1700000000}
     ]
   },
@@ -505,7 +505,7 @@
           <pre><code>{
   "controllers": [
     {
-      "cid": 1234567,
+      "cid": "id-3f9a1c0b7e42",
       "callsign": "ZDC_CTR",
       "frequency": "132.850",
       "facility": "ZDC",
@@ -624,9 +624,9 @@
           <pre><code>{
   "breaches": [
     {
-      "identifier": "1234567",
+      "identifier": "id-3f9a1c0b7e42",
       "callsign": "N12345",
-      "cid": 1234567,
+      "cid": "id-3f9a1c0b7e42",
       "prev_position": {"lon": -77.03, "lat": 38.85},
       "latest_position": {"lon": -77.04, "lat": 38.86},
       "prev_ts": 1700000000.0,
@@ -669,7 +669,7 @@
     {
       "detected_at": 1700000000.0,
       "callsign": "N12345",
-      "cid": 1234567,
+      "cid": "id-3f9a1c0b7e42",
       "lat": 38.86,
       "lon": -77.04,
       "altitude": 3000,
@@ -719,10 +719,10 @@
           <h4>Request Body:</h4>
           <pre><code>{
   "password": "your-admin-password",
-  "keys": ["1234567:1700000000.0"],
+  "keys": ["id-3f9a1c0b7e42:1700000000.0"],
   // OR
   "items": [
-    {"cid": "1234567", "recorded_at": 1700000000.0}
+    {"cid": "id-3f9a1c0b7e42", "recorded_at": 1700000000.0}
   ]
 }</code></pre>
         </div>
@@ -755,7 +755,7 @@
           <pre><code>{
   "aircraft": [
     {
-      "cid": 1234567,
+      "cid": "id-3f9a1c0b7e42",
       "callsign": "AF1",
       "latitude": 38.8514,
       "longitude": -77.0377,
@@ -1034,11 +1034,10 @@
       <h2>Common Response Fields</h2>
 
       <h3 style="margin-top: 20px; margin-bottom: 15px;">Aircraft Object</h3>
-      <p>Most endpoints return aircraft objects with the following common fields:</p>
+      <p>Most endpoints return aircraft objects with the following common fields. For privacy, pilot and controller names are never returned, and VATSIM CIDs are replaced with an opaque token that is stable but cannot be converted back to a CID.</p>
       <pre><code>{
-  "cid": 1234567,              // VATSIM CID (Controller ID)
+  "cid": "id-3f9a1c0b7e42",    // Opaque per-pilot token (not the VATSIM CID)
   "callsign": "UAL123",        // Aircraft callsign
-  "name": "John Doe",          // Pilot name
   "latitude": 38.8514,         // Current latitude
   "longitude": -77.0377,       // Current longitude
   "altitude": 5000,            // Altitude in feet

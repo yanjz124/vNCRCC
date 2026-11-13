@@ -356,7 +356,9 @@ async def p56_event_track(request: Request, cid: str = Query(...), recorded_at: 
     The dashboard/SSE history is a summary without tracks; the UI calls this
     when an event is opened.
     """
-    evt = get_event(cid, recorded_at)
+    from ...privacy import resolve
+    real_cid = resolve(cid)
+    evt = get_event(real_cid, recorded_at) if real_cid else None
     if evt is None:
         raise HTTPException(status_code=404, detail="event not found")
     return {
@@ -433,6 +435,12 @@ async def p56_purge(request: Request, payload: Dict[str, Any] = Body(...)) -> Di
 
     keys = (payload or {}).get("keys") or []
     items = (payload or {}).get("items") or []
+    # Clients only ever see CID tokens (privacy.py); map them back.
+    from ...privacy import resolve
+    def _real(tok: Any) -> Any:
+        return resolve(tok) or tok
+    keys = [f"{_real(k.partition(':')[0])}:{k.partition(':')[2]}" if isinstance(k, str) and ":" in k else k for k in keys]
+    items = [dict(it, cid=_real(it.get("cid"))) if isinstance(it, dict) else it for it in items]
     try:
         from ...p56_history import purge_events
         from ...metrics import METRICS
